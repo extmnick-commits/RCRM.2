@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "324212283684",
+    "project_id": "rcrm-e1f83",
+    "storage_bucket": "rcrm-e1f83.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:324212283684:android:6c8d26089ba63566cabbb1",
+        "android_client_info": {
+          "package_name": "com.example.rcrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKKj2X6wqBSn6iZo20KXJROUrwGeQKu9w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:324212283684:android:068a7e9327519d35cabbb1",
+        "android_client_info": {
+          "package_name": "com.nickpulido.rcrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKKj2X6wqBSn6iZo20KXJROUrwGeQKu9w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
