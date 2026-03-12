@@ -5,16 +5,17 @@ plugins {
 
 android {
     namespace = "com.example.rcrm"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+
+    // Fix: Replaced invalid release(36) block with standard integer
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.rcrm"
         minSdk = 24
-        targetSdk = 36
+
+        // Fix: Updated targetSdk to match compileSdk [cite: 94]
+        targetSdk = 35
+
         versionCode = 1
         versionName = "1.0"
 
