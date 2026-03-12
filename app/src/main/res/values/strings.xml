@@ -28,6 +28,7 @@
     <string name="category_client">Client</string>
     <string name="hint_quick_note_example">Quick Note (e.g., Met at Walmart)</string>
     <string name="btn_1_week">+1 Week</string>
+    <string name="btn_2_weeks">+2 Weeks</string>
     <string name="btn_1_month">+1 Month</string>
     <string name="msg_set_1_week">Set for 1 week</string>
     <string name="msg_set_1_month">Set for 1 month</string>
@@ -60,4 +61,15 @@
     <string name="label_schedule_followup">Schedule Follow-Up</string>
     <string name="calendar_description_format">Phone: %1$s\nNotes: %2$s</string>
     <string name="btn_bulk_snooze">Snooze Selected (+1 Week)</string>
+
+    <string name="label_customize_intro">Customize Intro Text</string>
+    <string name="btn_insert_name">+ [NAME]</string>
+    <string name="btn_presets_dropdown">Presets ▾</string>
+    <string name="btn_save_as_preset">+ Save current text as new preset</string>
+    <string name="msg_set_2_weeks">Set for 2 weeks</string>
+    <string name="msg_preset_saved">Preset saved!</string>
+    <string name="dialog_manage_presets">Manage Intro Presets</string>
+    <string name="msg_no_presets">No presets saved yet</string>
+    <string name="menu_edit_preset">Edit Message</string>
+    <string name="menu_delete_preset">Delete Preset</string>
 </resources>

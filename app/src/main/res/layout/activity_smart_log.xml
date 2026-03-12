@@ -1,37 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F0F2F5"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:background="#F0F2F5">
 
-    <TextView
-        android:id="@+id/tvLogHeader"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/log_call_header"
-        android:textColor="#2A2A2A"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-
-    <Button
-        android:id="@+id/btnSkipPersonal"
-        style="?android:attr/buttonBarButtonStyle"
+    <LinearLayout
+        android:id="@+id/bottomActionContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:backgroundTint="#6F6F6F"
-        android:text="@string/btn_skip_personal"
-        android:textColor="#FFFFFF" />
+        android:layout_alignParentBottom="true"
+        android:background="#FFFFFF"
+        android:elevation="8dp"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <com.google.android.material.card.MaterialCardView
+        <Button
+            android:id="@+id/btnSaveLeadAction"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:backgroundTint="#007BFF"
+            android:text="@string/btn_save_lead"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnSendIntroAction"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="#FFFFFF"
+            android:enabled="true"
+            android:text="@string/btn_send_intro"
+            android:textColor="#007BFF"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp">
+        android:layout_height="match_parent"
+        android:layout_above="@id/bottomActionContainer"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -39,109 +49,225 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <RadioGroup
-                android:id="@+id/rgCategory"
+            <TextView
+                android:id="@+id/tvLogHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/log_call_header"
+                android:textColor="#2A2A2A"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnSkipPersonal"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#6F6F6F"
+                android:text="@string/btn_skip_personal"
+                android:textColor="#FFFFFF" />
+
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <CheckBox
+                            android:id="@+id/cbRecruit"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/category_recruit" />
+
+                        <CheckBox
+                            android:id="@+id/cbProspect"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:checked="true"
+                            android:text="@string/category_prospect" />
+
+                        <CheckBox
+                            android:id="@+id/cbClient"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/category_client" />
+                    </LinearLayout>
+
+                    <EditText
+                        android:id="@+id/etQuickNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="80dp"
+                        android:layout_marginTop="8dp"
+                        android:background="#F8F9FA"
+                        android:gravity="top"
+                        android:hint="@string/hint_quick_note_example"
+                        android:inputType="textMultiLine"
+                        android:padding="8dp"
+                        android:textSize="14sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/label_schedule_followup"
+                android:textColor="#555555"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
                 android:orientation="horizontal">
 
-                <RadioButton
-                    android:id="@+id/rbRecruit"
+                <Button
+                    android:id="@+id/btnPlus1Week"
+                    style="?android:attr/buttonBarButtonStyle"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="4dp"
                     android:layout_weight="1"
-                    android:text="@string/category_recruit" />
+                    android:backgroundTint="#FFFFFF"
+                    android:text="@string/btn_1_week"
+                    android:textColor="#007BFF"
+                    android:textSize="12sp" />
 
-                <RadioButton
-                    android:id="@+id/rbProspect"
+                <Button
+                    android:id="@+id/btnPlus2Weeks"
+                    style="?android:attr/buttonBarButtonStyle"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="4dp"
                     android:layout_weight="1"
-                    android:checked="true"
-                    android:text="@string/category_prospect" />
+                    android:backgroundTint="#FFFFFF"
+                    android:text="@string/btn_2_weeks"
+                    android:textColor="#007BFF"
+                    android:textSize="12sp" />
 
-                <RadioButton
-                    android:id="@+id/rbClient"
+                <Button
+                    android:id="@+id/btnPlus1Month"
+                    style="?android:attr/buttonBarButtonStyle"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
-                    android:text="@string/category_client" />
-            </RadioGroup>
+                    android:backgroundTint="#FFFFFF"
+                    android:text="@string/btn_1_month"
+                    android:textColor="#007BFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
-            <EditText
-                android:id="@+id/etQuickNote"
+            <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="100dp"
-                android:layout_marginTop="16dp"
-                android:background="#FFFFFF"
-                android:gravity="top"
-                android:hint="@string/hint_quick_note_example"
-                android:padding="12dp"
-                android:textSize="14sp"
-                android:inputType="textMultiLine" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <TextView
+                    android:id="@+id/tvIntroTextLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:text="Customize Intro Text"
+                    android:textColor="#555555"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnInsertNameTag"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:minWidth="0dp"
+                        android:text="@string/btn_insert_name"
+                        android:textColor="#28A745"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btnManagePresets"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingStart="8dp"
+                        android:text="Presets ▾"
+                        android:textColor="#007BFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </RelativeLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#DDDDDD"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <EditText
+                        android:id="@+id/etIntroText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@android:color/transparent"
+                        android:gravity="top"
+                        android:inputType="textMultiLine"
+                        android:minHeight="80dp"
+                        android:padding="12dp"
+                        android:textSize="14sp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#EEEEEE" />
+
+                    <Button
+                        android:id="@+id/btnSaveAsPreset"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:text="+ Save current text as new preset"
+                        android:textColor="#28A745"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="40dp" />
+
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/label_schedule_followup"
-        android:textColor="#555555"
-        android:textSize="12sp"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btnPlus1Week"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:backgroundTint="#FFFFFF"
-            android:text="@string/btn_1_week"
-            android:textColor="#007BFF" />
-
-        <Button
-            android:id="@+id/btnPlus1Month"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:backgroundTint="#FFFFFF"
-            android:text="@string/btn_1_month"
-            android:textColor="#007BFF" />
-    </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <Button
-        android:id="@+id/btnSaveLeadAction"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:backgroundTint="#007BFF"
-        android:text="@string/btn_save_lead"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <Button
-        android:id="@+id/btnSendIntroAction"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginTop="12dp"
-        android:backgroundTint="#FFFFFF"
-        android:enabled="false"
-        android:text="@string/btn_send_intro"
-        android:textColor="#007BFF" />
-
-</LinearLayout>
+    </ScrollView>
+</RelativeLayout>
