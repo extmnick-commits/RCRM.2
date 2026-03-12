@@ -6,11 +6,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit // Fixes the .edit warning
 import androidx.core.net.toUri
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -24,7 +26,7 @@ class SmartLogActivity : AppCompatActivity() {
     private var contactName: String = ""
     private var followUpDate: Date? = null
 
-    // Properly organized constants to clear naming warnings
+    // Organized constants for a clean, premium codebase
     private companion object {
         const val PREFS_NAME = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -38,7 +40,7 @@ class SmartLogActivity : AppCompatActivity() {
         phoneNumber = intent.getStringExtra("INCOMING_NUMBER") ?: ""
         contactName = getContactName(phoneNumber)
 
-        // --- View Initialization ---
+        // View Binding
         val tvHeader = findViewById<TextView>(R.id.tvLogHeader)
         val btnSkip = findViewById<Button>(R.id.btnSkipPersonal)
         val cbRecruit = findViewById<CheckBox>(R.id.cbRecruit)
@@ -49,7 +51,6 @@ class SmartLogActivity : AppCompatActivity() {
         val btnSave = findViewById<Button>(R.id.btnSaveLeadAction)
         val btnSms = findViewById<Button>(R.id.btnSendIntroAction)
 
-        // Preset & Token Views
         val btnInsertNameTag = findViewById<Button>(R.id.btnInsertNameTag)
         val btnManagePresets = findViewById<Button>(R.id.btnManagePresets)
         val btnSaveAsPreset = findViewById<Button>(R.id.btnSaveAsPreset)
@@ -62,7 +63,7 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnSkip.setOnClickListener { finish() }
 
-        // --- Follow-Up Buttons ---
+        // --- Follow-Up Management ---
         findViewById<Button>(R.id.btnPlus1Week).setOnClickListener {
             followUpDate = Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000)
             Toast.makeText(this, getString(R.string.msg_set_1_week), Toast.LENGTH_SHORT).show()
@@ -76,13 +77,13 @@ class SmartLogActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.msg_set_1_month), Toast.LENGTH_SHORT).show()
         }
 
-        // --- Token Logic: Drop [NAME] at cursor ---
+        // --- Token Logic: Drop [NAME] at cursor position ---
         btnInsertNameTag.setOnClickListener {
             val start = etIntroText.selectionStart
             etIntroText.editableText.insert(start, NAME_TOKEN)
         }
 
-        // --- Preset Management Logic ---
+        // --- Preset Management ---
         btnSaveAsPreset.setOnClickListener {
             val newPreset = etIntroText.text.toString().trim()
             if (newPreset.isNotEmpty()) {
@@ -93,14 +94,13 @@ class SmartLogActivity : AppCompatActivity() {
             }
         }
 
-        btnManagePresets.setOnClickListener {
-            showPresetManagerDialog(etIntroText)
-        }
+        btnManagePresets.setOnClickListener { showPresetManagerDialog(etIntroText) }
 
-        // --- Core Actions ---
+        // --- Primary Actions (Auto-Save Enabled) ---
         btnSave.setOnClickListener {
             performSaveLeadAction(cbRecruit, cbProspect, cbClient, etNotes) {
                 btnSave.isEnabled = false
+                Toast.makeText(this, "Lead History Saved", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -128,7 +128,8 @@ class SmartLogActivity : AppCompatActivity() {
                 override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                     val view = super.getView(position, convertView, parent)
                     (view as TextView).apply {
-                        textSize = 14f
+                        // FIX: Explicitly set text size to clear the 'sp' reference error
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                         setPadding(40, 40, 40, 40)
                     }
                     return view
@@ -143,8 +144,7 @@ class SmartLogActivity : AppCompatActivity() {
             listView.setOnItemClickListener { _, _, position, _ ->
                 val rawPreset = presets[position]
                 val firstName = contactName.split(" ").firstOrNull() ?: contactName
-                val personalized = rawPreset.replace(NAME_TOKEN, firstName)
-                etTarget.setText(personalized)
+                etTarget.setText(rawPreset.replace(NAME_TOKEN, firstName))
                 dialog.dismiss()
             }
 
@@ -161,7 +161,7 @@ class SmartLogActivity : AppCompatActivity() {
 
     private fun showEditDeleteOptions(presets: MutableList<String>, position: Int, onUpdate: () -> Unit) {
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_manage_presets))
+            .setTitle("Preset Actions")
             .setItems(arrayOf(getString(R.string.menu_edit_preset), getString(R.string.menu_delete_preset))) { _, which ->
                 if (which == 0) {
                     val input = EditText(this)
@@ -175,75 +175,58 @@ class SmartLogActivity : AppCompatActivity() {
                             onUpdate()
                         }.show()
                 } else {
-                    presets.removeAt(position)
-                    saveAllPresetsLocally(presets)
-                    onUpdate()
+                    // Premium Detail: Confirmation before delete
+                    AlertDialog.Builder(this)
+                        .setTitle("Confirm Delete")
+                        .setMessage("Are you sure you want to remove this preset?")
+                        .setPositiveButton("Delete") { _, _ ->
+                            presets.removeAt(position)
+                            saveAllPresetsLocally(presets)
+                            onUpdate()
+                        }.setNegativeButton("Cancel", null).show()
                 }
             }.show()
     }
 
-    private fun performSaveLeadAction(
-        cbRecruit: CheckBox,
-        cbProspect: CheckBox,
-        cbClient: CheckBox,
-        etNotes: EditText,
-        onSuccess: () -> Unit
-    ) {
-        val categories = mutableListOf<String>()
-        if (cbRecruit.isChecked) categories.add(getString(R.string.category_recruit))
-        if (cbProspect.isChecked) categories.add(getString(R.string.category_prospect))
-        if (cbClient.isChecked) categories.add(getString(R.string.category_client))
-        val finalCategory = categories.joinToString(", ")
-        val newNoteText = etNotes.text.toString()
+    private fun performSaveLeadAction(cbR: CheckBox, cbP: CheckBox, cbC: CheckBox, etN: EditText, onSuccess: () -> Unit) {
+        val cats = mutableListOf<String>()
+        if (cbR.isChecked) cats.add(getString(R.string.category_recruit))
+        if (cbP.isChecked) cats.add(getString(R.string.category_prospect))
+        if (cbC.isChecked) cats.add(getString(R.string.category_client))
+
+        val finalCategory = cats.joinToString(", ")
+        val noteText = etN.text.toString()
 
         db.collection("leads").whereEqualTo("phone", phoneNumber).get()
             .addOnSuccessListener { documents ->
                 if (documents.isEmpty) {
-                    val leadData = hashMapOf(
-                        "name" to contactName,
-                        "phone" to phoneNumber,
-                        "category" to finalCategory,
-                        "notes" to newNoteText,
-                        "followUpDate" to followUpDate,
-                        "timestamp" to Timestamp.now()
+                    val data = hashMapOf(
+                        "name" to contactName, "phone" to phoneNumber, "category" to finalCategory,
+                        "notes" to noteText, "followUpDate" to followUpDate, "timestamp" to Timestamp.now()
                     )
-                    db.collection("leads").add(leadData).addOnSuccessListener {
-                        Toast.makeText(this, getString(R.string.msg_lead_saved_simple), Toast.LENGTH_SHORT).show()
-                        onSuccess()
-                    }
+                    db.collection("leads").add(data).addOnSuccessListener { onSuccess() }
                 } else {
                     val doc = documents.documents[0]
-                    val existingNotes = doc.getString("notes") ?: ""
-                    val timestamp = SimpleDateFormat("[MMM dd, HH:mm]", Locale.getDefault()).format(Date())
-                    val formattedNote = if (newNoteText.isNotEmpty()) "$timestamp: $newNoteText" else ""
+                    val existing = doc.getString("notes") ?: ""
+                    val time = SimpleDateFormat("[MMM dd, HH:mm]", Locale.getDefault()).format(Date())
+                    val formatted = if (noteText.isNotEmpty()) "$time: $noteText" else ""
+                    val combined = if (existing.isNotEmpty() && formatted.isNotEmpty()) "$existing\n$formatted" else formatted.ifEmpty { existing }
 
-                    val combined = if (existingNotes.isNotEmpty() && formattedNote.isNotEmpty()) {
-                        "$existingNotes\n$formattedNote"
-                    } else formattedNote.ifEmpty { existingNotes }
-
-                    val updateData = mutableMapOf<String, Any>(
-                        "category" to finalCategory,
-                        "notes" to combined,
-                        "timestamp" to Timestamp.now()
-                    )
-                    followUpDate?.let { updateData["followUpDate"] = it }
-
-                    db.collection("leads").document(doc.id).update(updateData).addOnSuccessListener {
-                        Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
-                        onSuccess()
-                    }
+                    val update = mutableMapOf<String, Any>("category" to finalCategory, "notes" to combined, "timestamp" to Timestamp.now())
+                    followUpDate?.let { update["followUpDate"] = it }
+                    db.collection("leads").document(doc.id).update(update).addOnSuccessListener { onSuccess() }
                 }
             }
     }
 
     private fun saveAllPresetsLocally(list: List<String>) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putStringSet(PREFS_KEY, list.toSet()).apply()
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putStringSet(PREFS_KEY, list.toSet())
+        }
     }
 
     private fun getPresetsLocally(): Set<String> {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getStringSet(PREFS_KEY, emptySet()) ?: emptySet()
+        return getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(PREFS_KEY, emptySet()) ?: emptySet()
     }
 
     @SuppressLint("Range")

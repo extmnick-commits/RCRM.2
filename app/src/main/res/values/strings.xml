@@ -46,9 +46,7 @@
     <string name="follow_up_header">Follow-Up Management</string>
     <string name="follow_up_sub">Tap to select multiple leads for bulk actions.</string>
     <string name="title_lead_details">Contact Details</string>
-
     <string name="label_notes_history">Notes History</string>
-
     <string name="btn_set_reminder">Set Reminder (Date/Time)</string>
     <string name="btn_add_calendar">Send to Calendar</string>
     <string name="btn_save_changes">Save Changes</string>
