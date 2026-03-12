@@ -1,4 +1,4 @@
-package com.example.rcrm
+package com.nickpulido.rcrm // Updated package name
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,6 +26,7 @@ class ReminderReceiver : BroadcastReceiver() {
         }
 
         // Intent to open the app when the notification is clicked
+        // Points to MainActivity in your updated package
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -35,7 +36,7 @@ class ReminderReceiver : BroadcastReceiver() {
 
         // Build the notification
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher_round) // Replace with your app's icon
+            .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle("Follow-Up Reminder")
             .setContentText("It's time to follow up with $leadName!")
             .setPriority(NotificationCompat.PRIORITY_HIGH)

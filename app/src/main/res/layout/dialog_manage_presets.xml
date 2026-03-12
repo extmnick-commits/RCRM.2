@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Data Management"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#2A2A2A"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Maintenance Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Maintenance"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#666666"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnCleanDuplicates"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Clean &amp; Merge"
+                android:textSize="11sp"
+                android:backgroundTint="#007BFF"
+                android:textColor="#FFFFFF"
+                android:layout_marginEnd="4dp"/>
+
+            <Button
+                android:id="@+id/btnBulkDeleteContacts"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Multi-Delete"
+                android:textSize="11sp"
+                android:backgroundTint="#DC3545"
+                android:textColor="#FFFFFF"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#DDDDDD"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Presets Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Manage SMS Presets"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#2A2A2A"
+            android:layout_marginBottom="12dp"/>
+
+        <EditText
+            android:id="@+id/etNewPreset"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="New message preset..."
+            android:inputType="textMultiLine"
+            android:textSize="14sp"
+            android:background="@drawable/bg_edittext_outline"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnInsertNameTagDialog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Insert [NAME] Tag"
+            android:textSize="12sp"
+            android:backgroundTint="#6c757d"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnAddPreset"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save New Preset"
+            android:backgroundTint="#6c757d"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="16dp"/>
+
+        <ListView
+            android:id="@+id/listViewPresets"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:divider="#EEEEEE"
+            android:dividerHeight="1dp"
+            android:layout_marginBottom="24dp"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#DDDDDD"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Backup/Restore Section (At the bottom) -->
+        <Button
+            android:id="@+id/btnToggleCloudOptions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cloud Sync &amp; Backup Options"
+            android:backgroundTint="#6c757d"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:id="@+id/layoutCloudOptions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/btnExportBackup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sync &amp; Export Backup File"
+                android:backgroundTint="#28A745"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp"/>
+
+            <Button
+                android:id="@+id/btnImportBackup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Restore from Backup File"
+                android:backgroundTint="#17A2B8"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp"/>
+
+            <Button
+                android:id="@+id/btnOverrideCloud"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Override Cloud with Local"
+                android:backgroundTint="#DC3545"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

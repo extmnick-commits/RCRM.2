@@ -1,97 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:background="#FFFFFF">
-
-    <EditText
-        android:id="@+id/editDetailName"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/hint_prospect_name"
-        android:textStyle="bold"
-        android:textSize="20sp"
-        android:textColor="#2A2A2A"
-        android:autofillHints="name"
-        android:inputType="textPersonName" />
-
-    <EditText
-        android:id="@+id/editDetailPhone"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/hint_phone_number"
-        android:autofillHints="phone"
-        android:inputType="phone" />
-
-    <EditText
-        android:id="@+id/editDetailCategory"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/hint_category"
-        android:autofillHints="none"
-        android:inputType="text" />
+    android:layout_height="wrap_content">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="12dp">
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <EditText
+            android:id="@+id/editDetailName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_prospect_name"
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:textColor="#2A2A2A"
+            android:autofillHints="name"
+            android:inputType="textPersonName" />
+
+        <EditText
+            android:id="@+id/editDetailPhone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_phone_number"
+            android:autofillHints="phone"
+            android:inputType="phone" />
 
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/label_notes_history"
+            android:layout_marginTop="12dp"
+            android:text="Category"
             android:textStyle="bold"
-            android:textColor="#007BFF"/>
+            android:textColor="#555555"
+            android:textSize="12sp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <CheckBox android:id="@+id/cbRecruitDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
+            <CheckBox android:id="@+id/cbProspectDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
+            <CheckBox android:id="@+id/cbClientDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Internal Notes"
+                android:textColor="#555555"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnAddDatedNote"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="@string/btn_add_dated_note"
+                android:textSize="12sp"
+                android:backgroundTint="#E0F0FF"
+                android:textColor="#007BFF" />
+        </LinearLayout>
+
+        <!-- Container for notes list -->
+        <LinearLayout
+            android:id="@+id/notesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp" />
 
         <Button
-            android:id="@+id/btnAddDatedNote"
-            android:layout_width="wrap_content"
+            android:id="@+id/btnSetReminder"
+            android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="@string/btn_add_dated_note"
-            android:textSize="12sp"
-            android:backgroundTint="#E0F0FF"
-            android:textColor="#007BFF" />
+            android:text="@string/btn_set_reminder"
+            android:backgroundTint="#F0F2F5"
+            android:textColor="#2A2A2A" />
+
+        <Button
+            android:id="@+id/btnAddCalendar"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="@string/btn_add_calendar"
+            android:backgroundTint="#F0F2F5"
+            android:textColor="#2A2A2A" />
+
+        <Button
+            android:id="@+id/btnSaveChanges"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="16dp"
+            android:text="@string/btn_save"
+            android:backgroundTint="#007BFF"
+            android:textColor="#FFFFFF" />
+
     </LinearLayout>
-
-    <EditText
-        android:id="@+id/editDetailNotes"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:gravity="top|start"
-        android:hint="@string/hint_notes"
-        android:inputType="textMultiLine"
-        android:background="#F0F2F5"
-        android:padding="8dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="16dp"
-        android:autofillHints="none" />
-
-    <Button
-        android:id="@+id/btnSetReminder"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="@string/btn_set_reminder"
-        android:backgroundTint="#F0F2F5"
-        android:textColor="#2A2A2A" />
-
-    <Button
-        android:id="@+id/btnAddCalendar"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="@string/btn_add_calendar"
-        android:backgroundTint="#F0F2F5"
-        android:textColor="#2A2A2A" />
-
-    <Button
-        android:id="@+id/btnSaveChanges"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="@string/btn_save_changes"
-        android:backgroundTint="#007BFF"
-        android:textColor="#FFFFFF"
-        android:layout_marginTop="16dp"/>
-</LinearLayout>
+</ScrollView>

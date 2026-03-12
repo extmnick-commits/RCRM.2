@@ -1,4 +1,4 @@
-package com.example.rcrm
+package com.nickpulido.rcrm // Updated package name
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -20,6 +20,7 @@ class CallReceiver : BroadcastReceiver() {
             val phoneNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
 
             if (!phoneNumber.isNullOrEmpty()) {
+                // This now correctly points to the SmartLogActivity in your new package
                 val logIntent = Intent(context, SmartLogActivity::class.java).apply {
                     putExtra("INCOMING_NUMBER", phoneNumber)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

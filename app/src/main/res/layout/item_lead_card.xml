@@ -5,14 +5,20 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="16dp"
-    android:background="#FFFFFF">
+    android:gravity="center_vertical">
+
+    <CheckBox
+        android:id="@+id/cbSelectLead"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_marginEnd="8dp"/>
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:layout_gravity="center_vertical">
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/tvLeadName"
@@ -23,14 +29,33 @@
             android:textStyle="bold"
             android:textColor="#2A2A2A" />
 
-        <TextView
-            android:id="@+id/tvLeadDetails"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/placeholder_lead_details"
-            android:textSize="13sp"
-            android:textColor="#6F6F6F"
-            android:layout_marginTop="4dp"/>
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/tvCategoryLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="#007BFF"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/tvLeadDetails"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/placeholder_lead_details"
+                android:textSize="13sp"
+                android:textColor="#6F6F6F" />
+        </LinearLayout>
     </LinearLayout>
 
     <ImageView
@@ -41,7 +66,6 @@
         android:src="@android:drawable/ic_menu_call"
         android:contentDescription="@string/call_icon_description"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:layout_gravity="center_vertical"
         app:tint="#007BFF" />
 
 </LinearLayout>

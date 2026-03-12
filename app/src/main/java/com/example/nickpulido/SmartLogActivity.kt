@@ -1,6 +1,8 @@
-package com.example.rcrm
+package com.nickpulido.rcrm
 
 import android.annotation.SuppressLint
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -12,7 +14,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.edit // Fixes the .edit warning
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -26,7 +28,6 @@ class SmartLogActivity : AppCompatActivity() {
     private var contactName: String = ""
     private var followUpDate: Date? = null
 
-    // Organized constants for a clean, premium codebase
     private companion object {
         const val PREFS_NAME = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -40,7 +41,6 @@ class SmartLogActivity : AppCompatActivity() {
         phoneNumber = intent.getStringExtra("INCOMING_NUMBER") ?: ""
         contactName = getContactName(phoneNumber)
 
-        // View Binding
         val tvHeader = findViewById<TextView>(R.id.tvLogHeader)
         val btnSkip = findViewById<Button>(R.id.btnSkipPersonal)
         val cbRecruit = findViewById<CheckBox>(R.id.cbRecruit)
@@ -51,68 +51,72 @@ class SmartLogActivity : AppCompatActivity() {
         val btnSave = findViewById<Button>(R.id.btnSaveLeadAction)
         val btnSms = findViewById<Button>(R.id.btnSendIntroAction)
 
-        val btnInsertNameTag = findViewById<Button>(R.id.btnInsertNameTag)
         val btnManagePresets = findViewById<Button>(R.id.btnManagePresets)
-        val btnSaveAsPreset = findViewById<Button>(R.id.btnSaveAsPreset)
+        val btnDefaultIntro = findViewById<Button>(R.id.btnDefaultIntro)
 
         tvHeader.text = getString(R.string.log_call_header, contactName, phoneNumber)
 
-        // Set default text with name replacement
-        val firstName = contactName.split(" ").firstOrNull() ?: contactName
-        etIntroText.setText(getString(R.string.sms_intro_message, firstName))
+        fun applyDefaultIntro() {
+            val firstName = contactName.split(" ").firstOrNull() ?: contactName
+            etIntroText.setText(getString(R.string.sms_intro_message, firstName))
+        }
+        applyDefaultIntro()
 
         btnSkip.setOnClickListener { finish() }
 
-        // --- Follow-Up Management ---
         findViewById<Button>(R.id.btnPlus1Week).setOnClickListener {
-            followUpDate = Date(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000)
-            Toast.makeText(this, getString(R.string.msg_set_1_week), Toast.LENGTH_SHORT).show()
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 7) }
+            showDateTimePicker(cal)
         }
         findViewById<Button>(R.id.btnPlus2Weeks).setOnClickListener {
-            followUpDate = Date(System.currentTimeMillis() + 14L * 24 * 60 * 60 * 1000)
-            Toast.makeText(this, getString(R.string.msg_set_2_weeks), Toast.LENGTH_SHORT).show()
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 14) }
+            showDateTimePicker(cal)
         }
         findViewById<Button>(R.id.btnPlus1Month).setOnClickListener {
-            followUpDate = Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
-            Toast.makeText(this, getString(R.string.msg_set_1_month), Toast.LENGTH_SHORT).show()
-        }
-
-        // --- Token Logic: Drop [NAME] at cursor position ---
-        btnInsertNameTag.setOnClickListener {
-            val start = etIntroText.selectionStart
-            etIntroText.editableText.insert(start, NAME_TOKEN)
-        }
-
-        // --- Preset Management ---
-        btnSaveAsPreset.setOnClickListener {
-            val newPreset = etIntroText.text.toString().trim()
-            if (newPreset.isNotEmpty()) {
-                val presets = getPresetsLocally().toMutableList()
-                presets.add(newPreset)
-                saveAllPresetsLocally(presets)
-                Toast.makeText(this, getString(R.string.msg_preset_saved), Toast.LENGTH_SHORT).show()
-            }
+            val cal = Calendar.getInstance().apply { add(Calendar.MONTH, 1) }
+            showDateTimePicker(cal)
         }
 
         btnManagePresets.setOnClickListener { showPresetManagerDialog(etIntroText) }
+        btnDefaultIntro.setOnClickListener { applyDefaultIntro() }
 
-        // --- Primary Actions (Auto-Save Enabled) ---
         btnSave.setOnClickListener {
             performSaveLeadAction(cbRecruit, cbProspect, cbClient, etNotes) {
-                btnSave.isEnabled = false
                 Toast.makeText(this, "Lead History Saved", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, FollowUpActivity::class.java)
+                intent.putExtra("TARGET_PHONE", phoneNumber)
+                startActivity(intent)
+                finish()
             }
         }
 
         btnSms.setOnClickListener {
             performSaveLeadAction(cbRecruit, cbProspect, cbClient, etNotes) {
                 val message = etIntroText.text.toString()
-                val intent = Intent(Intent.ACTION_VIEW, "sms:$phoneNumber".toUri())
-                intent.putExtra("sms_body", message)
-                startActivity(intent)
+                val smsIntent = Intent(Intent.ACTION_VIEW, "sms:$phoneNumber".toUri())
+                smsIntent.putExtra("sms_body", message)
+                startActivity(smsIntent)
+                
+                val followUpIntent = Intent(this, FollowUpActivity::class.java)
+                followUpIntent.putExtra("TARGET_PHONE", phoneNumber)
+                startActivity(followUpIntent)
                 finish()
             }
         }
+    }
+
+    private fun showDateTimePicker(initialCal: Calendar) {
+        DatePickerDialog(this, { _, year, month, day ->
+            initialCal.set(year, month, day)
+            TimePickerDialog(this, { _, hour, minute ->
+                initialCal.set(Calendar.HOUR_OF_DAY, hour)
+                initialCal.set(Calendar.MINUTE, minute)
+                followUpDate = initialCal.time
+                
+                val sdf = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+                Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate)}", Toast.LENGTH_SHORT).show()
+            }, initialCal.get(Calendar.HOUR_OF_DAY), initialCal.get(Calendar.MINUTE), false).show()
+        }, initialCal.get(Calendar.YEAR), initialCal.get(Calendar.MONTH), initialCal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
     private fun showPresetManagerDialog(etTarget: EditText) {
@@ -128,7 +132,6 @@ class SmartLogActivity : AppCompatActivity() {
                 override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                     val view = super.getView(position, convertView, parent)
                     (view as TextView).apply {
-                        // FIX: Explicitly set text size to clear the 'sp' reference error
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                         setPadding(40, 40, 40, 40)
                     }
@@ -175,7 +178,6 @@ class SmartLogActivity : AppCompatActivity() {
                             onUpdate()
                         }.show()
                 } else {
-                    // Premium Detail: Confirmation before delete
                     AlertDialog.Builder(this)
                         .setTitle("Confirm Delete")
                         .setMessage("Are you sure you want to remove this preset?")
@@ -199,18 +201,19 @@ class SmartLogActivity : AppCompatActivity() {
 
         db.collection("leads").whereEqualTo("phone", phoneNumber).get()
             .addOnSuccessListener { documents ->
+                val time = SimpleDateFormat("[MMM dd, hh:mm a]", Locale.getDefault()).format(Date())
                 if (documents.isEmpty) {
+                    val formattedNote = if (noteText.isNotEmpty()) "$time: $noteText" else ""
                     val data = hashMapOf(
                         "name" to contactName, "phone" to phoneNumber, "category" to finalCategory,
-                        "notes" to noteText, "followUpDate" to followUpDate, "timestamp" to Timestamp.now()
+                        "notes" to formattedNote, "followUpDate" to followUpDate, "timestamp" to Timestamp.now()
                     )
                     db.collection("leads").add(data).addOnSuccessListener { onSuccess() }
                 } else {
                     val doc = documents.documents[0]
                     val existing = doc.getString("notes") ?: ""
-                    val time = SimpleDateFormat("[MMM dd, HH:mm]", Locale.getDefault()).format(Date())
                     val formatted = if (noteText.isNotEmpty()) "$time: $noteText" else ""
-                    val combined = if (existing.isNotEmpty() && formatted.isNotEmpty()) "$existing\n$formatted" else formatted.ifEmpty { existing }
+                    val combined = if (existing.isNotEmpty() && formatted.isNotEmpty()) "$existing\n\n$formatted" else formatted.ifEmpty { existing }
 
                     val update = mutableMapOf<String, Any>("category" to finalCategory, "notes" to combined, "timestamp" to Timestamp.now())
                     followUpDate?.let { update["followUpDate"] = it }

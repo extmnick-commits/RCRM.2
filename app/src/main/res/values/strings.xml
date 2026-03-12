@@ -61,7 +61,7 @@
     <string name="btn_bulk_snooze">Snooze Selected (+1 Week)</string>
 
     <string name="label_customize_intro">Customize Intro Text</string>
-    <string name="btn_insert_name">+ [NAME]</string>
+    <string name="btn_insert_name">+</string>
     <string name="btn_presets_dropdown">Presets ▾</string>
     <string name="btn_save_as_preset">+ Save current text as new preset</string>
     <string name="msg_set_2_weeks">Set for 2 weeks</string>
@@ -70,4 +70,11 @@
     <string name="msg_no_presets">No presets saved yet</string>
     <string name="menu_edit_preset">Edit Message</string>
     <string name="menu_delete_preset">Delete Preset</string>
+
+    <string name="settings_title">Settings &amp; Tools</string>
+    <string name="contact_maintenance">Contact Maintenance</string>
+    <string name="btn_clean_duplicates">Clean Duplicates</string>
+    <string name="btn_delete_contacts">Delete Contacts</string>
+    <string name="btn_delete_selected">Delete Selected</string>
+    <string name="btn_cancel">Cancel</string>
 </resources>
