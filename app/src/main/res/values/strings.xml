@@ -1,3 +1,63 @@
 <resources>
     <string name="app_name">RCRM</string>
+    <string name="search_hint">🔍 Search names, keywords, or notes&#8230;</string>
+    <string name="app_name_dashboard">RCRM Prospector</string>
+    <string name="dashboard_subtitle">Smart Log Dashboard</string>
+    <string name="btn_quick_add">+ Quick Add</string>
+    <string name="btn_follow_ups">Follow Ups</string>
+    <string name="btn_contacts">Contacts</string>
+    <string name="initial_stat_zero">0</string>
+    <string name="stat_total_leads">Total Leads</string>
+    <string name="stat_due_today">Due Today</string>
+    <string name="hot_list_header_text">Today\'s Hot List</string>
+
+    <string name="dialog_title_quick_add">Log New Prospect</string>
+    <string name="hint_prospect_name">Prospect Name</string>
+    <string name="hint_phone_number">Phone Number</string>
+    <string name="hint_category">Category (Prospect, Client&#8230;)</string>
+    <string name="hint_notes">Quick Note&#8230;</string>
+    <string name="btn_save">Save</string>
+    <string name="msg_lead_saved">Lead Saved!</string>
+    <string name="msg_no_phone">No phone number saved</string>
+    <string name="unknown_contact">Unknown Contact</string>
+    <string name="category_prospect">Prospect</string>
+
+    <string name="log_call_header">Log Call: %1$s (%2$s)</string>
+    <string name="btn_skip_personal">Skip - Personal Call</string>
+    <string name="category_recruit">Recruit</string>
+    <string name="category_client">Client</string>
+    <string name="hint_quick_note_example">Quick Note (e.g., Met at Walmart)</string>
+    <string name="btn_1_week">+1 Week</string>
+    <string name="btn_1_month">+1 Month</string>
+    <string name="msg_set_1_week">Set for 1 week</string>
+    <string name="msg_set_1_month">Set for 1 month</string>
+    <string name="btn_save_lead">Save Lead</string>
+    <string name="btn_send_intro">Send Intro Text</string>
+    <string name="msg_lead_saved_simple">Lead Saved!</string>
+    <string name="sms_intro_message">Hi %1$s, it was great speaking with you! I’ve noted our appointment. Looking forward to it!</string>
+
+    <string name="lead_name_format">🔥 %1$s</string>
+    <string name="lead_details_format">%1$s | %2$s</string>
+    <string name="placeholder_lead_name">Prospect Name</string>
+    <string name="placeholder_lead_details">Category | Quick Note</string>
+    <string name="call_icon_description">Call prospect</string>
+
+    <string name="follow_up_header">Follow-Up Management</string>
+    <string name="follow_up_sub">Tap to select multiple leads for bulk actions.</string>
+    <string name="title_lead_details">Contact Details</string>
+
+    <string name="label_notes_history">Notes History</string>
+
+    <string name="btn_set_reminder">Set Reminder (Date/Time)</string>
+    <string name="btn_add_calendar">Send to Calendar</string>
+    <string name="btn_save_changes">Save Changes</string>
+    <string name="btn_add_dated_note">+ Add Dated Note</string>
+    <string name="msg_reminder_set">Reminder set for %1$s</string>
+    <string name="msg_lead_updated">Lead Updated!</string>
+    <string name="lead_details_due_format">%1$s | Due: %2$s</string>
+    <string name="dated_note_format">%1$s\n%2$s</string>
+    <string name="calendar_call_title">Call %1$s</string>
+    <string name="label_schedule_followup">Schedule Follow-Up</string>
+    <string name="calendar_description_format">Phone: %1$s\nNotes: %2$s</string>
+    <string name="btn_bulk_snooze">Snooze Selected (+1 Week)</string>
 </resources>

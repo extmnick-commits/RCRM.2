@@ -7,78 +7,91 @@
     android:background="#F0F2F5"
     android:padding="20dp">
 
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp">
+        <EditText
+            android:id="@+id/search_bar"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="@string/search_hint"
+            android:autofillHints="none"
+            android:importantForAutofill="no"
+            android:background="@android:color/transparent"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:inputType="text" />
+    </com.google.android.material.card.MaterialCardView>
+
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp">
-
         <TextView
             android:id="@+id/tvAppName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="RCRM Prospector"
-            android:textSize="26sp"
+            android:text="@string/app_name_dashboard"
+            android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="#2A2A2A" />
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@id/tvAppName"
-            android:text="Your Business Dashboard"
-            android:textSize="14sp"
-            android:textColor="#6F6F6F" />
-    </RelativeLayout>
+            android:text="@string/dashboard_subtitle"
+            android:textSize="13sp"
+            android:textColor="#555555" /> </RelativeLayout>
 
     <LinearLayout
+        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginBottom="24dp">
-
         <Button
             android:id="@+id/btnQuickAdd"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="+ Add New Lead"
+            android:text="@string/btn_quick_add"
             android:backgroundTint="#007BFF"
-            android:textColor="#FFFFFF"
-            android:layout_marginEnd="8dp"/>
-
+            android:textColor="#FFFFFF" />
         <Button
             android:id="@+id/btnFollowUpList"
+            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Follow Ups"
+            android:text="@string/btn_follow_ups"
             android:backgroundTint="#FFFFFF"
-            android:textColor="#007BFF"
-            app:strokeColor="#007BFF"
-            app:strokeWidth="1dp" />
+            android:textColor="#007BFF" />
+        <Button
+            android:id="@+id/btn_view_contacts"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_contacts"
+            android:backgroundTint="#FFFFFF"
+            android:textColor="#555555" />
     </LinearLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Summary Stats"
-        android:textStyle="bold"
-        android:textColor="#6F6F6F"
-        android:layout_marginBottom="8dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
-
+        android:layout_marginBottom="20dp">
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            app:cardCornerRadius="12dp">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -88,16 +101,16 @@
                     android:id="@+id/tvTotalLeads"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textSize="32sp"
+                    android:text="@string/initial_stat_zero"
+                    android:textSize="28sp"
                     android:textStyle="bold"
                     android:textColor="#007BFF" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Total Prospects"
-                    android:textSize="12sp"
-                    android:textColor="#6F6F6F" />
+                    android:text="@string/stat_total_leads"
+                    android:textSize="11sp"
+                    android:textColor="#555555" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -105,26 +118,26 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            app:cardCornerRadius="12dp">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
                 <TextView
+                    android:id="@+id/hot_list_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="0 | 0"
-                    android:textSize="22sp"
+                    android:text="@string/initial_stat_zero"
+                    android:textSize="28sp"
                     android:textStyle="bold"
                     android:textColor="#F77062" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="FNAs | IBAs"
-                    android:textSize="12sp"
-                    android:textColor="#6F6F6F" />
+                    android:text="@string/stat_due_today"
+                    android:textSize="11sp"
+                    android:textColor="#555555" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
@@ -132,15 +145,18 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Recent Leads"
+        android:text="@string/hot_list_header_text"
         android:textStyle="bold"
-        android:textColor="#6F6F6F"
+        android:textSize="16sp"
+        android:textColor="#2A2A2A"
         android:layout_marginBottom="8dp" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvRecentLeads"
+    <ListView
+        android:id="@+id/hot_list_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="8dp" />
 
 </LinearLayout>
