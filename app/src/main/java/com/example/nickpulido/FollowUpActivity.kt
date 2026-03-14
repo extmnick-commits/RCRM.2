@@ -21,7 +21,9 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import org.json.JSONArray
 import org.json.JSONObject
@@ -43,6 +45,17 @@ class FollowUpActivity : AppCompatActivity() {
     private var isSelectionMode = false
 
     private var accountDefaultSms: String? = null
+    private var defaultGoal: Int = 10
+    private var defaultFollowUpGoal: Int = 5
+    private val dateKeyFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+
+    private lateinit var progressFollowUps: com.google.android.material.progressindicator.CircularProgressIndicator
+    private lateinit var tvFollowUpCountDisplay: TextView
+    private lateinit var tvFollowUpGoalDisplay: TextView
+    private var statsListener: ListenerRegistration? = null
+    
+    private var currentFollowUpCount = 0
+    private var currentFollowUpGoal = 5
 
     private companion object {
         const val PREFS_NAME = "IntroPresets"
@@ -58,6 +71,10 @@ class FollowUpActivity : AppCompatActivity() {
             finish()
             return
         }
+
+        progressFollowUps = findViewById(R.id.progressFollowUps)
+        tvFollowUpCountDisplay = findViewById(R.id.tvFollowUpCountDisplay)
+        tvFollowUpGoalDisplay = findViewById(R.id.tvFollowUpGoalDisplay)
 
         targetPhone = intent.getStringExtra("targetPhone")
 
@@ -87,6 +104,10 @@ class FollowUpActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btnFilterCategory).setOnClickListener { showFilterPopupMenu(it) }
         findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsDialog() }
         
+        findViewById<View>(R.id.cardFollowUpProgress).setOnClickListener {
+            showGoalDialog("followup_goal", "Daily Follow-up Goal", currentFollowUpGoal)
+        }
+
         findViewById<Button>(R.id.btnBulkDelete).setOnClickListener {
             if (selectedDocIds.isEmpty()) {
                 Toast.makeText(this, "No leads selected", Toast.LENGTH_SHORT).show()
@@ -106,6 +127,7 @@ class FollowUpActivity : AppCompatActivity() {
 
         loadLeadsFromCloud()
         loadAccountSettings()
+        startStatsListener()
     }
 
     private fun loadAccountSettings() {
@@ -114,8 +136,73 @@ class FollowUpActivity : AppCompatActivity() {
             if (e != null) return@addSnapshotListener
             if (snapshot != null && snapshot.exists()) {
                 accountDefaultSms = snapshot.getString("default_intro_sms")
+                defaultGoal = snapshot.getLong("total_goal")?.toInt() ?: 10
+                defaultFollowUpGoal = snapshot.getLong("followup_goal")?.toInt() ?: 5
             }
         }
+    }
+
+    private fun startStatsListener() {
+        val userId = auth.currentUser?.uid ?: return
+        val dateStr = dateKeyFormat.format(Date())
+        statsListener?.remove()
+        statsListener = db.collection("user_settings").document(userId)
+            .collection("daily_stats").document(dateStr).addSnapshotListener { doc, _ ->
+                if (doc != null && doc.exists()) {
+                    currentFollowUpGoal = doc.getLong("followup_goal")?.toInt() ?: defaultFollowUpGoal
+                    currentFollowUpCount = doc.getLong("followup_count")?.toInt() ?: 0
+                } else {
+                    currentFollowUpGoal = defaultFollowUpGoal
+                    currentFollowUpCount = 0
+                }
+                refreshProgressUI()
+            }
+    }
+
+    private fun refreshProgressUI() {
+        progressFollowUps.max = if (currentFollowUpGoal > 0) currentFollowUpGoal else 1
+        progressFollowUps.progress = currentFollowUpCount
+        tvFollowUpCountDisplay.text = currentFollowUpCount.toString()
+        tvFollowUpGoalDisplay.text = "Goal: $currentFollowUpGoal"
+    }
+
+    private fun showGoalDialog(prefKey: String, title: String, currentVal: Int) {
+        val input = EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        input.setText(currentVal.toString())
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage("Set your follow-up target for today:")
+            .setView(input)
+            .setPositiveButton("Set") { _, _ ->
+                val goal = input.text.toString().toIntOrNull() ?: currentVal
+                saveDailyGoalToFirestore(prefKey, goal)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun saveDailyGoalToFirestore(key: String, value: Int) {
+        val userId = auth.currentUser?.uid ?: return
+        val dateStr = dateKeyFormat.format(Date())
+        db.collection("user_settings").document(userId)
+            .collection("daily_stats").document(dateStr)
+            .set(hashMapOf(key to value), SetOptions.merge())
+    }
+
+    private fun incrementDailyStat(field: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val dateStr = dateKeyFormat.format(Date())
+        db.collection("user_settings").document(userId)
+            .collection("daily_stats").document(dateStr)
+            .update(field, FieldValue.increment(1))
+            .addOnFailureListener {
+                val data = hashMapOf(field to 1, "total_goal" to defaultGoal, "followup_goal" to defaultFollowUpGoal)
+                db.collection("user_settings").document(userId)
+                    .collection("daily_stats").document(dateStr)
+                    .set(data, SetOptions.merge())
+            }
     }
 
     private fun enterSelectionMode() {
@@ -485,17 +572,19 @@ class FollowUpActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        var newFollowUpDate: Date? = (lead["followUpDate"] as? Timestamp)?.toDate()
+
         btnSetReminder.setOnClickListener {
             val cal = Calendar.getInstance()
-            (lead["followUpDate"] as? Timestamp)?.toDate()?.let { cal.time = it }
+            newFollowUpDate?.let { cal.time = it }
             DatePickerDialog(this, { _, year, month, day ->
                 cal.set(year, month, day)
                 TimePickerDialog(this, { _, hour, minute ->
                     cal.set(Calendar.HOUR_OF_DAY, hour)
                     cal.set(Calendar.MINUTE, minute)
+                    newFollowUpDate = cal.time
                     val format = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
                     btnSetReminder.text = getString(R.string.msg_reminder_set, format.format(cal.time))
-                    // Note: This won't save immediately unless we update Firestore here or on Save Changes
                 }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
@@ -506,16 +595,37 @@ class FollowUpActivity : AppCompatActivity() {
             if (cbProspect.isChecked) cats.add(getString(R.string.category_prospect))
             if (cbClient.isChecked) cats.add(getString(R.string.category_client))
             
+            val now = Date()
+            val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(now)
+            val ts = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(now)
+            val followUpMsg = "Followed up on $dateStr"
+            
+            var shouldIncrement = false
+            // Auto-add follow-up note if not already there for today
+            if (noteList.none { it.content == followUpMsg }) {
+                noteList.add(0, NoteItem(ts, followUpMsg))
+                shouldIncrement = true
+            }
+
+            // If no manual reminder set, roll it over to tomorrow
+            if (newFollowUpDate == null || newFollowUpDate!!.before(now)) {
+                val cal = Calendar.getInstance()
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+                newFollowUpDate = cal.time
+            }
+
             val updatedData = mutableMapOf<String, Any>(
                 "name" to editName.text.toString(),
                 "phone" to editPhone.text.toString(),
                 "category" to cats.joinToString(", "),
-                "notes" to serializeNotes(noteList)
+                "notes" to serializeNotes(noteList),
+                "followUpDate" to Timestamp(newFollowUpDate!!)
             )
-            // If btnSetReminder was used, we'd need to track that new date. 
-            // For simplicity in this edit, assuming original or updated logic is handled.
 
             db.collection("leads").document(docId).update(updatedData).addOnSuccessListener {
+                if (shouldIncrement) {
+                    incrementDailyStat("followup_count")
+                }
                 Toast.makeText(this, "Lead Updated", Toast.LENGTH_SHORT).show()
                 loadLeadsFromCloud()
                 dialog.dismiss()
@@ -574,6 +684,11 @@ class FollowUpActivity : AppCompatActivity() {
 
     private fun getPresetsLocally(): Set<String> {
         return getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(PREFS_KEY, emptySet()) ?: emptySet()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        statsListener?.remove()
     }
 }
 

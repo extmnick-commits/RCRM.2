@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private lateinit var tvTotalLeads: TextView
-    private lateinit var hotListCount: TextView
     private lateinit var hotListView: ListView
     private lateinit var searchBar: EditText
     private lateinit var prefs: SharedPreferences
@@ -46,7 +45,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressTotal: com.google.android.material.progressindicator.CircularProgressIndicator
     private lateinit var tvTotalGoal: TextView
     private lateinit var progressFollowUps: com.google.android.material.progressindicator.CircularProgressIndicator
-    private lateinit var tvFollowUpGoal: TextView
+    private lateinit var tvFollowUpCountDisplay: TextView
+    private lateinit var tvFollowUpGoalDisplay: TextView
     private lateinit var tvDateDisplay: TextView
     private lateinit var tvHotListHeader: TextView
 
@@ -66,8 +66,8 @@ class MainActivity : AppCompatActivity() {
     private var statsListener: ListenerRegistration? = null
     
     private var currentDailyGoal: Int = 10
-    private var currentFollowUpGoal: Int = 5
     private var currentContactCount: Int = 0
+    private var currentFollowUpGoal: Int = 5
     private var currentFollowUpCount: Int = 0
 
     private val TAG = "MainActivity"
@@ -91,14 +91,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         tvTotalLeads = findViewById(R.id.tvTotalLeads)
-        hotListCount = findViewById(R.id.hot_list_count)
         hotListView = findViewById(R.id.hot_list_view)
         searchBar = findViewById(R.id.search_bar)
         
         progressTotal = findViewById(R.id.progressTotalLeads)
         tvTotalGoal = findViewById(R.id.tvTotalLeadsGoal)
         progressFollowUps = findViewById(R.id.progressFollowUps)
-        tvFollowUpGoal = findViewById(R.id.tvFollowUpGoal)
+        tvFollowUpCountDisplay = findViewById(R.id.tvFollowUpCountDisplay)
+        tvFollowUpGoalDisplay = findViewById(R.id.tvFollowUpGoalDisplay)
+        
         tvDateDisplay = findViewById(R.id.tvSelectedDateDisplay)
         tvHotListHeader = findViewById(R.id.tvHotListHeader)
 
@@ -128,8 +129,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.cardTotalLeads).setOnClickListener { 
             showGoalDialog("total_goal", "Daily Contact Goal", currentDailyGoal) 
         }
-        findViewById<View>(R.id.cardDueToday).setOnClickListener { 
-            showGoalDialog("followup_goal", "Daily Follow-up Goal", currentFollowUpGoal) 
+        
+        findViewById<View>(R.id.cardFollowUpProgress).setOnClickListener {
+            showGoalDialog("followup_goal", "Daily Follow-up Goal", currentFollowUpGoal)
         }
 
         hotListView.setOnItemClickListener { _, _, position, _ ->
@@ -176,13 +178,13 @@ class MainActivity : AppCompatActivity() {
             .collection("daily_stats").document(dateStr).addSnapshotListener { doc, _ ->
                 if (doc != null && doc.exists()) {
                     currentDailyGoal = doc.getLong("total_goal")?.toInt() ?: defaultGoal
-                    currentFollowUpGoal = doc.getLong("followup_goal")?.toInt() ?: defaultFollowUpGoal
                     currentContactCount = doc.getLong("contact_count")?.toInt() ?: 0
+                    currentFollowUpGoal = doc.getLong("followup_goal")?.toInt() ?: defaultFollowUpGoal
                     currentFollowUpCount = doc.getLong("followup_count")?.toInt() ?: 0
                 } else {
                     currentDailyGoal = defaultGoal
-                    currentFollowUpGoal = defaultFollowUpGoal
                     currentContactCount = 0
+                    currentFollowUpGoal = defaultFollowUpGoal
                     currentFollowUpCount = 0
                 }
                 refreshDials()
@@ -231,15 +233,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshDials() {
+        // Contacts Dial
         tvTotalGoal.text = "Goal: $currentDailyGoal"
         progressTotal.max = if (currentDailyGoal > 0) currentDailyGoal else 1
         progressTotal.progress = currentContactCount
         tvTotalLeads.text = currentContactCount.toString()
 
-        tvFollowUpGoal.text = "Goal: $currentFollowUpGoal"
+        // Follow-ups Dial
+        tvFollowUpGoalDisplay.text = "Goal: $currentFollowUpGoal"
         progressFollowUps.max = if (currentFollowUpGoal > 0) currentFollowUpGoal else 1
         progressFollowUps.progress = currentFollowUpCount
-        hotListCount.text = currentFollowUpCount.toString()
+        tvFollowUpCountDisplay.text = currentFollowUpCount.toString()
     }
 
     private fun updateHotList() {
@@ -449,13 +453,11 @@ class MainActivity : AppCompatActivity() {
             val ts = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(now)
             val followUpMsg = "Followed up on $dateStr"
             
+            var shouldIncrement = false
             // Auto-add follow-up note if not already there for today
             if (noteList.none { it.content == followUpMsg }) {
                 noteList.add(0, NoteItem(ts, followUpMsg))
-                incrementDailyStat("followup_count")
-                if (isSameDay(selectedCalendar, Calendar.getInstance())) {
-                    currentFollowUpCount++
-                }
+                shouldIncrement = true
             }
 
             // If no manual reminder set, roll it over to tomorrow
@@ -474,6 +476,9 @@ class MainActivity : AppCompatActivity() {
             )
 
             db.collection("leads").document(docId).update(updatedData).addOnSuccessListener {
+                if (shouldIncrement) {
+                    incrementDailyStat("followup_count")
+                }
                 refreshDials()
                 dialog.dismiss()
             }
