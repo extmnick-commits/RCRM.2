@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Log New Contact"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#2A2A2A"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/editQuickName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_prospect_name"
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:textColor="#2A2A2A"
+            android:autofillHints="name"
+            android:inputType="textPersonName" />
+
+        <EditText
+            android:id="@+id/editQuickPhone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_phone_number"
+            android:autofillHints="phone"
+            android:inputType="phone" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Category"
+            android:textStyle="bold"
+            android:textColor="#555555"
+            android:textSize="12sp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <CheckBox android:id="@+id/cbRecruitQuick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
+            <CheckBox android:id="@+id/cbProspectQuick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
+            <CheckBox android:id="@+id/cbClientQuick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Initial Notes"
+            android:textColor="#555555"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/editQuickNotes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_notes"
+            android:gravity="top"
+            android:inputType="textMultiLine"
+            android:minLines="3" />
+
+        <Button
+            android:id="@+id/btnQuickSave"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="24dp"
+            android:text="@string/btn_save"
+            android:backgroundTint="#007BFF"
+            android:textColor="#FFFFFF" />
+
+    </LinearLayout>
+</ScrollView>

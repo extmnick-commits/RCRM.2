@@ -23,22 +23,41 @@
                 android:layout_marginBottom="8dp">
 
                 <TextView
-                    android:id="@+id/tvLogHeader"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Log Call"
+                    android:textColor="#2A2A2A"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:alpha="0.6" />
+
+                <EditText
+                    android:id="@+id/etContactName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/log_call_header"
-                    android:textColor="#2A2A2A"
-                    android:textSize="18sp"
+                    android:hint="Contact Name"
+                    android:inputType="textPersonName"
+                    android:textSize="20sp"
                     android:textStyle="bold"
-                    android:ellipsize="end"
-                    android:maxLines="2" />
+                    android:textColor="#2A2A2A"
+                    android:background="@android:color/transparent"
+                    android:paddingVertical="4dp"
+                    android:importantForAutofill="no" />
+
+                <TextView
+                    android:id="@+id/tvLogPhoneNumber"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#555555"
+                    android:textSize="14sp"
+                    tools:text="(555) 555-5555" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSkipPersonal"
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="8dp"
                     android:minWidth="0dp"
                     android:minHeight="0dp"
                     android:paddingHorizontal="12dp"
@@ -78,7 +97,8 @@
                 android:hint="@string/hint_quick_note_example"
                 android:inputType="textCapSentences"
                 android:layout_marginTop="8dp"
-                android:textSize="14sp"/>
+                android:textSize="14sp"
+                android:importantForAutofill="no" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -99,6 +119,17 @@
                 <Button android:id="@+id/btnPlus1Month" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_1_month" style="?android:attr/buttonStyleSmall"/>
             </LinearLayout>
 
+            <Button
+                android:id="@+id/btn7pmToday"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/btn_7pm_today"
+                android:backgroundTint="#F0F2F5"
+                android:textColor="#2A2A2A"
+                android:textAllCaps="false"
+                style="?android:attr/buttonStyleSmall"/>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
@@ -116,7 +147,7 @@
                     android:layout_height="wrap_content"
                     android:layout_alignParentStart="true"
                     android:layout_centerVertical="true"
-                    android:text="Quick Intro SMS"
+                    android:text="@string/label_quick_intro_sms"
                     android:textColor="#555555"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -128,7 +159,7 @@
                     android:layout_height="36dp"
                     android:layout_toStartOf="@id/btnManagePresets"
                     android:layout_centerVertical="true"
-                    android:text="Use Default"
+                    android:text="@string/btn_use_default"
                     android:textColor="#007BFF"
                     android:textSize="12sp"
                     android:textAllCaps="false"

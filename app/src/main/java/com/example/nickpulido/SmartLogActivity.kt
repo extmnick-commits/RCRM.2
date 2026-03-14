@@ -3,11 +3,13 @@ package com.nickpulido.rcrm
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.ContentProviderOperation
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -17,21 +19,28 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import java.text.SimpleDateFormat
 import java.util.*
 
 class SmartLogActivity : AppCompatActivity() {
 
     private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
     private var phoneNumber: String = ""
     private var contactName: String = ""
+    private var isNewContact: Boolean = true
     private var followUpDate: Date? = null
+    private var accountDefaultSms: String? = null
 
     private companion object {
         const val PREFS_NAME = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
         const val NAME_TOKEN = "[NAME]"
+        const val TAG = "SmartLogActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,9 +48,12 @@ class SmartLogActivity : AppCompatActivity() {
         setContentView(R.layout.activity_smart_log)
 
         phoneNumber = intent.getStringExtra("INCOMING_NUMBER") ?: ""
-        contactName = getContactName(phoneNumber)
+        val (name, exists) = getContactNameAndStatus(phoneNumber)
+        contactName = name
+        isNewContact = !exists
 
-        val tvHeader = findViewById<TextView>(R.id.tvLogHeader)
+        val etContactName = findViewById<EditText>(R.id.etContactName)
+        val tvLogPhoneNumber = findViewById<TextView>(R.id.tvLogPhoneNumber)
         val btnSkip = findViewById<Button>(R.id.btnSkipPersonal)
         val cbRecruit = findViewById<CheckBox>(R.id.cbRecruit)
         val cbProspect = findViewById<CheckBox>(R.id.cbProspect)
@@ -54,13 +66,17 @@ class SmartLogActivity : AppCompatActivity() {
         val btnManagePresets = findViewById<Button>(R.id.btnManagePresets)
         val btnDefaultIntro = findViewById<Button>(R.id.btnDefaultIntro)
 
-        tvHeader.text = getString(R.string.log_call_header, contactName, phoneNumber)
+        etContactName.setText(contactName)
+        tvLogPhoneNumber.text = phoneNumber
 
         fun applyDefaultIntro() {
-            val firstName = contactName.split(" ").firstOrNull() ?: contactName
-            etIntroText.setText(getString(R.string.sms_intro_message, firstName))
+            val currentName = etContactName.text.toString()
+            val firstName = currentName.split(" ").firstOrNull() ?: currentName
+            val baseMsg = accountDefaultSms ?: "Hi $NAME_TOKEN, just following up to see if you had any questions! Looking forward to connecting again."
+            etIntroText.setText(baseMsg.replace(NAME_TOKEN, firstName))
         }
-        applyDefaultIntro()
+
+        loadAccountSettings { applyDefaultIntro() }
 
         btnSkip.setOnClickListener { finish() }
 
@@ -77,31 +93,57 @@ class SmartLogActivity : AppCompatActivity() {
             showDateTimePicker(cal)
         }
 
-        btnManagePresets.setOnClickListener { showPresetManagerDialog(etIntroText) }
+        findViewById<Button>(R.id.btn7pmToday).setOnClickListener {
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 19)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+            }
+            followUpDate = cal.time
+            val sdf = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+            Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate!!)}", Toast.LENGTH_SHORT).show()
+        }
+
+        btnManagePresets.setOnClickListener { showPresetManagerDialog(etIntroText, etContactName) }
         btnDefaultIntro.setOnClickListener { applyDefaultIntro() }
 
         btnSave.setOnClickListener {
+            Log.d(TAG, "Save button clicked")
+            val newName = etContactName.text.toString()
+            if (newName != contactName) {
+                saveOrUpdateSystemContact(newName, phoneNumber)
+                contactName = newName
+            }
             performSaveLeadAction(cbRecruit, cbProspect, cbClient, etNotes) {
                 Toast.makeText(this, "Lead History Saved", Toast.LENGTH_SHORT).show()
-                val intent = Intent(this, FollowUpActivity::class.java)
-                intent.putExtra("TARGET_PHONE", phoneNumber)
-                startActivity(intent)
                 finish()
             }
         }
 
         btnSms.setOnClickListener {
+            Log.d(TAG, "SMS button clicked")
+            val newName = etContactName.text.toString()
+            if (newName != contactName) {
+                saveOrUpdateSystemContact(newName, phoneNumber)
+                contactName = newName
+            }
             performSaveLeadAction(cbRecruit, cbProspect, cbClient, etNotes) {
                 val message = etIntroText.text.toString()
                 val smsIntent = Intent(Intent.ACTION_VIEW, "sms:$phoneNumber".toUri())
                 smsIntent.putExtra("sms_body", message)
                 startActivity(smsIntent)
-                
-                val followUpIntent = Intent(this, FollowUpActivity::class.java)
-                followUpIntent.putExtra("TARGET_PHONE", phoneNumber)
-                startActivity(followUpIntent)
                 finish()
             }
+        }
+    }
+
+    private fun loadAccountSettings(onLoaded: () -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+        db.collection("user_settings").document(userId).get().addOnSuccessListener { snapshot ->
+            if (snapshot.exists()) {
+                accountDefaultSms = snapshot.getString("default_intro_sms")
+            }
+            onLoaded()
         }
     }
 
@@ -111,15 +153,16 @@ class SmartLogActivity : AppCompatActivity() {
             TimePickerDialog(this, { _, hour, minute ->
                 initialCal.set(Calendar.HOUR_OF_DAY, hour)
                 initialCal.set(Calendar.MINUTE, minute)
-                followUpDate = initialCal.time
+                val selectedDate = initialCal.time
+                followUpDate = selectedDate
                 
                 val sdf = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
-                Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate)}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Reminder set: ${sdf.format(selectedDate)}", Toast.LENGTH_SHORT).show()
             }, initialCal.get(Calendar.HOUR_OF_DAY), initialCal.get(Calendar.MINUTE), false).show()
         }, initialCal.get(Calendar.YEAR), initialCal.get(Calendar.MONTH), initialCal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
-    private fun showPresetManagerDialog(etTarget: EditText) {
+    private fun showPresetManagerDialog(etTarget: EditText, etNameSource: EditText) {
         val presets = getPresetsLocally().toMutableList()
         val builder = AlertDialog.Builder(this)
         builder.setTitle(getString(R.string.dialog_manage_presets))
@@ -146,7 +189,8 @@ class SmartLogActivity : AppCompatActivity() {
 
             listView.setOnItemClickListener { _, _, position, _ ->
                 val rawPreset = presets[position]
-                val firstName = contactName.split(" ").firstOrNull() ?: contactName
+                val currentName = etNameSource.text.toString()
+                val firstName = currentName.split(" ").firstOrNull() ?: currentName
                 etTarget.setText(rawPreset.replace(NAME_TOKEN, firstName))
                 dialog.dismiss()
             }
@@ -198,28 +242,123 @@ class SmartLogActivity : AppCompatActivity() {
 
         val finalCategory = cats.joinToString(", ")
         val noteText = etN.text.toString()
+        val currentUserId = auth.currentUser?.uid
 
-        db.collection("leads").whereEqualTo("phone", phoneNumber).get()
+        if (currentUserId == null) {
+            Log.e(TAG, "No user logged in")
+            Toast.makeText(this, "Error: You must be logged in to save leads", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        db.collection("leads")
+            .whereEqualTo("phone", phoneNumber)
+            .whereEqualTo("ownerId", currentUserId)
+            .get()
             .addOnSuccessListener { documents ->
                 val time = SimpleDateFormat("[MMM dd, hh:mm a]", Locale.getDefault()).format(Date())
                 if (documents.isEmpty) {
                     val formattedNote = if (noteText.isNotEmpty()) "$time: $noteText" else ""
                     val data = hashMapOf(
-                        "name" to contactName, "phone" to phoneNumber, "category" to finalCategory,
-                        "notes" to formattedNote, "followUpDate" to followUpDate, "timestamp" to Timestamp.now()
+                        "name" to contactName, 
+                        "phone" to phoneNumber, 
+                        "category" to finalCategory,
+                        "notes" to formattedNote, 
+                        "followUpDate" to followUpDate?.let { Timestamp(it) }, 
+                        "timestamp" to Timestamp.now(),
+                        "ownerId" to currentUserId,
+                        "source" to "smart_log"
                     )
-                    db.collection("leads").add(data).addOnSuccessListener { onSuccess() }
+                    db.collection("leads").add(data)
+                        .addOnSuccessListener { 
+                            incrementDailyStat("contact_count")
+                            onSuccess() 
+                        }
                 } else {
                     val doc = documents.documents[0]
                     val existing = doc.getString("notes") ?: ""
                     val formatted = if (noteText.isNotEmpty()) "$time: $noteText" else ""
                     val combined = if (existing.isNotEmpty() && formatted.isNotEmpty()) "$existing\n\n$formatted" else formatted.ifEmpty { existing }
 
-                    val update = mutableMapOf<String, Any>("category" to finalCategory, "notes" to combined, "timestamp" to Timestamp.now())
-                    followUpDate?.let { update["followUpDate"] = it }
-                    db.collection("leads").document(doc.id).update(update).addOnSuccessListener { onSuccess() }
+                    val update = mutableMapOf<String, Any?>(
+                        "name" to contactName,
+                        "category" to finalCategory, 
+                        "notes" to combined, 
+                        "timestamp" to Timestamp.now()
+                    )
+                    followUpDate?.let { update["followUpDate"] = Timestamp(it) }
+                    
+                    db.collection("leads").document(doc.id).update(update)
+                        .addOnSuccessListener { 
+                            onSuccess() 
+                        }
                 }
             }
+    }
+
+    private fun incrementDailyStat(field: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        db.collection("user_settings").document(userId)
+            .collection("daily_stats").document(dateStr)
+            .update(field, FieldValue.increment(1))
+            .addOnFailureListener {
+                val data = hashMapOf(field to 1, "total_goal" to 10, "followup_goal" to 5)
+                db.collection("user_settings").document(userId)
+                    .collection("daily_stats").document(dateStr)
+                    .set(data, SetOptions.merge())
+            }
+    }
+
+    private fun saveOrUpdateSystemContact(name: String, phone: String) {
+        val contactId = getContactId(phone)
+        val ops = arrayListOf<ContentProviderOperation>()
+
+        if (contactId == null) {
+            ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, null)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
+                .build())
+            ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, name)
+                .build())
+            ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
+                .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, phone)
+                .withValue(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)
+                .build())
+        } else {
+            ops.add(ContentProviderOperation.newUpdate(ContactsContract.Data.CONTENT_URI)
+                .withSelection(
+                    "${ContactsContract.Data.CONTACT_ID}=? AND ${ContactsContract.Data.MIMETYPE}=?",
+                    arrayOf(contactId.toString(), ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                )
+                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, name)
+                .build())
+        }
+
+        try {
+            contentResolver.applyBatch(ContactsContract.AUTHORITY, ops)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving/updating system contact", e)
+        }
+    }
+
+    private fun getContactId(phone: String): Long? {
+        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phone))
+        val projection = arrayOf(ContactsContract.PhoneLookup._ID)
+        try {
+            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    return cursor.getLong(0)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting contact ID", e)
+        }
+        return null
     }
 
     private fun saveAllPresetsLocally(list: List<String>) {
@@ -233,15 +372,23 @@ class SmartLogActivity : AppCompatActivity() {
     }
 
     @SuppressLint("Range")
-    private fun getContactName(phone: String): String {
+    private fun getContactNameAndStatus(phone: String): Pair<String, Boolean> {
         val unknown = getString(R.string.unknown_contact)
-        if (phone.isEmpty()) return unknown
+        if (phone.isEmpty()) return Pair(unknown, false)
         val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phone))
         val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
         var name = unknown
-        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) name = cursor.getString(0)
+        var exists = false
+        try {
+            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    name = cursor.getString(0)
+                    exists = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error querying contact name", e)
         }
-        return name
+        return Pair(name, exists)
     }
 }

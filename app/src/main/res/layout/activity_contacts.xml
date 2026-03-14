@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F9FA">
+
+    <!-- Header Section -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="20dp"
+        android:background="#FFFFFF"
+        android:elevation="4dp">
+
+        <TextView
+            android:id="@+id/tvContactsHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="All Contacts"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#212529" />
+
+        <TextView
+            android:id="@+id/tvContactsSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tvContactsHeader"
+            android:text="Manage your network"
+            android:textSize="14sp"
+            android:textColor="#6C757D" />
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_revert"
+            app:tint="#212529" />
+    </RelativeLayout>
+
+    <!-- Search & Filter Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        android:gravity="center_vertical">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp">
+            <EditText
+                android:id="@+id/etSearchContacts"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:hint="Search contacts..."
+                android:background="@android:color/transparent"
+                android:paddingHorizontal="12dp"
+                android:textSize="14sp"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <ImageButton
+            android:id="@+id/btnFilterContacts"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:background="?attr/selectableItemBackground"
+            app:tint="#495057" />
+    </LinearLayout>
+
+    <!-- Contact List -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/listViewContacts"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="#E9ECEF"
+            android:dividerHeight="1dp"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp" />
+
+        <TextView
+            android:id="@+id/tvEmptyState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="No contacts found"
+            android:textColor="#ADB5BD"
+            android:textSize="16sp"
+            android:visibility="gone" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabAddContact"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="24dp"
+            android:src="@android:drawable/ic_input_add"
+            app:backgroundTint="#007BFF"
+            app:tint="#FFFFFF" />
+    </FrameLayout>
+
+</LinearLayout>

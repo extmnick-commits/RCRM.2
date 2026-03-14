@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#FFFFFF">
+
+    <TextView
+        android:id="@+id/tvPopupHeader"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Today's Follow Ups"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#2A2A2A"
+        android:layout_marginBottom="16dp"/>
+
+    <ListView
+        android:id="@+id/listViewFollowUpPopup"
+        android:layout_width="match_parent"
+        android:layout_height="400dp"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="8dp" />
+
+    <Button
+        android:id="@+id/btnDismissPopup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Close"
+        android:layout_marginTop="16dp"
+        style="?android:attr/borderlessButtonStyle"
+        android:textColor="#007BFF"/>
+</LinearLayout>

@@ -1,10 +1,10 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.gms.google.services)
 }
 
 android {
-    // Matches your identity and google-services.json
     namespace = "com.nickpulido.rcrm"
     compileSdk = 35
 
@@ -32,20 +32,29 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
-    // Core AndroidX and Material
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
-    // Firebase Firestore for Lead Management
+    // Firebase
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
 
-    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

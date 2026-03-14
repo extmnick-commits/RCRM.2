@@ -4,53 +4,94 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:padding="20dp"
+    android:background="#F8F9FA">
 
-    <com.google.android.material.card.MaterialCardView
+    <!-- Search & Settings Header -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp">
-        <EditText
-            android:id="@+id/search_bar"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="@string/search_hint"
-            android:autofillHints="none"
-            android:importantForAutofill="no"
-            android:background="@android:color/transparent"
-            android:padding="12dp"
-            android:textSize="14sp"
-            android:inputType="text" />
-    </com.google.android.material.card.MaterialCardView>
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
 
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+            <EditText
+                android:id="@+id/search_bar"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="@string/search_hint"
+                android:autofillHints="none"
+                android:importantForAutofill="no"
+                android:background="@android:color/transparent"
+                android:paddingHorizontal="12dp"
+                android:textSize="14sp"
+                android:inputType="text" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/menu_settings"
+            android:src="@android:drawable/ic_menu_preferences"
+            app:tint="#555555" />
+    </LinearLayout>
+
+    <!-- App Title & Date Picker -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp">
-        <TextView
-            android:id="@+id/tvAppName"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/app_name_dashboard"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="#2A2A2A" />
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/tvAppName"
-            android:text="@string/dashboard_subtitle"
-            android:textSize="13sp"
-            android:textColor="#555555" /> </RelativeLayout>
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tvAppName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name_dashboard"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#2A2A2A" />
+            <TextView
+                android:id="@+id/tvSelectedDateDisplay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textSize="13sp"
+                android:textColor="#007BFF"
+                android:textStyle="bold" />
+        </LinearLayout>
 
+        <Button
+            android:id="@+id/btnPickDate"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:text="View History"
+            android:textSize="12sp"
+            android:textAllCaps="false"
+            app:icon="@android:drawable/ic_menu_today" />
+    </RelativeLayout>
+
+    <!-- Quick Actions -->
     <LinearLayout
         style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="24dp">
+        android:layout_marginBottom="20dp">
         <Button
             android:id="@+id/btnQuickAdd"
             style="?android:attr/buttonBarButtonStyle"
@@ -80,68 +121,177 @@
             android:textColor="#555555" />
     </LinearLayout>
 
+    <!-- Meter Dials (Progress Trackers) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="20dp">
+        android:layout_marginBottom="24dp"
+        android:gravity="center">
+
+        <!-- Contacts Today Dial -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTotalLeads"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
-            app:cardCornerRadius="12dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="16dp"
+                android:gravity="center"
+                android:clickable="false"
+                android:focusable="false">
+                <FrameLayout
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:clickable="false"
+                    android:focusable="false">
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
+                        android:id="@+id/progressTotalLeads"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        app:indicatorSize="100dp"
+                        app:trackThickness="8dp"
+                        app:indicatorColor="#007BFF"
+                        app:trackColor="#E0E0E0"
+                        app:trackCornerRadius="4dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:clickable="false"
+                        android:focusable="false" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:clickable="false"
+                        android:focusable="false">
+                        <TextView
+                            android:id="@+id/tvTotalLeads"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="#2A2A2A"
+                            android:clickable="false"
+                            android:focusable="false" />
+                        <TextView
+                            android:id="@+id/tvTotalLeadsGoal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Goal: 0"
+                            android:textSize="10sp"
+                            android:textColor="#888888"
+                            android:clickable="false"
+                            android:focusable="false" />
+                    </LinearLayout>
+                </FrameLayout>
                 <TextView
-                    android:id="@+id/tvTotalLeads"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/initial_stat_zero"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:textColor="#007BFF" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/stat_total_leads"
+                    android:layout_marginTop="8dp"
+                    android:text="Contacts Today"
                     android:textSize="11sp"
-                    android:textColor="#555555" />
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:clickable="false"
+                    android:focusable="false" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Follow-ups Today Dial -->
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardDueToday"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardCornerRadius="12dp">
+            android:layout_marginStart="8dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="16dp"
+                android:gravity="center"
+                android:clickable="false"
+                android:focusable="false">
+                <FrameLayout
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:clickable="false"
+                    android:focusable="false">
+                    <com.google.android.material.progressindicator.CircularProgressIndicator
+                        android:id="@+id/progressFollowUps"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        app:indicatorSize="100dp"
+                        app:trackThickness="8dp"
+                        app:indicatorColor="#4CAF50"
+                        app:trackColor="#E0E0E0"
+                        app:trackCornerRadius="4dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:clickable="false"
+                        android:focusable="false" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:clickable="false"
+                        android:focusable="false">
+                        <TextView
+                            android:id="@+id/hot_list_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0"
+                            android:textSize="22sp"
+                            android:textStyle="bold"
+                            android:textColor="#2A2A2A"
+                            android:clickable="false"
+                            android:focusable="false" />
+                        <TextView
+                            android:id="@+id/tvFollowUpGoal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Goal: 0"
+                            android:textSize="10sp"
+                            android:textColor="#888888"
+                            android:clickable="false"
+                            android:focusable="false" />
+                    </LinearLayout>
+                </FrameLayout>
                 <TextView
-                    android:id="@+id/hot_list_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/initial_stat_zero"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:textColor="#F77062" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/stat_due_today"
+                    android:layout_marginTop="8dp"
+                    android:text="Follow-Ups Today"
                     android:textSize="11sp"
-                    android:textColor="#555555" />
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:clickable="false"
+                    android:focusable="false" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 
     <TextView
+        android:id="@+id/tvHotListHeader"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/hot_list_header_text"

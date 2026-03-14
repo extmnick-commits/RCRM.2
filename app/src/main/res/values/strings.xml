@@ -11,7 +11,7 @@
     <string name="stat_due_today">Due Today</string>
     <string name="hot_list_header_text">Today\'s Hot List</string>
 
-    <string name="dialog_title_quick_add">Log New Prospect</string>
+    <string name="dialog_title_quick_add">Log New Contact</string>
     <string name="hint_prospect_name">Prospect Name</string>
     <string name="hint_phone_number">Phone Number</string>
     <string name="hint_category">Category (Prospect, Client&#8230;)</string>
@@ -27,6 +27,7 @@
     <string name="category_recruit">Recruit</string>
     <string name="category_client">Client</string>
     <string name="hint_quick_note_example">Quick Note (e.g., Met at Walmart)</string>
+    <string name="btn_7pm_today">7 PM Today</string>
     <string name="btn_1_week">+1 Week</string>
     <string name="btn_2_weeks">+2 Weeks</string>
     <string name="btn_1_month">+1 Month</string>
@@ -60,6 +61,8 @@
     <string name="calendar_description_format">Phone: %1$s\nNotes: %2$s</string>
     <string name="btn_bulk_snooze">Snooze Selected (+1 Week)</string>
 
+    <string name="label_quick_intro_sms">Quick Intro SMS</string>
+    <string name="btn_use_default">Use Default</string>
     <string name="label_customize_intro">Customize Intro Text</string>
     <string name="btn_insert_name">+</string>
     <string name="btn_presets_dropdown">Presets ▾</string>
@@ -71,10 +74,33 @@
     <string name="menu_edit_preset">Edit Message</string>
     <string name="menu_delete_preset">Delete Preset</string>
 
+    <string name="btn_use_system_default">Use System Default</string>
+    <string name="btn_save_account_default">Save as Account Default</string>
+    <string name="btn_save_to_presets">Save to Presets List</string>
+    <string name="msg_account_default_updated">Account default updated</string>
+
     <string name="settings_title">Settings &amp; Tools</string>
     <string name="contact_maintenance">Contact Maintenance</string>
     <string name="btn_clean_duplicates">Clean Duplicates</string>
     <string name="btn_delete_contacts">Delete Contacts</string>
     <string name="btn_delete_selected">Delete Selected</string>
     <string name="btn_cancel">Cancel</string>
+
+    <string name="login_title">Login</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_login">Login</string>
+    <string name="signup_link">Don\'t have an account? Sign up</string>
+    <string name="error_email_required">Email is required</string>
+    <string name="error_password_required">Password is required</string>
+    <string name="auth_failed">Authentication failed: %1$s</string>
+    <string name="btn_sign_out">Sign Out</string>
+    <string name="menu_settings">Settings</string>
+    <string name="label_dark_mode">Dark Mode</string>
+
+    <string name="header_all_contacts">All Contacts</string>
+    <string name="subtitle_manage_network">Manage your network</string>
+    <string name="hint_search_contacts">Search contacts...</string>
+    <string name="empty_contacts">No contacts found</string>
+    <string name="btn_back">Back</string>
 </resources>

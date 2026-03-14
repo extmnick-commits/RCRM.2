@@ -12,7 +12,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Data Management"
+            android:text="Settings &amp; Presets"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#2A2A2A"
@@ -22,10 +22,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Maintenance"
-            android:textSize="12sp"
+            android:text="MAINTENANCE"
+            android:textSize="11sp"
             android:textStyle="bold"
-            android:textColor="#666666"
+            android:textColor="#555555"
             android:layout_marginBottom="8dp"/>
 
         <LinearLayout
@@ -43,6 +43,7 @@
                 android:textSize="11sp"
                 android:backgroundTint="#007BFF"
                 android:textColor="#FFFFFF"
+                android:textAllCaps="false"
                 android:layout_marginEnd="4dp"/>
 
             <Button
@@ -52,8 +53,9 @@
                 android:layout_weight="1"
                 android:text="Multi-Delete"
                 android:textSize="11sp"
-                android:backgroundTint="#DC3545"
+                android:backgroundTint="#F44336"
                 android:textColor="#FFFFFF"
+                android:textAllCaps="false"
                 android:layout_marginStart="4dp"/>
         </LinearLayout>
 
@@ -80,7 +82,6 @@
             android:hint="New message preset..."
             android:inputType="textMultiLine"
             android:textSize="14sp"
-            android:background="@drawable/bg_edittext_outline"
             android:padding="12dp"
             android:layout_marginBottom="8dp"/>
 
@@ -90,77 +91,57 @@
             android:layout_height="wrap_content"
             android:text="Insert [NAME] Tag"
             android:textSize="12sp"
-            android:backgroundTint="#6c757d"
+            android:backgroundTint="#6C757D"
             android:textColor="#FFFFFF"
+            android:textAllCaps="false"
             android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btnDefaultFollowUp"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_use_system_default"
+                android:textSize="11sp"
+                android:backgroundTint="#E0F0FF"
+                android:textColor="#007BFF"
+                android:textAllCaps="false"
+                android:layout_marginEnd="4dp"/>
+
+            <Button
+                android:id="@+id/btnSetAccountDefault"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_save_account_default"
+                android:textSize="11sp"
+                android:backgroundTint="#28A745"
+                android:textColor="#FFFFFF"
+                android:textAllCaps="false"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnAddPreset"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Save New Preset"
-            android:backgroundTint="#6c757d"
+            android:text="@string/btn_save_to_presets"
+            android:backgroundTint="#6C757D"
             android:textColor="#FFFFFF"
+            android:textAllCaps="false"
             android:layout_marginBottom="16dp"/>
 
         <ListView
             android:id="@+id/listViewPresets"
             android:layout_width="match_parent"
             android:layout_height="200dp"
-            android:divider="#EEEEEE"
-            android:dividerHeight="1dp"
-            android:layout_marginBottom="24dp"/>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#DDDDDD"
             android:layout_marginBottom="16dp"/>
-
-        <!-- Backup/Restore Section (At the bottom) -->
-        <Button
-            android:id="@+id/btnToggleCloudOptions"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Cloud Sync &amp; Backup Options"
-            android:backgroundTint="#6c757d"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="8dp"/>
-
-        <LinearLayout
-            android:id="@+id/layoutCloudOptions"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <Button
-                android:id="@+id/btnExportBackup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Sync &amp; Export Backup File"
-                android:backgroundTint="#28A745"
-                android:textColor="#FFFFFF"
-                android:layout_marginBottom="8dp"/>
-
-            <Button
-                android:id="@+id/btnImportBackup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Restore from Backup File"
-                android:backgroundTint="#17A2B8"
-                android:textColor="#FFFFFF"
-                android:layout_marginBottom="8dp"/>
-
-            <Button
-                android:id="@+id/btnOverrideCloud"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Override Cloud with Local"
-                android:backgroundTint="#DC3545"
-                android:textColor="#FFFFFF"
-                android:layout_marginBottom="8dp"/>
-        </LinearLayout>
 
     </LinearLayout>
 </ScrollView>
