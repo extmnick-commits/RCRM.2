@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="@color/backgroundColor">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -15,8 +16,45 @@
             android:text="Settings &amp; Presets"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#2A2A2A"
+            android:textColor="@color/textColorPrimary"
             android:layout_marginBottom="16dp"/>
+
+        <!-- Side-Kick Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="?attr/colorSurface"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/side_kick_title"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/colorPrimary"/>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchSideKick"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true" />
+            </RelativeLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/side_kick_description"
+                android:textSize="12sp"
+                android:textColor="@color/textColorSecondary"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
 
         <!-- Maintenance Section -->
         <TextView
@@ -25,7 +63,7 @@
             android:text="MAINTENANCE"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:textColor="#555555"
+            android:textColor="@color/textColorSecondary"
             android:layout_marginBottom="8dp"/>
 
         <LinearLayout
@@ -41,8 +79,8 @@
                 android:layout_weight="1"
                 android:text="Clean &amp; Merge"
                 android:textSize="11sp"
-                android:backgroundTint="#007BFF"
-                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/colorPrimary"
+                android:textColor="@color/white"
                 android:textAllCaps="false"
                 android:layout_marginEnd="4dp"/>
 
@@ -53,8 +91,8 @@
                 android:layout_weight="1"
                 android:text="Multi-Delete"
                 android:textSize="11sp"
-                android:backgroundTint="#F44336"
-                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/colorDanger"
+                android:textColor="@color/white"
                 android:textAllCaps="false"
                 android:layout_marginStart="4dp"/>
         </LinearLayout>
@@ -62,7 +100,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DDDDDD"
+            android:background="@color/dividerColor"
             android:layout_marginBottom="24dp"/>
 
         <!-- Presets Section -->
@@ -72,7 +110,7 @@
             android:text="Manage SMS Presets"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="#2A2A2A"
+            android:textColor="@color/textColorPrimary"
             android:layout_marginBottom="12dp"/>
 
         <EditText
@@ -91,8 +129,8 @@
             android:layout_height="wrap_content"
             android:text="Insert [NAME] Tag"
             android:textSize="12sp"
-            android:backgroundTint="#6C757D"
-            android:textColor="#FFFFFF"
+            android:backgroundTint="@color/colorSecondary"
+            android:textColor="@color/white"
             android:textAllCaps="false"
             android:layout_marginBottom="8dp"/>
 
@@ -109,8 +147,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/btn_use_system_default"
                 android:textSize="11sp"
-                android:backgroundTint="#E0F0FF"
-                android:textColor="#007BFF"
+                android:backgroundTint="?attr/colorSurface"
+                android:textColor="@color/colorPrimary"
                 android:textAllCaps="false"
                 android:layout_marginEnd="4dp"/>
 
@@ -121,8 +159,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/btn_save_account_default"
                 android:textSize="11sp"
-                android:backgroundTint="#28A745"
-                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/colorSuccess"
+                android:textColor="@color/white"
                 android:textAllCaps="false"
                 android:layout_marginStart="4dp"/>
         </LinearLayout>
@@ -132,8 +170,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/btn_save_to_presets"
-            android:backgroundTint="#6C757D"
-            android:textColor="#FFFFFF"
+            android:backgroundTint="@color/colorSecondary"
+            android:textColor="@color/white"
             android:textAllCaps="false"
             android:layout_marginBottom="16dp"/>
 

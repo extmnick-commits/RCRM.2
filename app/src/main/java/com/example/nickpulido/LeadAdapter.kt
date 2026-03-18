@@ -3,6 +3,7 @@ package com.nickpulido.rcrm
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -37,13 +38,20 @@ class LeadAdapter(
         if (category.isNotEmpty()) {
             tvCategoryLabel.text = category
             tvCategoryLabel.visibility = View.VISIBLE
-            when {
+            
+            val bgColor = when {
                 category.contains(context.getString(R.string.category_recruit), ignoreCase = true) -> 
-                    tvCategoryLabel.setBackgroundColor("#4CAF50".toColorInt())
+                    "#4CAF50".toColorInt()
                 category.contains(context.getString(R.string.category_client), ignoreCase = true) -> 
-                    tvCategoryLabel.setBackgroundColor("#9C27B0".toColorInt())
-                else -> tvCategoryLabel.setBackgroundColor("#007BFF".toColorInt())
+                    "#9C27B0".toColorInt()
+                else -> "#007BFF".toColorInt()
             }
+            
+            val background = GradientDrawable()
+            background.setColor(bgColor)
+            background.cornerRadius = 16f
+            tvCategoryLabel.background = background
+            tvCategoryLabel.setTextColor(Color.WHITE)
         } else {
             tvCategoryLabel.visibility = View.GONE
         }

@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F8F9FA">
+    android:background="@color/backgroundColor">
 
     <!-- Header Section -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="20dp"
-        android:background="#FFFFFF"
+        android:background="?attr/colorSurface"
         android:elevation="4dp">
 
         <TextView
@@ -21,7 +21,7 @@
             android:text="All Contacts"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="#212529" />
+            android:textColor="@color/textColorPrimary" />
 
         <TextView
             android:id="@+id/tvContactsSubtitle"
@@ -30,7 +30,7 @@
             android:layout_below="@id/tvContactsHeader"
             android:text="Manage your network"
             android:textSize="14sp"
-            android:textColor="#6C757D" />
+            android:textColor="@color/colorSecondary" />
 
         <ImageButton
             android:id="@+id/btnBack"
@@ -40,7 +40,7 @@
             android:layout_centerVertical="true"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_revert"
-            app:tint="#212529" />
+            app:tint="@color/textColorPrimary" />
     </RelativeLayout>
 
     <!-- Search & Filter Bar -->
@@ -77,7 +77,7 @@
             android:layout_marginStart="8dp"
             android:src="@android:drawable/ic_menu_sort_by_size"
             android:background="?attr/selectableItemBackground"
-            app:tint="#495057" />
+            app:tint="@color/textColorPrimary" />
     </LinearLayout>
 
     <!-- Contact List -->
@@ -90,7 +90,7 @@
             android:id="@+id/listViewContacts"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="#E9ECEF"
+            android:divider="@color/dividerColor"
             android:dividerHeight="1dp"
             android:clipToPadding="false"
             android:paddingBottom="80dp" />
@@ -101,7 +101,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="No contacts found"
-            android:textColor="#ADB5BD"
+            android:textColor="@color/colorSecondary"
             android:textSize="16sp"
             android:visibility="gone" />
 
@@ -112,8 +112,8 @@
             android:layout_gravity="bottom|end"
             android:layout_margin="24dp"
             android:src="@android:drawable/ic_input_add"
-            app:backgroundTint="#007BFF"
-            app:tint="#FFFFFF" />
+            app:backgroundTint="@color/colorPrimary"
+            app:tint="@color/white" />
     </FrameLayout>
 
 </LinearLayout>

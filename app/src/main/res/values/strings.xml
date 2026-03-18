@@ -1,7 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">RCRM</string>
     <string name="search_hint">🔍 Search names, keywords, or notes&#8230;</string>
-    <string name="app_name_dashboard">RCRM Prospector</string>
+    <string name="app_name_dashboard">RCRM</string>
     <string name="dashboard_subtitle">Smart Log Dashboard</string>
     <string name="btn_quick_add">+ Quick Add</string>
     <string name="btn_follow_ups">Follow Ups</string>
@@ -24,10 +25,20 @@
 
     <string name="log_call_header">Log Call: %1$s (%2$s)</string>
     <string name="btn_skip_personal">Skip - Personal Call</string>
+    <string name="btn_ignore_call_log">Ignore call log</string>
     <string name="category_recruit">Recruit</string>
     <string name="category_client">Client</string>
     <string name="hint_quick_note_example">Quick Note (e.g., Met at Walmart)</string>
     <string name="btn_7pm_today">7 PM Today</string>
+    <string name="btn_7pm_tomorrow">7 PM Tomorrow</string>
+    <string name="btn_preset_today_format">%1$s Today</string>
+    <string name="btn_preset_tomorrow_format">%1$s Tomorrow</string>
+    <string name="msg_preset_updated">Preset time updated</string>
+    <string name="label_category">Category</string>
+    <string name="label_schedule_followup">Schedule Follow-Up</string>
+    <string name="label_log_call">Log Call</string>
+    <string name="hint_contact_name">Contact Name</string>
+
     <string name="btn_1_week">+1 Week</string>
     <string name="btn_2_weeks">+2 Weeks</string>
     <string name="btn_1_month">+1 Month</string>
@@ -57,7 +68,6 @@
     <string name="lead_details_due_format">%1$s | Due: %2$s</string>
     <string name="dated_note_format">%1$s\n%2$s</string>
     <string name="calendar_call_title">Call %1$s</string>
-    <string name="label_schedule_followup">Schedule Follow-Up</string>
     <string name="calendar_description_format">Phone: %1$s\nNotes: %2$s</string>
     <string name="btn_bulk_snooze">Snooze Selected (+1 Week)</string>
 
@@ -97,10 +107,32 @@
     <string name="btn_sign_out">Sign Out</string>
     <string name="menu_settings">Settings</string>
     <string name="label_dark_mode">Dark Mode</string>
+    <string name="label_follow_system_theme">Follow System Theme</string>
+    <string name="label_appearance">Appearance</string>
+    <string name="label_ignored_contacts">Ignored Call Log Contacts</string>
+    <string name="msg_no_ignored_contacts">No ignored contacts</string>
 
     <string name="header_all_contacts">All Contacts</string>
     <string name="subtitle_manage_network">Manage your network</string>
     <string name="hint_search_contacts">Search contacts...</string>
     <string name="empty_contacts">No contacts found</string>
     <string name="btn_back">Back</string>
+
+    <!-- Side-Kick Feature -->
+    <string name="side_kick_title">Side-Kick AI</string>
+    <string name="side_kick_description">Automatically analyzes follow-up frequency and note activity to suggest who to contact next.</string>
+    <string name="side_kick_notification_title">Side-Kick</string>
+    <string name="side_kick_notification_message">You haven\'t checked in with %1$s lately. You used to add %2$d notes a week for them!</string>
+
+    <string name="category_investment">Investment</string>
+    <string name="category_life_insurance">Life Insurance</string>
+
+    <string name="label_next_reminder">Next Follow-up Reminder</string>
+    <string name="reminder_none">No active reminder set</string>
+    <string name="desc_edit_reminder">Edit Reminder</string>
+    <string name="desc_delete_reminder">Delete Reminder</string>
+    <string name="dialog_delete_reminder_title">Delete Reminder?</string>
+    <string name="dialog_delete_reminder_msg">Are you sure you want to remove the follow-up reminder?</string>
+    <string name="msg_reminder_removed">Reminder removed</string>
+    <string name="btn_change_reminder">Change Reminder</string>
 </resources>

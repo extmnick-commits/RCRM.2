@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <color name="colorPrimary">#3F91FF</color> <!-- A slightly brighter blue for dark theme -->
+    <color name="colorSecondary">#8A939B</color>
+    <color name="colorSuccess">#48D66A</color>
+    <color name="colorInfo">#38D8F0</color>
+    <color name="colorDanger">#FF5B69</color>
+    <color name="textColorPrimary">#FFFFFF</color>
+    <color name="textColorSecondary">#CCCCCC</color>
+    <color name="dividerColor">#444444</color>
+    <color name="backgroundColor">#121212</color>
+
+    <color name="category_recruit_bg">#388E3C</color> <!-- Darker Green -->
+    <color name="category_client_bg">#7B1FA2</color> <!-- Darker Purple -->
+    <color name="category_default_bg">#0277BD</color> <!-- Darker Blue -->
+</resources>

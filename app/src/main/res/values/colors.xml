@@ -2,13 +2,18 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="primary">#007BFF</color>
-    <color name="secondary">#6c757d</color>
-    <color name="success">#28A745</color>
-    <color name="info">#17A2B8</color>
-    <color name="danger">#DC3545</color>
-    <color name="text_main">#2A2A2A</color>
-    <color name="text_secondary">#666666</color>
-    <color name="divider">#DDDDDD</color>
-    <color name="bg_light">#F8F9FA</color>
+
+    <color name="colorPrimary">#007BFF</color>
+    <color name="colorSecondary">#6c757d</color>
+    <color name="colorSuccess">#28A745</color>
+    <color name="colorInfo">#17A2B8</color>
+    <color name="colorDanger">#DC3545</color>
+    <color name="textColorPrimary">#2A2A2A</color>
+    <color name="textColorSecondary">#666666</color>
+    <color name="dividerColor">#DDDDDD</color>
+    <color name="backgroundColor">#F8F9FA</color>
+
+    <color name="category_recruit_bg">#4CAF50</color>
+    <color name="category_client_bg">#9C27B0</color>
+    <color name="category_default_bg">#007BFF</color>
 </resources>

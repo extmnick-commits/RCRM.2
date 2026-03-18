@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/backgroundColor">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -25,8 +26,8 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Log Call"
-                    android:textColor="#2A2A2A"
+                    android:text="@string/label_log_call"
+                    android:textColor="@color/textColorPrimary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:alpha="0.6" />
@@ -35,11 +36,11 @@
                     android:id="@+id/etContactName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Contact Name"
+                    android:hint="@string/hint_contact_name"
                     android:inputType="textPersonName"
                     android:textSize="20sp"
                     android:textStyle="bold"
-                    android:textColor="#2A2A2A"
+                    android:textColor="@color/textColorPrimary"
                     android:background="@android:color/transparent"
                     android:paddingVertical="4dp"
                     android:importantForAutofill="no" />
@@ -48,37 +49,58 @@
                     android:id="@+id/tvLogPhoneNumber"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#555555"
+                    android:textColor="@color/textColorSecondary"
                     android:textSize="14sp"
                     tools:text="(555) 555-5555" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSkipPersonal"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:minWidth="0dp"
-                    android:minHeight="0dp"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:text="@string/btn_skip_personal"
-                    android:textColor="#D32F2F"
-                    android:textSize="11sp"
-                    android:textAllCaps="false"
-                    app:backgroundTint="#0DFF4444"
-                    app:cornerRadius="12dp"
-                    app:rippleColor="#1AD32F2F"
-                    tools:ignore="TouchTargetSizeCheck" />
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSkipPersonal"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="@string/btn_skip_personal"
+                        android:textColor="@color/colorDanger"
+                        android:textSize="11sp"
+                        android:textAllCaps="false"
+                        app:cornerRadius="12dp"
+                        tools:ignore="TouchTargetSizeCheck" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnIgnoreCallLog"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="@string/btn_ignore_call_log"
+                        android:textColor="@color/textColorSecondary"
+                        android:textSize="11sp"
+                        android:textAllCaps="false"
+                        app:cornerRadius="12dp"
+                        tools:ignore="TouchTargetSizeCheck" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="Category"
+                android:text="@string/label_category"
                 android:textStyle="bold"
-                android:textColor="#555555"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="12sp"/>
 
             <LinearLayout
@@ -88,6 +110,17 @@
                 <CheckBox android:id="@+id/cbRecruit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
                 <CheckBox android:id="@+id/cbProspect" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
                 <CheckBox android:id="@+id/cbClient" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/clientSubCategoryLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                android:layout_marginStart="16dp">
+                <CheckBox android:id="@+id/cbInvestment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" />
+                <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
             </LinearLayout>
 
             <EditText
@@ -104,9 +137,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="Schedule Follow-up"
+                android:text="@string/label_schedule_followup"
                 android:textStyle="bold"
-                android:textColor="#555555"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="12sp"/>
 
             <LinearLayout
@@ -119,21 +152,38 @@
                 <Button android:id="@+id/btnPlus1Month" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_1_month" style="?android:attr/buttonStyleSmall"/>
             </LinearLayout>
 
-            <Button
-                android:id="@+id/btn7pmToday"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/btn_7pm_today"
-                android:backgroundTint="#F0F2F5"
-                android:textColor="#2A2A2A"
-                android:textAllCaps="false"
-                style="?android:attr/buttonStyleSmall"/>
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+                <Button
+                    android:id="@+id/btn7pmToday"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_7pm_today"
+                    android:backgroundTint="?attr/colorSurface"
+                    android:textColor="@color/textColorPrimary"
+                    android:textAllCaps="false"
+                    style="?android:attr/buttonStyleSmall"/>
+                <Button
+                    android:id="@+id/btn7pmTomorrow"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="@string/btn_7pm_tomorrow"
+                    android:backgroundTint="?attr/colorSurface"
+                    android:textColor="@color/textColorPrimary"
+                    android:textAllCaps="false"
+                    style="?android:attr/buttonStyleSmall"/>
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#DDDDDD"
+                android:background="@color/dividerColor"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="16dp"/>
 
@@ -148,7 +198,7 @@
                     android:layout_alignParentStart="true"
                     android:layout_centerVertical="true"
                     android:text="@string/label_quick_intro_sms"
-                    android:textColor="#555555"
+                    android:textColor="@color/textColorSecondary"
                     android:textSize="12sp"
                     android:textStyle="bold" />
 
@@ -160,7 +210,7 @@
                     android:layout_toStartOf="@id/btnManagePresets"
                     android:layout_centerVertical="true"
                     android:text="@string/btn_use_default"
-                    android:textColor="#007BFF"
+                    android:textColor="@color/colorPrimary"
                     android:textSize="12sp"
                     android:textAllCaps="false"
                     android:minWidth="0dp"
@@ -176,7 +226,7 @@
                     android:minWidth="0dp"
                     android:minHeight="0dp"
                     android:text="@string/btn_presets_dropdown"
-                    android:textColor="#007BFF"
+                    android:textColor="@color/colorPrimary"
                     android:textSize="12sp" />
             </RelativeLayout>
 
@@ -186,7 +236,7 @@
                 android:layout_marginTop="4dp"
                 app:cardCornerRadius="8dp"
                 app:cardElevation="0dp"
-                app:strokeColor="#DDDDDD"
+                app:strokeColor="@color/dividerColor"
                 app:strokeWidth="1dp">
 
                 <EditText
@@ -213,9 +263,9 @@
                     android:id="@+id/btnSaveLeadAction"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:backgroundTint="#007BFF"
+                    android:backgroundTint="@color/colorPrimary"
                     android:text="@string/btn_save_lead"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/white"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -224,9 +274,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
                     android:layout_marginTop="8dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="?attr/colorSurface"
                     android:text="@string/btn_send_intro"
-                    android:textColor="#007BFF"
+                    android:textColor="@color/colorPrimary"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>

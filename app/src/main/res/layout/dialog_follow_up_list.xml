@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="#FFFFFF">
+    android:background="@color/backgroundColor">
 
     <TextView
         android:id="@+id/tvPopupHeader"
@@ -13,7 +13,7 @@
         android:text="Today's Follow Ups"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:textColor="#2A2A2A"
+        android:textColor="@color/textColorPrimary"
         android:layout_marginBottom="16dp"/>
 
     <ListView
@@ -30,5 +30,5 @@
         android:text="Close"
         android:layout_marginTop="16dp"
         style="?android:attr/borderlessButtonStyle"
-        android:textColor="#007BFF"/>
+        android:textColor="@color/colorPrimary"/>
 </LinearLayout>

@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="@color/backgroundColor">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,17 +19,32 @@
             android:hint="@string/hint_prospect_name"
             android:textStyle="bold"
             android:textSize="20sp"
-            android:textColor="#2A2A2A"
+            android:textColor="@color/textColorPrimary"
             android:autofillHints="name"
             android:inputType="textPersonName" />
 
-        <EditText
-            android:id="@+id/editDetailPhone"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_phone_number"
-            android:autofillHints="phone"
-            android:inputType="phone" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <EditText
+                android:id="@+id/editDetailPhone"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/hint_phone_number"
+                android:autofillHints="phone"
+                android:inputType="phone" />
+            <ImageButton
+                android:id="@+id/btnCallDetail"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_call"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/call_icon_description"
+                app:tint="@color/colorSuccess" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
@@ -36,7 +52,7 @@
             android:layout_marginTop="12dp"
             android:text="Category"
             android:textStyle="bold"
-            android:textColor="#555555"
+            android:textColor="@color/textColorSecondary"
             android:textSize="12sp"/>
 
         <LinearLayout
@@ -46,6 +62,17 @@
             <CheckBox android:id="@+id/cbRecruitDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
             <CheckBox android:id="@+id/cbProspectDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
             <CheckBox android:id="@+id/cbClientDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/clientSubCategoryLayoutDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:paddingStart="16dp">
+            <CheckBox android:id="@+id/cbInvestmentDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" />
+            <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
         </LinearLayout>
 
         <LinearLayout
@@ -59,7 +86,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Internal Notes"
-                android:textColor="#555555"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -70,8 +97,8 @@
                 android:layout_height="32dp"
                 android:text="@string/btn_add_dated_note"
                 android:textSize="12sp"
-                android:backgroundTint="#E0F0FF"
-                android:textColor="#007BFF" />
+                android:backgroundTint="?attr/colorSurface"
+                android:textColor="@color/colorPrimary" />
         </LinearLayout>
 
         <!-- Container for notes list -->
@@ -81,28 +108,96 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="8dp" />
+
+        <!-- Active Reminder Section -->
+        <TextView
+            android:id="@+id/tvReminderLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Next Follow-up Reminder"
+            android:textStyle="bold"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="12sp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardActiveReminder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/dividerColor"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_lock_idle_alarm"
+                    app:tint="@color/colorPrimary" />
+
+                <TextView
+                    android:id="@+id/tvReminderValue"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:text="No reminder set"
+                    android:textColor="@color/textColorPrimary"
+                    android:textSize="14sp" />
+
+                <ImageButton
+                    android:id="@+id/btnEditReminderIcon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:src="@android:drawable/ic_menu_edit"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="@color/textColorSecondary"
+                    android:visibility="gone"
+                    android:contentDescription="Edit Reminder" />
+
+                <ImageButton
+                    android:id="@+id/btnDeleteReminderIcon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:src="@android:drawable/ic_menu_delete"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    app:tint="@color/colorDanger"
+                    android:visibility="gone"
+                    android:contentDescription="Delete Reminder" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <Button
             android:id="@+id/btnSetReminder"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="@string/btn_set_reminder"
-            android:backgroundTint="#F0F2F5"
-            android:textColor="#2A2A2A" />
+            android:backgroundTint="?attr/colorSurface"
+            android:textColor="@color/textColorPrimary" />
 
         <Button
             android:id="@+id/btnAddCalendar"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="@string/btn_add_calendar"
-            android:backgroundTint="#F0F2F5"
-            android:textColor="#2A2A2A" />
+            android:backgroundTint="?attr/colorSurface"
+            android:textColor="@color/textColorPrimary" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DDDDDD"
+            android:background="@color/dividerColor"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="16dp"/>
 
@@ -117,7 +212,7 @@
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true"
                 android:text="@string/label_quick_intro_sms"
-                android:textColor="#555555"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -129,7 +224,7 @@
                 android:layout_toStartOf="@id/btnManagePresets"
                 android:layout_centerVertical="true"
                 android:text="@string/btn_use_default"
-                android:textColor="#007BFF"
+                android:textColor="@color/colorPrimary"
                 android:textSize="12sp"
                 android:textAllCaps="false"
                 android:minWidth="0dp"
@@ -145,7 +240,7 @@
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:text="@string/btn_presets_dropdown"
-                android:textColor="#007BFF"
+                android:textColor="@color/colorPrimary"
                 android:textSize="12sp" />
         </RelativeLayout>
 
@@ -155,7 +250,7 @@
             android:layout_marginTop="4dp"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:strokeColor="#DDDDDD"
+            app:strokeColor="@color/dividerColor"
             app:strokeWidth="1dp">
 
             <EditText
@@ -176,9 +271,9 @@
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="#FFFFFF"
+            android:backgroundTint="?attr/colorSurface"
             android:text="@string/btn_send_intro"
-            android:textColor="#007BFF"
+            android:textColor="@color/colorPrimary"
             android:textStyle="bold" />
 
         <Button
@@ -187,8 +282,8 @@
             android:layout_height="48dp"
             android:layout_marginTop="16dp"
             android:text="Save &amp; Mark Followed Up"
-            android:backgroundTint="#007BFF"
-            android:textColor="#FFFFFF" />
+            android:backgroundTint="@color/colorPrimary"
+            android:textColor="@color/white" />
 
     </LinearLayout>
 </ScrollView>

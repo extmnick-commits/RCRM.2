@@ -1,15 +1,22 @@
 package com.nickpulido.rcrm
 
+import android.app.AlarmManager
 import android.app.DatePickerDialog
+import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.CalendarContract
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,18 +24,23 @@ import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.work.*
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
-import org.json.JSONArray
-import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 class FollowUpActivity : AppCompatActivity() {
 
@@ -52,25 +64,46 @@ class FollowUpActivity : AppCompatActivity() {
     private lateinit var progressFollowUps: com.google.android.material.progressindicator.CircularProgressIndicator
     private lateinit var tvFollowUpCountDisplay: TextView
     private lateinit var tvFollowUpGoalDisplay: TextView
+    
+    private lateinit var statsPrefs: SharedPreferences
+    private lateinit var settingsPrefs: SharedPreferences
     private var statsListener: ListenerRegistration? = null
     
     private var currentFollowUpCount = 0
     private var currentFollowUpGoal = 5
 
+    private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { writeBackupToFile(it) }
+    }
+
+    private val restoreLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { readBackupFromFile(it) }
+    }
+
     private companion object {
-        const val PREFS_NAME = "IntroPresets"
+        const val PREFS_INTRO = "IntroPresets"
+        const val PREFS_SETTINGS = "settings"
+        const val KEY_SIDE_KICK = "side_kick_enabled"
         const val PREFS_KEY = "saved_presets_list"
+        const val PREFS_IGNORED = "ignored_contacts_list"
         const val NAME_TOKEN = "[NAME]"
+        const val TAG = "FollowUpActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        settingsPrefs = getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE)
+        applyAppTheme()
+
         setContentView(R.layout.activity_follow_up)
 
         if (auth.currentUser == null) {
             finish()
             return
         }
+
+        statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
 
         progressFollowUps = findViewById(R.id.progressFollowUps)
         tvFollowUpCountDisplay = findViewById(R.id.tvFollowUpCountDisplay)
@@ -103,7 +136,7 @@ class FollowUpActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.btnFilterCategory).setOnClickListener { showFilterPopupMenu(it) }
         findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsDialog() }
-        
+
         findViewById<View>(R.id.cardFollowUpProgress).setOnClickListener {
             showGoalDialog("followup_goal", "Daily Follow-up Goal", currentFollowUpGoal)
         }
@@ -125,19 +158,88 @@ class FollowUpActivity : AppCompatActivity() {
             exitSelectionMode()
         }
 
+        loadLocalStats()
         loadLeadsFromCloud()
         loadAccountSettings()
         startStatsListener()
     }
 
+    private fun applyAppTheme() {
+        val followSystem = settingsPrefs.getBoolean("follow_system_theme", true)
+        val isDarkMode = settingsPrefs.getBoolean("dark_mode", false)
+
+        if (followSystem) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        } else {
+            if (isDarkMode) {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            } else {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            }
+        }
+    }
+
+    private fun loadLocalStats() {
+        val dateStr = dateKeyFormat.format(Date())
+        currentFollowUpGoal = statsPrefs.getInt("${dateStr}_followup_goal", defaultFollowUpGoal)
+        currentFollowUpCount = statsPrefs.getInt("${dateStr}_followup_count", 0)
+        refreshProgressUI()
+    }
+
+    private fun saveLocalStat(key: String, value: Int) {
+        val dateStr = dateKeyFormat.format(Date())
+        statsPrefs.edit { putInt("${dateStr}_$key", value) }
+    }
+
     private fun loadAccountSettings() {
         val userId = auth.currentUser?.uid ?: return
+        
+        val prefsForPresets = getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE)
+        val lastUser = prefsForPresets.getString("last_logged_in_user", userId)
+        if (lastUser != userId) {
+            prefsForPresets.edit { 
+                remove(PREFS_KEY) 
+                remove("local_account_default_sms")
+                putString("last_logged_in_user", userId)
+            }
+            settingsPrefs.edit { remove(PREFS_IGNORED) }
+        } else if (!prefsForPresets.contains("last_logged_in_user")) {
+            prefsForPresets.edit { putString("last_logged_in_user", userId) }
+        }
+
+        accountDefaultSms = prefsForPresets.getString("local_account_default_sms", null)
+
         db.collection("user_settings").document(userId).addSnapshotListener { snapshot, e ->
             if (e != null) return@addSnapshotListener
             if (snapshot != null && snapshot.exists()) {
                 accountDefaultSms = snapshot.getString("default_intro_sms")
+                
+                getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE).edit {
+                    putString("local_account_default_sms", accountDefaultSms)
+                }
+                
                 defaultGoal = snapshot.getLong("total_goal")?.toInt() ?: 10
                 defaultFollowUpGoal = snapshot.getLong("followup_goal")?.toInt() ?: 5
+                
+                @Suppress("UNCHECKED_CAST")
+                val cloudPresets = snapshot.get("sms_presets") as? List<String>
+                if (cloudPresets != null) {
+                    getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE).edit { 
+                        putStringSet(PREFS_KEY, cloudPresets.toSet()) 
+                    }
+                }
+                
+                @Suppress("UNCHECKED_CAST")
+                val cloudIgnored = snapshot.get("ignored_numbers") as? List<String>
+                if (cloudIgnored != null) {
+                    settingsPrefs.edit { putStringSet(PREFS_IGNORED, cloudIgnored.toSet()) }
+                }
+
+                val dateStr = dateKeyFormat.format(Date())
+                if (!statsPrefs.contains("${dateStr}_followup_goal")) {
+                    currentFollowUpGoal = defaultFollowUpGoal
+                    refreshProgressUI()
+                }
             }
         }
     }
@@ -149,11 +251,14 @@ class FollowUpActivity : AppCompatActivity() {
         statsListener = db.collection("user_settings").document(userId)
             .collection("daily_stats").document(dateStr).addSnapshotListener { doc, _ ->
                 if (doc != null && doc.exists()) {
-                    currentFollowUpGoal = doc.getLong("followup_goal")?.toInt() ?: defaultFollowUpGoal
-                    currentFollowUpCount = doc.getLong("followup_count")?.toInt() ?: 0
-                } else {
-                    currentFollowUpGoal = defaultFollowUpGoal
-                    currentFollowUpCount = 0
+                    val fsFollowUpGoal = doc.getLong("followup_goal")?.toInt() ?: defaultFollowUpGoal
+                    val fsFollowUpCount = doc.getLong("followup_count")?.toInt() ?: 0
+
+                    currentFollowUpGoal = maxOf(currentFollowUpGoal, fsFollowUpGoal)
+                    currentFollowUpCount = maxOf(currentFollowUpCount, fsFollowUpCount)
+                    
+                    saveLocalStat("followup_goal", currentFollowUpGoal)
+                    saveLocalStat("followup_count", currentFollowUpCount)
                 }
                 refreshProgressUI()
             }
@@ -177,6 +282,9 @@ class FollowUpActivity : AppCompatActivity() {
             .setView(input)
             .setPositiveButton("Set") { _, _ ->
                 val goal = input.text.toString().toIntOrNull() ?: currentVal
+                currentFollowUpGoal = goal
+                saveLocalStat("followup_goal", goal)
+                refreshProgressUI()
                 saveDailyGoalToFirestore(prefKey, goal)
             }
             .setNegativeButton("Cancel", null)
@@ -191,18 +299,20 @@ class FollowUpActivity : AppCompatActivity() {
             .set(hashMapOf(key to value), SetOptions.merge())
     }
 
-    private fun incrementDailyStat(field: String) {
+    private fun incrementDailyStatLocal(field: String) {
+        if (field == "followup_count") {
+            currentFollowUpCount++
+            saveLocalStat("followup_count", currentFollowUpCount)
+            refreshProgressUI()
+        }
+    }
+
+    private fun incrementDailyStatFirestore(field: String) {
         val userId = auth.currentUser?.uid ?: return
         val dateStr = dateKeyFormat.format(Date())
         db.collection("user_settings").document(userId)
             .collection("daily_stats").document(dateStr)
-            .update(field, FieldValue.increment(1))
-            .addOnFailureListener {
-                val data = hashMapOf(field to 1, "total_goal" to defaultGoal, "followup_goal" to defaultFollowUpGoal)
-                db.collection("user_settings").document(userId)
-                    .collection("daily_stats").document(dateStr)
-                    .set(data, SetOptions.merge())
-            }
+            .set(hashMapOf(field to FieldValue.increment(1)), SetOptions.merge())
     }
 
     private fun enterSelectionMode() {
@@ -271,19 +381,95 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun showSettingsDialog() {
-        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_manage_presets, null)
-        val dialog = AlertDialog.Builder(this).setView(dialogView).create()
-
-        val etNewPreset = dialogView.findViewById<EditText>(R.id.etNewPreset)
-        val btnInsertName = dialogView.findViewById<Button>(R.id.btnInsertNameTagDialog)
-        val btnDefaultFollowUp = dialogView.findViewById<Button>(R.id.btnDefaultFollowUp)
-        val btnSetAccountDefault = dialogView.findViewById<Button>(R.id.btnSetAccountDefault)
-        val btnAddPreset = dialogView.findViewById<Button>(R.id.btnAddPreset)
-        val listView = dialogView.findViewById<ListView>(R.id.listViewPresets)
-        val btnCleanDuplicates = dialogView.findViewById<Button>(R.id.btnCleanDuplicates)
-        val btnBulkDeleteContacts = dialogView.findViewById<Button>(R.id.btnBulkDeleteContacts)
+        val view = layoutInflater.inflate(R.layout.dialog_settings, null)
         
-        val presets = getPresetsLocally().toMutableList()
+        val switchSideKick = view.findViewById<MaterialSwitch>(R.id.switchSideKick)
+        val switchFollowSystem = view.findViewById<MaterialSwitch>(R.id.switchFollowSystemTheme)
+        val switchDarkMode = view.findViewById<MaterialSwitch>(R.id.switchDarkMode)
+        
+        val etNewPreset = view.findViewById<EditText>(R.id.etNewPreset)
+        val btnInsertName = view.findViewById<Button>(R.id.btnInsertNameTagDialog)
+        val btnDefaultFollowUp = view.findViewById<Button>(R.id.btnDefaultFollowUp)
+        val btnSetAccountDefault = view.findViewById<Button>(R.id.btnSetAccountDefault)
+        val btnAddPreset = view.findViewById<Button>(R.id.btnAddPreset)
+        val listView = view.findViewById<ListView>(R.id.listViewPresets)
+        
+        val btnCleanDuplicates = view.findViewById<Button>(R.id.btnCleanDuplicates)
+        val btnBulkDeleteContacts = view.findViewById<Button>(R.id.btnBulkDeleteContacts)
+        val btnDeleteAllContacts = view.findViewById<Button>(R.id.btnDeleteAllContacts)
+        val btnExportContacts = view.findViewById<Button>(R.id.btnExportContacts)
+        val btnBackupData = view.findViewById<Button>(R.id.btnBackupData)
+        val btnRestoreData = view.findViewById<Button>(R.id.btnRestoreData)
+        val containerIgnoredContacts = view.findViewById<LinearLayout>(R.id.containerIgnoredContacts)
+        
+        switchFollowSystem.isChecked = settingsPrefs.getBoolean("follow_system_theme", true)
+        switchDarkMode.isChecked = settingsPrefs.getBoolean("dark_mode", false)
+        switchDarkMode.isEnabled = !switchFollowSystem.isChecked
+        switchFollowSystem.setOnCheckedChangeListener { _, isChecked ->
+            switchDarkMode.isEnabled = !isChecked
+        }
+
+        switchSideKick.isChecked = settingsPrefs.getBoolean(KEY_SIDE_KICK, false)
+
+        // --- Ignored Contacts Logic ---
+        val ignoredContacts = (settingsPrefs.getStringSet(PREFS_IGNORED, emptySet()) ?: emptySet()).toMutableList()
+        
+        fun refreshIgnoredContacts() {
+            containerIgnoredContacts.removeAllViews()
+            if (ignoredContacts.isEmpty()) {
+                val tv = TextView(this).apply {
+                    text = getString(R.string.msg_no_ignored_contacts)
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(16, 16, 16, 16)
+                    setTextColor(Color.parseColor("#666666"))
+                }
+                containerIgnoredContacts.addView(tv)
+            } else {
+                for (number in ignoredContacts) {
+                    val row = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        setPadding(0, 16, 0, 16)
+                        gravity = android.view.Gravity.CENTER_VERTICAL
+                    }
+                    val tvNumber = TextView(this).apply {
+                        text = number
+                        textSize = 14f
+                        setTextColor(Color.parseColor("#2A2A2A"))
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    val btnRemove = ImageButton(this).apply {
+                        setImageResource(android.R.drawable.ic_menu_delete)
+                        setBackgroundColor(Color.TRANSPARENT)
+                        setColorFilter(Color.parseColor("#DC3545"))
+                        setOnClickListener {
+                            ignoredContacts.remove(number)
+                            settingsPrefs.edit { putStringSet(PREFS_IGNORED, ignoredContacts.toSet()) }
+                            val userId = auth.currentUser?.uid
+                            if (userId != null) {
+                                db.collection("user_settings").document(userId).set(mapOf("ignored_numbers" to ignoredContacts), SetOptions.merge())
+                            }
+                            refreshIgnoredContacts()
+                        }
+                    }
+                    row.addView(tvNumber)
+                    row.addView(btnRemove)
+                    
+                    val divider = View(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+                        setBackgroundColor(Color.parseColor("#DDDDDD"))
+                    }
+                    
+                    containerIgnoredContacts.addView(row)
+                    containerIgnoredContacts.addView(divider)
+                }
+            }
+        }
+        refreshIgnoredContacts()
+
+        // --- SMS Presets Logic ---
+        val prefsPresets = getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE)
+        val presets = (prefsPresets.getStringSet(PREFS_KEY, emptySet()) ?: emptySet()).toMutableList()
         val presetAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, presets)
         listView.adapter = presetAdapter
 
@@ -309,7 +495,8 @@ class FollowUpActivity : AppCompatActivity() {
             val text = etNewPreset.text.toString().trim()
             if (text.isNotEmpty()) {
                 presets.add(text)
-                saveAllPresetsLocally(presets)
+                prefsPresets.edit { putStringSet(PREFS_KEY, presets.toSet()) }
+                syncPresetsToCloud(presets)
                 presetAdapter.notifyDataSetChanged()
                 etNewPreset.text.clear()
                 Toast.makeText(this, "Preset Added", Toast.LENGTH_SHORT).show()
@@ -317,44 +504,338 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         listView.setOnItemLongClickListener { _, _, position, _ ->
-            val selectedPreset = presets[position]
             AlertDialog.Builder(this)
                 .setTitle("Preset Actions")
                 .setItems(arrayOf("Set as Account Default", getString(R.string.menu_delete_preset))) { _, which ->
                     if (which == 0) {
-                        saveAccountDefaultSms(selectedPreset)
+                        saveAccountDefaultSms(presets[position])
                     } else {
-                        AlertDialog.Builder(this)
-                            .setTitle("Delete Preset?")
-                            .setMessage("Are you sure you want to remove this message?")
-                            .setPositiveButton("Delete") { _, _ ->
-                                presets.removeAt(position)
-                                saveAllPresetsLocally(presets)
-                                presetAdapter.notifyDataSetChanged()
-                            }
-                            .setNegativeButton("Cancel", null)
-                            .show()
+                        presets.removeAt(position)
+                        prefsPresets.edit { putStringSet(PREFS_KEY, presets.toSet()) }
+                        syncPresetsToCloud(presets)
+                        presetAdapter.notifyDataSetChanged()
                     }
                 }
                 .show()
             true
         }
 
-        btnCleanDuplicates.setOnClickListener {
-            dialog.dismiss()
-            findAndMergeDuplicates()
+        btnCleanDuplicates.setOnClickListener { findAndMergeDuplicates() }
+        btnBulkDeleteContacts.setOnClickListener { enterSelectionMode() }
+        
+        btnDeleteAllContacts.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Danger Zone")
+                .setMessage("Are you sure you want to delete ALL your contacts? This action is permanent and will sync to your account.")
+                .setPositiveButton("Delete Everything") { _, _ -> performMassDelete() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+        
+        btnExportContacts.setOnClickListener { exportContactsToCSV() }
+        
+        btnBackupData.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Backup Data")
+                .setMessage("Export all your contacts and settings to a JSON file?")
+                .setPositiveButton("Backup") { _, _ -> startBackup() }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
-        btnBulkDeleteContacts.setOnClickListener {
-            dialog.dismiss()
-            enterSelectionMode()
+        btnRestoreData.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Restore Data")
+                .setMessage("Restore contacts and settings from a JSON file? This will ADD to your current contacts.")
+                .setPositiveButton("Choose File") { _, _ -> restoreLauncher.launch(arrayOf("application/json", "*/*")) }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
-        dialog.show()
+        AlertDialog.Builder(this)
+            .setTitle("Settings")
+            .setView(view)
+            .setPositiveButton("Save") { _, _ ->
+                val sideKickEnabled = switchSideKick.isChecked
+                val followSystem = switchFollowSystem.isChecked
+                val darkMode = switchDarkMode.isChecked
+                
+                val oldFollowSystem = settingsPrefs.getBoolean("follow_system_theme", true)
+                val oldDarkMode = settingsPrefs.getBoolean("dark_mode", false)
+
+                settingsPrefs.edit { 
+                    putBoolean(KEY_SIDE_KICK, sideKickEnabled)
+                    putBoolean("follow_system_theme", followSystem)
+                    putBoolean("dark_mode", darkMode)
+                }
+                
+                if (sideKickEnabled) scheduleSideKickWorker() else WorkManager.getInstance(this).cancelUniqueWork("SideKickWorker")
+                
+                if (followSystem != oldFollowSystem || darkMode != oldDarkMode) {
+                    applyAppTheme()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun startBackup() {
+        backupLauncher.launch("RCRM_Backup_${System.currentTimeMillis()}.json")
+    }
+
+    private fun writeBackupToFile(uri: Uri) {
+        val userId = auth.currentUser?.uid ?: return
+        Toast.makeText(this, "Fetching data for backup...", Toast.LENGTH_SHORT).show()
+
+        db.collection("leads").whereEqualTo("ownerId", userId).get().addOnSuccessListener { snapshot ->
+            val leadsList = snapshot.documents.map { it.data ?: emptyMap<String, Any>() }
+            
+            db.collection("user_settings").document(userId).get().addOnCompleteListener { task ->
+                val settingsData = if (task.isSuccessful) {
+                    task.result?.data ?: emptyMap<String, Any>()
+                } else {
+                    emptyMap<String, Any>()
+                }
+                
+                val backupMap = mapOf(
+                    "leads" to leadsList,
+                    "settings" to settingsData
+                )
+                
+                try {
+                    val backupDataToSave = toJsonObject(backupMap).toString(4)
+                    contentResolver.openOutputStream(uri)?.use {
+                        it.write(backupDataToSave.toByteArray())
+                    }
+                    Toast.makeText(this, "Backup saved!", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Error generating backup: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.addOnFailureListener { e ->
+            Toast.makeText(this, "Failed to fetch leads: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun readBackupFromFile(uri: Uri) {
+        try {
+            val content = contentResolver.openInputStream(uri)?.bufferedReader().use { it?.readText() }
+            if (content != null) {
+                val json = org.json.JSONObject(content)
+                restoreData(json)
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to read backup file: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun restoreData(json: org.json.JSONObject) {
+        val userId = auth.currentUser?.uid ?: return
+        
+        try {
+            val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, Map<String, Any>>>()
+
+            if (json.has("leads")) {
+                val leadsArr = json.getJSONArray("leads")
+                for (i in 0 until leadsArr.length()) {
+                    val leadObj = leadsArr.getJSONObject(i)
+                    @Suppress("UNCHECKED_CAST")
+                    val map = unwrapJsonValue(leadObj) as? Map<String, Any> ?: continue
+                    val mutableMap = map.toMutableMap()
+                    mutableMap["ownerId"] = userId
+                    writes.add(Pair(db.collection("leads").document(), mutableMap))
+                }
+            }
+            
+            var settingsMap: Map<String, Any>? = null
+            if (json.has("settings")) {
+                val settingsObj = json.getJSONObject("settings")
+                @Suppress("UNCHECKED_CAST")
+                settingsMap = unwrapJsonValue(settingsObj) as? Map<String, Any>
+            }
+
+            val chunks = writes.chunked(490)
+            var completedChunks = 0
+            var hasError = false
+
+            fun finishRestore() {
+                if (settingsMap != null && settingsMap.isNotEmpty()) {
+                    db.collection("user_settings").document(userId)
+                        .set(settingsMap, SetOptions.merge())
+                        .addOnCompleteListener {
+                            Toast.makeText(this, "Restore successful!", Toast.LENGTH_SHORT).show()
+                            loadAccountSettings()
+                            loadLeadsFromCloud()
+                        }
+                } else {
+                    Toast.makeText(this, "Restore successful!", Toast.LENGTH_SHORT).show()
+                    loadAccountSettings()
+                    loadLeadsFromCloud()
+                }
+            }
+
+            if (chunks.isEmpty()) {
+                finishRestore()
+                return
+            }
+
+            for (chunk in chunks) {
+                val batch = db.batch()
+                for ((ref, data) in chunk) {
+                    batch.set(ref, data)
+                }
+                batch.commit().addOnSuccessListener {
+                    if (hasError) return@addOnSuccessListener
+                    completedChunks++
+                    if (completedChunks == chunks.size) {
+                        finishRestore()
+                    }
+                }.addOnFailureListener { e ->
+                    if (!hasError) {
+                        hasError = true
+                        Toast.makeText(this, "Restore failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Invalid backup format: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun toJsonObject(map: Map<String, Any?>): org.json.JSONObject {
+        val json = org.json.JSONObject()
+        for ((k, v) in map) {
+            json.put(k, wrapJsonValue(v))
+        }
+        return json
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun wrapJsonValue(value: Any?): Any? {
+        return when (value) {
+            is Map<*, *> -> toJsonObject(value as Map<String, Any?>)
+            is List<*> -> {
+                val array = org.json.JSONArray()
+                for (item in value) {
+                    array.put(wrapJsonValue(item))
+                }
+                array
+            }
+            is Timestamp -> {
+                val tsMap = mapOf("_type" to "timestamp", "seconds" to value.seconds, "nanoseconds" to value.nanoseconds)
+                toJsonObject(tsMap)
+            }
+            is Number, is String, is Boolean -> value
+            null -> org.json.JSONObject.NULL
+            else -> value.toString()
+        }
+    }
+
+    private fun unwrapJsonValue(value: Any): Any? {
+        return when (value) {
+            is org.json.JSONObject -> {
+                val map = mutableMapOf<String, Any?>()
+                val keys = value.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    map[k] = unwrapJsonValue(value.get(k))
+                }
+                if (map["_type"] == "timestamp") {
+                    val seconds = (map["seconds"] as? Number)?.toLong() ?: 0L
+                    val nanos = (map["nanoseconds"] as? Number)?.toInt() ?: 0
+                    Timestamp(seconds, nanos)
+                } else {
+                    map
+                }
+            }
+            is org.json.JSONArray -> {
+                val list = mutableListOf<Any?>()
+                for (i in 0 until value.length()) {
+                    list.add(unwrapJsonValue(value.get(i)))
+                }
+                list
+            }
+            org.json.JSONObject.NULL -> null
+            else -> value
+        }
+    }
+
+    private fun exportContactsToCSV() {
+        val userId = auth.currentUser?.uid ?: return
+        db.collection("leads").whereEqualTo("ownerId", userId).get().addOnSuccessListener { snapshot ->
+            if (snapshot.isEmpty) {
+                Toast.makeText(this, "No contacts to export", Toast.LENGTH_SHORT).show()
+                return@addOnSuccessListener
+            }
+
+            try {
+                val csvContent = StringBuilder()
+                csvContent.append("Name,Phone,Category,Notes,Follow-Up Date\n")
+                
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+
+                for (doc in snapshot.documents) {
+                    val name = doc.getString("name")?.replace(",", " ") ?: ""
+                    val phone = doc.getString("phone") ?: ""
+                    val category = doc.getString("category")?.replace(",", " ") ?: ""
+                    val notes = doc.getString("notes")?.replace(",", " ")?.replace("\n", " ") ?: ""
+                    val followUpDate = doc.getTimestamp("followUpDate")?.toDate()?.let { sdf.format(it) } ?: ""
+                    
+                    csvContent.append("\"$name\",\"$phone\",\"$category\",\"$notes\",\"$followUpDate\"\n")
+                }
+
+                val fileName = "RCRM_Contacts_Export_${System.currentTimeMillis()}.csv"
+                val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+                FileOutputStream(file).use { it.write(csvContent.toString().toByteArray()) }
+
+                val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(intent, "Export CSV"))
+
+            } catch (e: Exception) {
+                Toast.makeText(this, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun performMassDelete() {
+        val userId = auth.currentUser?.uid ?: return
+        db.collection("leads").whereEqualTo("ownerId", userId).get().addOnSuccessListener { snapshot ->
+            val batch = db.batch()
+            for (doc in snapshot.documents) {
+                batch.delete(doc.reference)
+            }
+            batch.commit().addOnSuccessListener {
+                Toast.makeText(this, "All contacts deleted successfully", Toast.LENGTH_SHORT).show()
+                loadLeadsFromCloud()
+            }
+        }
+    }
+
+    private fun scheduleSideKickWorker() {
+        val workRequest = PeriodicWorkRequestBuilder<SideKickWorker>(24, TimeUnit.HOURS)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "SideKickWorker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
     }
 
     private fun saveAccountDefaultSms(text: String) {
         val userId = auth.currentUser?.uid ?: return
+        
+        accountDefaultSms = text
+        getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE).edit {
+            putString("local_account_default_sms", text)
+        }
+        
         db.collection("user_settings").document(userId)
             .set(mapOf("default_intro_sms" to text), SetOptions.merge())
             .addOnSuccessListener {
@@ -471,9 +952,13 @@ class FollowUpActivity : AppCompatActivity() {
 
         val editName = dialogView.findViewById<EditText>(R.id.editDetailName)
         val editPhone = dialogView.findViewById<EditText>(R.id.editDetailPhone)
+        val btnCallDetail = dialogView.findViewById<ImageButton>(R.id.btnCallDetail)
         val cbRecruit = dialogView.findViewById<CheckBox>(R.id.cbRecruitDetail)
         val cbProspect = dialogView.findViewById<CheckBox>(R.id.cbProspectDetail)
         val cbClient = dialogView.findViewById<CheckBox>(R.id.cbClientDetail)
+        val clientSubCategoryLayout = dialogView.findViewById<LinearLayout>(R.id.clientSubCategoryLayoutDetail)
+        val cbInvestment = dialogView.findViewById<CheckBox>(R.id.cbInvestmentDetail)
+        val cbLifeInsurance = dialogView.findViewById<CheckBox>(R.id.cbLifeInsuranceDetail)
         val notesContainer = dialogView.findViewById<LinearLayout>(R.id.notesContainer)
         val btnAddDatedNote = dialogView.findViewById<Button>(R.id.btnAddDatedNote)
         val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
@@ -485,24 +970,52 @@ class FollowUpActivity : AppCompatActivity() {
         val btnManagePresets = dialogView.findViewById<Button>(R.id.btnManagePresets)
         val btnSendIntroAction = dialogView.findViewById<Button>(R.id.btnSendIntroAction)
 
+        val tvReminderValue = dialogView.findViewById<TextView>(R.id.tvReminderValue)
+        val btnEditReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnEditReminderIcon)
+        val btnDeleteReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnDeleteReminderIcon)
+
         editName.setText(lead["name"] as? String ?: "")
         editPhone.setText(lead["phone"] as? String ?: "")
         
+        btnCallDetail.setOnClickListener {
+            val phone = editPhone.text.toString().trim()
+            if (phone.isNotEmpty()) {
+                val intent = Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         val category = lead["category"] as? String ?: ""
         cbRecruit.isChecked = category.contains(getString(R.string.category_recruit), ignoreCase = true)
         cbProspect.isChecked = category.contains(getString(R.string.category_prospect), ignoreCase = true)
         cbClient.isChecked = category.contains(getString(R.string.category_client), ignoreCase = true)
 
-        val contactName = editName.text.toString()
+        if (cbClient.isChecked) {
+            clientSubCategoryLayout.visibility = View.VISIBLE
+            cbInvestment.isChecked = category.contains("Investment", ignoreCase = true)
+            cbLifeInsurance.isChecked = category.contains("Life Insurance", ignoreCase = true)
+        }
+
+        cbClient.setOnCheckedChangeListener { _, isChecked ->
+            clientSubCategoryLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            if (!isChecked) {
+                cbInvestment.isChecked = false
+                cbLifeInsurance.isChecked = false
+            }
+        }
+
         fun applyDefaultIntro() {
-            val firstName = contactName.split(" ").firstOrNull() ?: contactName
-            val baseMsg = accountDefaultSms ?: "Hi $NAME_TOKEN, just following up to see if you had any questions! Looking forward to connecting again."
+            val currentName = editName.text.toString()
+            val firstName = currentName.split(" ").firstOrNull() ?: currentName
+            val baseMsg = accountDefaultSms?.takeIf { it.isNotBlank() } ?: "Hi $NAME_TOKEN, just following up to see if you had any questions! Looking forward to connecting again."
             etIntroText.setText(baseMsg.replace(NAME_TOKEN, firstName))
         }
         applyDefaultIntro()
 
         btnDefaultIntro.setOnClickListener { applyDefaultIntro() }
-        btnManagePresets.setOnClickListener { showPresetManagerForDialog(etIntroText, contactName) }
+        btnManagePresets.setOnClickListener { showPresetManagerForDialog(etIntroText, editName.text.toString()) }
         
         btnSendIntroAction.setOnClickListener {
             val phone = editPhone.text.toString()
@@ -547,7 +1060,7 @@ class FollowUpActivity : AppCompatActivity() {
                             refreshNotesUI()
                         }
                         .setNegativeButton("Cancel", null)
-                        .show()
+                    .show()
                 }
                 
                 notesContainer.addView(noteView)
@@ -555,9 +1068,11 @@ class FollowUpActivity : AppCompatActivity() {
         }
         refreshNotesUI()
 
+        var noteAddedThisSession = false
         btnAddDatedNote.setOnClickListener {
             val timestamp = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
             noteList.add(0, NoteItem(timestamp, ""))
+            noteAddedThisSession = true
             refreshNotesUI()
         }
 
@@ -574,44 +1089,67 @@ class FollowUpActivity : AppCompatActivity() {
 
         var newFollowUpDate: Date? = (lead["followUpDate"] as? Timestamp)?.toDate()
 
-        btnSetReminder.setOnClickListener {
+        fun updateReminderUI() {
+            if (newFollowUpDate != null && newFollowUpDate!!.after(Date())) {
+                val format = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+                tvReminderValue.text = format.format(newFollowUpDate!!)
+                btnEditReminderIcon.visibility = View.VISIBLE
+                btnDeleteReminderIcon.visibility = View.VISIBLE
+                btnSetReminder.text = getString(R.string.btn_change_reminder)
+            } else {
+                tvReminderValue.text = getString(R.string.reminder_none)
+                btnEditReminderIcon.visibility = View.GONE
+                btnDeleteReminderIcon.visibility = View.GONE
+                btnSetReminder.text = getString(R.string.btn_set_reminder)
+            }
+        }
+        updateReminderUI()
+
+        val onSetReminderClicked = View.OnClickListener {
             val cal = Calendar.getInstance()
-            newFollowUpDate?.let { cal.time = it }
+            newFollowUpDate?.let { if (it.after(Date())) cal.time = it }
             DatePickerDialog(this, { _, year, month, day ->
                 cal.set(year, month, day)
                 TimePickerDialog(this, { _, hour, minute ->
                     cal.set(Calendar.HOUR_OF_DAY, hour)
                     cal.set(Calendar.MINUTE, minute)
                     newFollowUpDate = cal.time
-                    val format = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
-                    btnSetReminder.text = getString(R.string.msg_reminder_set, format.format(cal.time))
+                    updateReminderUI()
+                    scheduleFollowUpNotification(newFollowUpDate!!, editName.text.toString(), editPhone.text.toString())
                 }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        btnSetReminder.setOnClickListener(onSetReminderClicked)
+        btnEditReminderIcon.setOnClickListener(onSetReminderClicked)
+
+        btnDeleteReminderIcon.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.dialog_delete_reminder_title))
+                .setMessage(getString(R.string.dialog_delete_reminder_msg))
+                .setPositiveButton("Delete") { _, _ ->
+                    newFollowUpDate = null
+                    updateReminderUI()
+                    Toast.makeText(this, getString(R.string.msg_reminder_removed), Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         btnSaveChanges.setOnClickListener {
             val cats = mutableListOf<String>()
             if (cbRecruit.isChecked) cats.add(getString(R.string.category_recruit))
             if (cbProspect.isChecked) cats.add(getString(R.string.category_prospect))
-            if (cbClient.isChecked) cats.add(getString(R.string.category_client))
-            
-            val now = Date()
-            val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(now)
-            val ts = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(now)
-            val followUpMsg = "Followed up on $dateStr"
-            
-            var shouldIncrement = false
-            // Auto-add follow-up note if not already there for today
-            if (noteList.none { it.content == followUpMsg }) {
-                noteList.add(0, NoteItem(ts, followUpMsg))
-                shouldIncrement = true
+            if (cbClient.isChecked) {
+                cats.add(getString(R.string.category_client))
+                if (cbInvestment.isChecked) cats.add("Investment")
+                if (cbLifeInsurance.isChecked) cats.add("Life Insurance")
             }
-
-            // If no manual reminder set, roll it over to tomorrow
-            if (newFollowUpDate == null || newFollowUpDate!!.before(now)) {
+            
+            val finalFollowUpDate = newFollowUpDate ?: run {
                 val cal = Calendar.getInstance()
                 cal.add(Calendar.DAY_OF_YEAR, 1)
-                newFollowUpDate = cal.time
+                cal.time
             }
 
             val updatedData = mutableMapOf<String, Any>(
@@ -619,20 +1157,48 @@ class FollowUpActivity : AppCompatActivity() {
                 "phone" to editPhone.text.toString(),
                 "category" to cats.joinToString(", "),
                 "notes" to serializeNotes(noteList),
-                "followUpDate" to Timestamp(newFollowUpDate!!)
+                "followUpDate" to Timestamp(finalFollowUpDate)
             )
 
             db.collection("leads").document(docId).update(updatedData).addOnSuccessListener {
-                if (shouldIncrement) {
-                    incrementDailyStat("followup_count")
+                if (noteAddedThisSession) {
+                    incrementDailyStatLocal("followup_count")
+                    incrementDailyStatFirestore("followup_count")
                 }
+                scheduleFollowUpNotification(finalFollowUpDate, editName.text.toString(), editPhone.text.toString())
                 Toast.makeText(this, "Lead Updated", Toast.LENGTH_SHORT).show()
+                refreshProgressUI()
                 loadLeadsFromCloud()
                 dialog.dismiss()
             }
         }
 
         dialog.show()
+    }
+
+    private fun scheduleFollowUpNotification(date: Date, name: String, phone: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, ReminderReceiver::class.java).apply {
+            putExtra("LEAD_NAME", name)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            phone.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, date.time, pendingIntent)
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, date.time, pendingIntent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error scheduling alarm", e)
+            alarmManager.set(AlarmManager.RTC_WAKEUP, date.time, pendingIntent)
+        }
     }
 
     private fun showPresetManagerForDialog(etTarget: EditText, name: String) {
@@ -679,11 +1245,18 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun saveAllPresetsLocally(list: List<String>) {
-        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit { putStringSet(PREFS_KEY, list.toSet()) }
+        getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE).edit { putStringSet(PREFS_KEY, list.toSet()) }
+        syncPresetsToCloud(list)
+    }
+
+    private fun syncPresetsToCloud(list: List<String>) {
+        val userId = auth.currentUser?.uid ?: return
+        db.collection("user_settings").document(userId)
+            .set(mapOf("sms_presets" to list), SetOptions.merge())
     }
 
     private fun getPresetsLocally(): Set<String> {
-        return getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getStringSet(PREFS_KEY, emptySet()) ?: emptySet()
+        return getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE).getStringSet(PREFS_KEY, emptySet()) ?: emptySet()
     }
 
     override fun onDestroy() {
@@ -724,13 +1297,20 @@ class FollowUpAdapter(
         if (category.isNotEmpty()) {
             tvCategoryLabel.text = category
             tvCategoryLabel.visibility = View.VISIBLE
-            when {
+            
+            val bgColor = when {
                 category.contains(context.getString(R.string.category_recruit), ignoreCase = true) -> 
-                    tvCategoryLabel.setBackgroundColor(Color.parseColor("#4CAF50"))
+                    Color.parseColor("#4CAF50")
                 category.contains(context.getString(R.string.category_client), ignoreCase = true) -> 
-                    tvCategoryLabel.setBackgroundColor(Color.parseColor("#9C27B0"))
-                else -> tvCategoryLabel.setBackgroundColor(Color.parseColor("#007BFF"))
+                    Color.parseColor("#9C27B0")
+                else -> Color.parseColor("#007BFF")
             }
+            
+            val background = GradientDrawable()
+            background.setColor(bgColor)
+            background.cornerRadius = 16f
+            tvCategoryLabel.background = background
+            tvCategoryLabel.setTextColor(Color.WHITE)
         } else {
             tvCategoryLabel.visibility = View.GONE
         }

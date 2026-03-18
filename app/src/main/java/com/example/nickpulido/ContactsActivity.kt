@@ -3,6 +3,7 @@ package com.nickpulido.rcrm
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -15,7 +16,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -91,8 +94,9 @@ class ContactsActivity : AppCompatActivity() {
             val name = (lead["name"] as? String ?: "").lowercase()
             val phone = (lead["phone"] as? String ?: "").lowercase()
             val category = (lead["category"] as? String ?: "").lowercase()
+            val notes = (lead["notes"] as? String ?: "").lowercase()
             
-            val matchesQuery = query.isEmpty() || name.contains(query) || phone.contains(query) || category.contains(query)
+            val matchesQuery = query.isEmpty() || name.contains(query) || phone.contains(query) || category.contains(query) || notes.contains(query)
             val matchesCategory = currentCategoryFilter == null || category.contains(currentCategoryFilter!!.lowercase())
             
             matchesQuery && matchesCategory
@@ -160,11 +164,20 @@ class ContactsActivity : AppCompatActivity() {
             )
 
             db.collection("leads").add(leadData).addOnSuccessListener {
+                incrementDailyStat("total_count")
                 loadContacts()
                 dialog.dismiss()
             }
         }
         dialog.show()
+    }
+
+    private fun incrementDailyStat(field: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        db.collection("user_settings").document(userId)
+            .collection("daily_stats").document(dateStr)
+            .set(hashMapOf(field to FieldValue.increment(1)), SetOptions.merge())
     }
 
     private fun showLeadDetailsDialog(lead: Map<String, Any>) {
@@ -194,7 +207,11 @@ class ContactsActivity : AppCompatActivity() {
             if (category.isNotEmpty()) {
                 tvCategoryLabel.text = category
                 tvCategoryLabel.visibility = View.VISIBLE
-                tvCategoryLabel.setBackgroundColor(Color.parseColor("#E9ECEF"))
+                
+                val background = GradientDrawable()
+                background.setColor(Color.parseColor("#E9ECEF"))
+                background.cornerRadius = 16f
+                tvCategoryLabel.background = background
                 tvCategoryLabel.setTextColor(Color.parseColor("#495057"))
             } else {
                 tvCategoryLabel.visibility = View.GONE
