@@ -891,7 +891,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        val perms = arrayOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_CONTACTS)
+        val perms = mutableListOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_CONTACTS)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        
         val missing = perms.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)

@@ -35,7 +35,11 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
             return@withContext Result.success()
         }
 
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@withContext Result.failure()
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        if (userId == null) {
+            Log.d(TAG, "No user logged in. Skipping Side-Kick work.")
+            return@withContext Result.success()
+        }
         val db = FirebaseFirestore.getInstance()
 
         try {
@@ -47,6 +51,8 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
             val now = System.currentTimeMillis()
             val sevenDaysAgo = now - (THRESHOLD_RECENT_DAYS * DAY_IN_MS)
             val fourteenDaysAgo = now - (THRESHOLD_NEGLECT_DAYS * DAY_IN_MS)
+
+            val neglectedLeads = mutableListOf<NeglectedLead>()
 
             for (doc in leads.documents) {
                 // Respect WorkManager cancellation
@@ -75,20 +81,26 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 val isOldFollowUp = lastFollowUpDate < fourteenDaysAgo && lastFollowUpDate != 0L
 
                 if (isNeglected || (isOldFollowUp && recentNotesCount == 0)) {
+                    val lastActivityTime = notes.maxByOrNull { it.timestamp }?.timestamp ?: 0L
+                    val neglectScore = now - lastActivityTime
+                    
                     val suggestion = analyzeLeadHistory(notes)
                     val lastNoteContent = notes.maxByOrNull { it.timestamp }?.content ?: "No notes recorded"
 
-                    // Hybrid Approach: Save the tip to the lead's profile on Firebase
-                    db.collection(COLLECTION_LEADS).document(doc.id)
+                    neglectedLeads.add(NeglectedLead(doc.id, name, phone, lastNoteContent, suggestion, neglectScore))
+                }
+            }
+
+            if (neglectedLeads.isNotEmpty()) {
+                val topNeglected = neglectedLeads.sortedByDescending { it.neglectScore }.take(MAX_NOTIFICATION_ITEMS)
+                for (lead in topNeglected) {
+                    db.collection(COLLECTION_LEADS).document(lead.id)
                         .update(
-                            FIELD_SIDE_KICK_SUGGESTION, suggestion,
+                            FIELD_SIDE_KICK_SUGGESTION, lead.suggestion,
                             FIELD_LAST_COACHED_AT, com.google.firebase.Timestamp.now()
                         ).await()
-
-                    sendNotification(name, phone, lastNoteContent, suggestion)
-                    // We only send one notification per run to avoid spamming the user
-                    break 
                 }
+                sendBatchNotification(topNeglected)
             }
         } catch (e: FirebaseFirestoreException) {
             Log.e(TAG, "Transient Firestore error: ${e.message}", e)
@@ -103,6 +115,15 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
 
     private data class Note(val timestamp: Long, val content: String)
 
+    private data class NeglectedLead(
+        val id: String,
+        val name: String,
+        val phone: String,
+        val lastNoteContent: String,
+        val suggestion: String,
+        val neglectScore: Long
+    )
+
     /**
      * Efficiently parses notes without heavy Regex operations.
      * Expected format: [MMM dd, yyyy HH:mm]: Content
@@ -112,8 +133,16 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
         
         val list = mutableListOf<Note>()
         val blocks = raw.split("\n\n")
-        val sdf = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
-        val metaRegex = Regex("\\[C:(true|false)\\|T:(true|false)\\]")
+        
+        val formats = listOf(
+            SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()),
+            SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()),
+            SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+        )
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        
+        // Accounts for any spaces left behind by the meta tags
+        val metaRegex = Regex("\\s*\\[C:(true|false)\\|T:(true|false)\\]")
         
         for (block in blocks) {
             var trimmed = block.trim()
@@ -121,19 +150,39 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
             
             trimmed = trimmed.replace(metaRegex, "").trim()
             
-            // Look for the date header pattern "[...]: "
-            if (trimmed.startsWith("[") && trimmed.contains("]: ")) {
-                val closingBracketIndex = trimmed.indexOf("]: ")
+            // Look for the date header pattern "[...]" safely bypassing dynamic colon spacing
+            if (trimmed.startsWith("[")) {
+                val closingBracketIndex = trimmed.indexOf("]")
                 if (closingBracketIndex != -1) {
-                    val dateStr = trimmed.substring(1, closingBracketIndex)
-                    val content = trimmed.substring(closingBracketIndex + 3).trim()
-                    val date = try {
-                        sdf.parse(dateStr)
-                    } catch (e: Exception) {
-                        null
+                    val dateStr = trimmed.substring(1, closingBracketIndex).trim()
+                    var content = trimmed.substring(closingBracketIndex + 1).trim()
+                    
+                    if (content.startsWith(":")) {
+                        content = content.substring(1).trim()
                     }
-                    if (date != null) {
-                        list.add(Note(date.time, content))
+                    var parsedDate: Date? = null
+                    for (format in formats) {
+                        try {
+                            parsedDate = format.parse(dateStr)
+                            if (parsedDate != null) {
+                                val cal = Calendar.getInstance()
+                                cal.time = parsedDate
+                                if (cal.get(Calendar.YEAR) == 1970) {
+                                    cal.set(Calendar.YEAR, currentYear)
+                                    if (cal.timeInMillis > System.currentTimeMillis() + 86400000L) {
+                                        cal.add(Calendar.YEAR, -1)
+                                    }
+                                    parsedDate = cal.time
+                                }
+                                break
+                            }
+                        } catch (e: Exception) {
+                            // Try next format
+                        }
+                    }
+                    
+                    if (parsedDate != null) {
+                        list.add(Note(parsedDate.time, content))
                     }
                 }
             }
@@ -187,7 +236,17 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
     }
 
-    private fun sendNotification(name: String, phone: String, lastNoteContent: String, suggestion: String) {
+    private fun sendBatchNotification(leads: List<NeglectedLead>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    applicationContext,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.w(TAG, "Missing POST_NOTIFICATIONS permission. Cannot show Side-Kick notification.")
+                return
+            }
+        }
         val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -203,24 +262,28 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
 
         val intent = Intent(applicationContext, FollowUpActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("targetPhone", phone)
         }
         
         val pendingIntent = PendingIntent.getActivity(
             applicationContext, 
-            phone.hashCode(), 
+            0, 
             intent, 
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = "Side-Kick: Follow up with $name"
-        val body = "Lead has gone cold. 📌 Last Note: '$lastNoteContent' 💡 Side-Kick Suggestion: $suggestion"
+        val inboxStyle = NotificationCompat.InboxStyle()
+        inboxStyle.setBigContentTitle("Side-Kick: ${leads.size} leads need attention")
+        for (lead in leads) {
+            inboxStyle.addLine("${lead.name}: ${lead.suggestion}")
+        }
         
+        val title = "Side-Kick: ${leads.size} leads need attention"
+
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
-            .setContentText("Check coaching suggestion for $name")
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText("Check coaching suggestions for your neglected leads")
+            .setStyle(inboxStyle)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
@@ -244,6 +307,7 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
         private const val THRESHOLD_NEGLECT_DAYS = 14L
         private const val THRESHOLD_RECENT_DAYS = 7L
         private const val MIN_NOTES_FOR_NEGLECT = 3
+        private const val MAX_NOTIFICATION_ITEMS = 5
         
         // Database Constants
         private const val COLLECTION_LEADS = "leads"
@@ -257,6 +321,5 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
         
         // Utils
         private const val DAY_IN_MS = 24 * 60 * 60 * 1000L
-        private const val DATE_FORMAT = "MMM dd, yyyy HH:mm"
     }
 }

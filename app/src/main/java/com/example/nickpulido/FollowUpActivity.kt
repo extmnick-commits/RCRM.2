@@ -362,6 +362,7 @@ class FollowUpActivity : AppCompatActivity() {
     private fun showFilterPopupMenu(view: View) {
         val popup = PopupMenu(this, view)
         popup.menu.add("All Categories")
+        popup.menu.add("💡 Side-Kick Tips")
         popup.menu.add(getString(R.string.category_recruit))
         popup.menu.add(getString(R.string.category_prospect))
         popup.menu.add(getString(R.string.category_client))
@@ -379,9 +380,15 @@ class FollowUpActivity : AppCompatActivity() {
         for (lead in allLeadsData) {
             val name = (lead["name"] as? String ?: "").lowercase()
             val category = (lead["category"] as? String ?: "").lowercase()
+            val sideKickTip = lead["sideKickSuggestion"] as? String ?: ""
             
             val matchesSearch = name.contains(currentSearchQuery.lowercase())
-            val matchesCategory = currentCategoryFilter == null || category.contains(currentCategoryFilter!!.lowercase())
+
+            val matchesCategory = if (currentCategoryFilter == "💡 Side-Kick Tips") {
+                sideKickTip.isNotEmpty()
+            } else {
+                currentCategoryFilter == null || category.contains(currentCategoryFilter!!.lowercase())
+            }
 
             if (matchesSearch && matchesCategory) {
                 displayLeadsData.add(lead)
@@ -1305,7 +1312,8 @@ class FollowUpActivity : AppCompatActivity() {
                 "category" to cats.joinToString(", "),
                 "targetMarket" to tmList.joinToString(", "),
                 "notes" to serializeNotes(noteList),
-                "followUpDate" to Timestamp(finalFollowUpDate)
+                "followUpDate" to Timestamp(finalFollowUpDate),
+                "sideKickSuggestion" to FieldValue.delete() // Clears the tip once the user takes action
             )
 
             db.collection("leads").document(docId).update(updatedData).addOnSuccessListener {
@@ -1454,6 +1462,7 @@ class FollowUpAdapter(
         val name = lead["name"] as? String ?: context.getString(R.string.unknown_contact)
         val category = lead["category"] as? String ?: ""
         val notes = lead["notes"] as? String ?: ""
+        val sideKickSuggestion = lead["sideKickSuggestion"] as? String ?: ""
 
         tvName.text = context.getString(R.string.lead_name_format, name)
         
@@ -1479,7 +1488,11 @@ class FollowUpAdapter(
         }
 
         val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "")
-        tvDetails.text = latestNote.ifEmpty { "No notes available" }
+        if (sideKickSuggestion.isNotEmpty()) {
+            tvDetails.text = "💡 Side-Kick Tip: $sideKickSuggestion\n\nLast Note: ${latestNote.ifEmpty { "None" }}"
+        } else {
+            tvDetails.text = latestNote.ifEmpty { "No notes available" }
+        }
 
         // Hide the complete action on this page entirely
         llCompleteAction?.visibility = View.GONE
