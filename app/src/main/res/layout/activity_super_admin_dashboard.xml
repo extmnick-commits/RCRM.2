@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="?android:attr/windowBackground">
+
+    <TextView
+        android:id="@+id/tvSuperAdminTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Super Admin Management Panel"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"
+        android:layout_centerHorizontal="true" />
+
+    <Button
+        android:id="@+id/btnMyAdminDashboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="View My Team (Admin Dashboard)"
+        android:layout_below="@id/tvSuperAdminTitle"
+        android:layout_marginBottom="8dp" />
+
+    <ListView
+        android:id="@+id/listViewAllUsers"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/btnMyAdminDashboard"
+        android:divider="@android:color/darker_gray"
+        android:dividerHeight="1dp" />
+
+</RelativeLayout>

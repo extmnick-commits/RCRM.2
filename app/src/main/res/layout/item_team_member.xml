@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="@color/dividerColor"
+    android:layout_marginBottom="12dp"
+    android:layout_marginHorizontal="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header: Name and Email -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_myplaces"
+                app:tint="@color/colorPrimary"
+                android:background="#1A007BFF" 
+                android:padding="8dp"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:id="@+id/tvMemberName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary" />
+
+                <TextView
+                    android:id="@+id/tvMemberEmail"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/textColorSecondary" />
+            </LinearLayout>
+            
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_view"
+                app:tint="@color/textColorSecondary" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/dividerColor"
+            android:layout_marginVertical="12dp" />
+
+        <!-- Stats Grid Labels -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+            <View android:layout_width="60dp" android:layout_height="0dp" />
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Today" android:gravity="center" android:textSize="11sp" android:textStyle="bold" android:textColor="@color/textColorSecondary" />
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="7 Days" android:gravity="center" android:textSize="11sp" android:textStyle="bold" android:textColor="@color/textColorSecondary" />
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="30 Days" android:gravity="center" android:textSize="11sp" android:textStyle="bold" android:textColor="@color/textColorSecondary" />
+        </LinearLayout>
+
+        <!-- Leads Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView android:layout_width="60dp" android:layout_height="wrap_content" android:text="LEADS" android:textSize="10sp" android:textStyle="bold" android:textColor="@color/colorPrimary" />
+            <TextView android:id="@+id/tvDailyLeads" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/textColorPrimary" />
+            <TextView android:id="@+id/tvWeeklyLeads" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/textColorPrimary" />
+            <TextView android:id="@+id/tvMonthlyLeads" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/textColorPrimary" />
+        </LinearLayout>
+
+        <!-- Calls Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView android:layout_width="60dp" android:layout_height="wrap_content" android:text="CALLS" android:textSize="10sp" android:textStyle="bold" android:textColor="#FF9800" />
+            <TextView android:id="@+id/tvDailyCalls" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textColor="@color/textColorPrimary" />
+            <TextView android:id="@+id/tvWeeklyCalls" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textColor="@color/textColorPrimary" />
+            <TextView android:id="@+id/tvMonthlyCalls" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textColor="@color/textColorPrimary" />
+        </LinearLayout>
+
+        <!-- Texts Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView android:layout_width="60dp" android:layout_height="wrap_content" android:text="TEXTS" android:textSize="10sp" android:textStyle="bold" android:textColor="#4CAF50" />
+            <TextView android:id="@+id/tvDailyTexts" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textColor="@color/textColorPrimary" />
+            <TextView android:id="@+id/tvWeeklyTexts" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textColor="@color/textColorPrimary" />
+            <TextView android:id="@+id/tvMonthlyTexts" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="0" android:gravity="center" android:textSize="16sp" android:textColor="@color/textColorPrimary" />
+        </LinearLayout>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

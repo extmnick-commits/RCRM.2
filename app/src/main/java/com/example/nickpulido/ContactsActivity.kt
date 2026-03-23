@@ -2,6 +2,7 @@ package com.nickpulido.rcrm
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -13,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -175,6 +177,12 @@ class ContactsActivity : AppCompatActivity() {
     private fun incrementDailyStat(field: String) {
         val userId = auth.currentUser?.uid ?: return
         val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+
+        // Update locally for immediate UI feedback when returning to MainActivity
+        val statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
+        val currentLocalCount = statsPrefs.getInt("${dateStr}_$field", 0)
+        statsPrefs.edit { putInt("${dateStr}_$field", currentLocalCount + 1) }
+
         db.collection("user_settings").document(userId)
             .collection("daily_stats").document(dateStr)
             .set(hashMapOf(field to FieldValue.increment(1)), SetOptions.merge())
@@ -195,6 +203,7 @@ class ContactsActivity : AppCompatActivity() {
             val tvCategoryLabel = view.findViewById<TextView>(R.id.tvCategoryLabel)
             val btnCall = view.findViewById<ImageView>(R.id.btnCallIcon)
             view.findViewById<CheckBox>(R.id.cbSelectLead).visibility = View.GONE
+            view.findViewById<LinearLayout>(R.id.llCompleteAction)?.visibility = View.GONE
 
             val lead = leads[position]
             val name = lead["name"] as? String ?: "Unknown"

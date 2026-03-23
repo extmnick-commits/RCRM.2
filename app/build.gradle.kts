@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.gms.google.services)
+    alias(libs.plugins.firebase.appdistribution)
 }
 
 android {
@@ -12,13 +13,20 @@ android {
         applicationId = "com.nickpulido.rcrm"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 6
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        getByName("debug") {
+            firebaseAppDistribution {
+                artifactType = "APK"
+                groups = "qa-testers"
+                releaseNotes = "Added 'Import Contact' feature to easily import leads directly from the phone's contact book, auto-filling name, phone number, and any existing notes."
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -33,10 +41,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
+    kotlinOptions {
+        jvmTarget = "11"
     }
 
     buildFeatures {

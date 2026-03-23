@@ -113,10 +113,13 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val list = mutableListOf<Note>()
         val blocks = raw.split("\n\n")
         val sdf = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
+        val metaRegex = Regex("\\[C:(true|false)\\|T:(true|false)\\]")
         
         for (block in blocks) {
-            val trimmed = block.trim()
+            var trimmed = block.trim()
             if (trimmed.isEmpty()) continue
+            
+            trimmed = trimmed.replace(metaRegex, "").trim()
             
             // Look for the date header pattern "[...]: "
             if (trimmed.startsWith("[") && trimmed.contains("]: ")) {

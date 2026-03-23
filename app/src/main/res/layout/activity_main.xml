@@ -102,6 +102,15 @@
             android:backgroundTint="@color/colorPrimary"
             android:textColor="@color/white" />
         <Button
+            android:id="@+id/btnImportContact"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/btn_import_contact"
+            android:backgroundTint="@color/colorInfo"
+            android:textColor="@color/white" />
+        <Button
             android:id="@+id/btnFollowUpList"
             style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
@@ -120,6 +129,16 @@
             android:backgroundTint="?attr/colorSurface"
             android:textColor="@color/textColorSecondary" />
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btnAdminDashboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Admin Dashboard"
+        android:visibility="gone"
+        android:backgroundTint="@color/colorPrimary"
+        android:textColor="@color/white" />
 
     <!-- Meter Dials (Progress Tracker) -->
     <LinearLayout
@@ -284,6 +303,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Tomorrow" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Overdue" />
     </com.google.android.material.tabs.TabLayout>
 
     <ListView

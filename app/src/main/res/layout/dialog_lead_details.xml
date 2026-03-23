@@ -75,6 +75,64 @@
             <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
         </LinearLayout>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Target Market"
+            android:textStyle="bold"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="12sp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" />
+                <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" />
+                <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" />
+                <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Occupation" />
+                <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            </LinearLayout>
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/dialTargetMarket"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    app:indicatorSize="80dp"
+                    app:trackThickness="8dp"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/tvTargetMarketScore"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="0%"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary" />
+            </RelativeLayout>
+        </LinearLayout>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

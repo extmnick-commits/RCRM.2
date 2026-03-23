@@ -52,6 +52,7 @@ class FollowUpActivity : AppCompatActivity() {
     private var currentSearchQuery = ""
     private var currentCategoryFilter: String? = null
     private var targetPhone: String? = null
+    private var targetUserId: String? = null
     
     private val selectedDocIds = mutableSetOf<String>()
     private var isSelectionMode = false
@@ -110,6 +111,7 @@ class FollowUpActivity : AppCompatActivity() {
         tvFollowUpGoalDisplay = findViewById(R.id.tvFollowUpGoalDisplay)
 
         targetPhone = intent.getStringExtra("targetPhone")
+        targetUserId = intent.getStringExtra("TARGET_USER_ID")
 
         val listView = findViewById<ListView>(R.id.listViewFollowUps)
         adapter = FollowUpAdapter(this, displayLeadsData) { docId, isChecked ->
@@ -156,6 +158,10 @@ class FollowUpActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnCancelBulk).setOnClickListener {
             exitSelectionMode()
+        }
+        
+        if (targetUserId != null) {
+            findViewById<TextView>(R.id.tvFollowUpHeader).text = "Viewing Team Member Leads"
         }
 
         loadLocalStats()
@@ -308,7 +314,7 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun incrementDailyStatFirestore(field: String) {
-        val userId = auth.currentUser?.uid ?: return
+        val userId = targetUserId ?: auth.currentUser?.uid ?: return
         val dateStr = dateKeyFormat.format(Date())
         db.collection("user_settings").document(userId)
             .collection("daily_stats").document(dateStr)
@@ -328,7 +334,11 @@ class FollowUpActivity : AppCompatActivity() {
         selectedDocIds.clear()
         adapter.setSelectionMode(false)
         findViewById<LinearLayout>(R.id.bulkActionBar).visibility = View.GONE
-        findViewById<TextView>(R.id.tvFollowUpHeader).text = getString(R.string.follow_up_header)
+        if (targetUserId != null) {
+            findViewById<TextView>(R.id.tvFollowUpHeader).text = "Viewing Team Member Leads"
+        } else {
+            findViewById<TextView>(R.id.tvFollowUpHeader).text = getString(R.string.follow_up_header)
+        }
     }
 
     private fun updateSelectionTitle() {
@@ -761,7 +771,7 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun exportContactsToCSV() {
-        val userId = auth.currentUser?.uid ?: return
+        val userId = targetUserId ?: auth.currentUser?.uid ?: return
         db.collection("leads").whereEqualTo("ownerId", userId).get().addOnSuccessListener { snapshot ->
             if (snapshot.isEmpty) {
                 Toast.makeText(this, "No contacts to export", Toast.LENGTH_SHORT).show()
@@ -803,7 +813,7 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun performMassDelete() {
-        val userId = auth.currentUser?.uid ?: return
+        val userId = targetUserId ?: auth.currentUser?.uid ?: return
         db.collection("leads").whereEqualTo("ownerId", userId).get().addOnSuccessListener { snapshot ->
             val batch = db.batch()
             for (doc in snapshot.documents) {
@@ -920,7 +930,7 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun loadLeadsFromCloud() {
-        val userId = auth.currentUser?.uid ?: return
+        val userId = targetUserId ?: auth.currentUser?.uid ?: return
         
         // Ensure users only load their own leads
         db.collection("leads")
@@ -960,6 +970,15 @@ class FollowUpActivity : AppCompatActivity() {
         val cbInvestment = dialogView.findViewById<CheckBox>(R.id.cbInvestmentDetail)
         val cbLifeInsurance = dialogView.findViewById<CheckBox>(R.id.cbLifeInsuranceDetail)
         val notesContainer = dialogView.findViewById<LinearLayout>(R.id.notesContainer)
+
+        val cbTmMarried = dialogView.findViewById<CheckBox>(R.id.cbTmMarried)
+        val cbTmAge = dialogView.findViewById<CheckBox>(R.id.cbTmAge)
+        val cbTmChildren = dialogView.findViewById<CheckBox>(R.id.cbTmChildren)
+        val cbTmHomeowner = dialogView.findViewById<CheckBox>(R.id.cbTmHomeowner)
+        val cbTmOccupation = dialogView.findViewById<CheckBox>(R.id.cbTmOccupation)
+        val dialTargetMarket = dialogView.findViewById<com.google.android.material.progressindicator.CircularProgressIndicator>(R.id.dialTargetMarket)
+        val tvTargetMarketScore = dialogView.findViewById<TextView>(R.id.tvTargetMarketScore)
+
         val btnAddDatedNote = dialogView.findViewById<Button>(R.id.btnAddDatedNote)
         val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
         val btnAddCalendar = dialogView.findViewById<Button>(R.id.btnAddCalendar)
@@ -1006,6 +1025,42 @@ class FollowUpActivity : AppCompatActivity() {
             }
         }
 
+        val targetMarket = lead["targetMarket"] as? String ?: ""
+        cbTmMarried.isChecked = targetMarket.contains("Married", ignoreCase = true)
+        cbTmAge.isChecked = targetMarket.contains("Age 25-55", ignoreCase = true)
+        cbTmChildren.isChecked = targetMarket.contains("Children", ignoreCase = true)
+        cbTmHomeowner.isChecked = targetMarket.contains("Homeowner", ignoreCase = true)
+        cbTmOccupation.isChecked = targetMarket.contains("Occupation", ignoreCase = true)
+
+        fun updateTargetMarketDial() {
+            var points = 0
+            if (cbTmMarried.isChecked) points++
+            if (cbTmAge.isChecked) points++
+            if (cbTmChildren.isChecked) points++
+            if (cbTmHomeowner.isChecked) points++
+            if (cbTmOccupation.isChecked) points++
+
+            val percentage = when (points) {
+                1 -> 2
+                2 -> 9
+                3 -> 19
+                4 -> 42
+                5 -> 95
+                else -> 0
+            }
+
+            dialTargetMarket.progress = percentage
+            tvTargetMarketScore.text = "$percentage%"
+        }
+
+        cbTmMarried.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmAge.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmChildren.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmHomeowner.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmOccupation.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        
+        updateTargetMarketDial()
+
         fun applyDefaultIntro() {
             val currentName = editName.text.toString()
             val firstName = currentName.split(" ").firstOrNull() ?: currentName
@@ -1039,9 +1094,16 @@ class FollowUpActivity : AppCompatActivity() {
                 val tvDate = noteView.findViewById<TextView>(R.id.tvNoteDate)
                 val etContent = noteView.findViewById<EditText>(R.id.etNoteContent)
                 val btnDelete = noteView.findViewById<ImageButton>(R.id.btnDeleteNote)
+                val cbNoteCalled = noteView.findViewById<CheckBox>(R.id.cbNoteCalled)
+                val cbNoteTexted = noteView.findViewById<CheckBox>(R.id.cbNoteTexted)
                 
                 tvDate.text = note.date
                 etContent.setText(note.content)
+                cbNoteCalled.isChecked = note.called
+                cbNoteTexted.isChecked = note.texted
+
+                cbNoteCalled.setOnCheckedChangeListener { _, isChecked -> note.called = isChecked }
+                cbNoteTexted.setOnCheckedChangeListener { _, isChecked -> note.texted = isChecked }
                 
                 etContent.addTextChangedListener(object : TextWatcher {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -1146,6 +1208,13 @@ class FollowUpActivity : AppCompatActivity() {
                 if (cbLifeInsurance.isChecked) cats.add("Life Insurance")
             }
             
+            val tmList = mutableListOf<String>()
+            if (cbTmMarried.isChecked) tmList.add("Married")
+            if (cbTmAge.isChecked) tmList.add("Age 25-55")
+            if (cbTmChildren.isChecked) tmList.add("Children")
+            if (cbTmHomeowner.isChecked) tmList.add("Homeowner")
+            if (cbTmOccupation.isChecked) tmList.add("Occupation")
+
             val finalFollowUpDate = newFollowUpDate ?: run {
                 val cal = Calendar.getInstance()
                 cal.add(Calendar.DAY_OF_YEAR, 1)
@@ -1156,6 +1225,7 @@ class FollowUpActivity : AppCompatActivity() {
                 "name" to editName.text.toString(),
                 "phone" to editPhone.text.toString(),
                 "category" to cats.joinToString(", "),
+                "targetMarket" to tmList.joinToString(", "),
                 "notes" to serializeNotes(noteList),
                 "followUpDate" to Timestamp(finalFollowUpDate)
             )
@@ -1177,9 +1247,13 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun scheduleFollowUpNotification(date: Date, name: String, phone: String) {
+        // Prevent alarms from firing immediately for past dates
+        if (date.before(Date())) return
+
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, ReminderReceiver::class.java).apply {
             putExtra("LEAD_NAME", name)
+            putExtra("LEAD_PHONE", phone)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -1215,7 +1289,7 @@ class FollowUpActivity : AppCompatActivity() {
             }.show()
     }
 
-    private data class NoteItem(val date: String, var content: String)
+    private data class NoteItem(val date: String, var content: String, var called: Boolean = false, var texted: Boolean = false)
 
     private fun parseNotes(raw: String): MutableList<NoteItem> {
         val list = mutableListOf<NoteItem>()
@@ -1227,21 +1301,31 @@ class FollowUpActivity : AppCompatActivity() {
             while (trimmed.startsWith("[Legacy Note]:", ignoreCase = true)) {
                 trimmed = trimmed.substringAfter(":", "").trim()
             }
+            
+            var called = false
+            var texted = false
+            val metaRegex = Regex("\\[C:(true|false)\\|T:(true|false)\\]")
+            val metaMatch = metaRegex.find(trimmed)
+            if (metaMatch != null) {
+                called = metaMatch.groupValues[1] == "true"
+                texted = metaMatch.groupValues[2] == "true"
+                trimmed = trimmed.replace(metaMatch.value, "").trim()
+            }
 
             val dateRegex = Regex("^\\[?([A-Z][a-z]{2} \\d{2}, (?:\\d{4} )?\\d{2}:\\d{2}(?: [AaPp][Mm])?)\\]?:?\\s*(.*)", RegexOption.DOT_MATCHES_ALL)
             val dateMatch = dateRegex.find(trimmed)
             
             if (dateMatch != null) {
-                list.add(NoteItem(dateMatch.groupValues[1], dateMatch.groupValues[2].trim()))
+                list.add(NoteItem(dateMatch.groupValues[1], dateMatch.groupValues[2].trim(), called, texted))
             } else if (trimmed.isNotEmpty()) {
-                list.add(NoteItem("Legacy Note", trimmed))
+                list.add(NoteItem("Legacy Note", trimmed, called, texted))
             }
         }
         return list
     }
 
     private fun serializeNotes(list: List<NoteItem>): String {
-        return list.joinToString("\n\n") { "[${it.date}]: ${it.content}" }
+        return list.joinToString("\n\n") { "[${it.date}] [C:${it.called}|T:${it.texted}]: ${it.content}" }
     }
 
     private fun saveAllPresetsLocally(list: List<String>) {
@@ -1285,6 +1369,7 @@ class FollowUpAdapter(
         val tvCategoryLabel = view.findViewById<TextView>(R.id.tvCategoryLabel)
         val btnCallIcon = view.findViewById<ImageView>(R.id.btnCallIcon)
         val cbSelectLead = view.findViewById<CheckBox>(R.id.cbSelectLead)
+        val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
 
         val lead = leads[position]
         val docId = lead["__docId"] as? String ?: ""
@@ -1317,6 +1402,9 @@ class FollowUpAdapter(
 
         val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "")
         tvDetails.text = latestNote.ifEmpty { "No notes available" }
+
+        // Hide the complete action on this page entirely
+        llCompleteAction?.visibility = View.GONE
 
         if (selectionMode) {
             cbSelectLead.visibility = View.VISIBLE

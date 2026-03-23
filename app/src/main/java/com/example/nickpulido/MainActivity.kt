@@ -81,6 +81,10 @@ class MainActivity : AppCompatActivity() {
         uri?.let { readBackupFromFile(it) }
     }
 
+    private val pickContactLauncher = registerForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        uri?.let { processPickedContact(it) }
+    }
+
     private companion object {
         const val PREFS_INTRO = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -115,7 +119,14 @@ class MainActivity : AppCompatActivity() {
         tvFollowUpGoalDisplay = findViewById(R.id.tvFollowUpGoalDisplay)
 
         val listView = findViewById<ListView>(R.id.follow_up_list_view)
-        adapter = HotListAdapter(this, hotListData)
+        adapter = HotListAdapter(this, hotListData) { docId ->
+            db.collection("leads").document(docId)
+                .update("followUpDate", null)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Follow-up marked complete", Toast.LENGTH_SHORT).show()
+                    loadHotList()
+                }
+        }
         listView.adapter = adapter
 
         val tabLayout = findViewById<TabLayout>(R.id.tabLayoutFollowUps)
@@ -137,6 +148,7 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsDialog() }
         findViewById<Button>(R.id.btnQuickAdd).setOnClickListener { showQuickAddDialog() }
+        findViewById<Button>(R.id.btnImportContact).setOnClickListener { pickContactLauncher.launch(null) }
         findViewById<Button>(R.id.btnFollowUpList).setOnClickListener { 
             startActivity(Intent(this, FollowUpActivity::class.java)) 
         }
@@ -223,7 +235,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadAccountSettings() {
-        val userId = auth.currentUser?.uid ?: return
+        val currentUser = auth.currentUser ?: return
+        val userId = currentUser.uid
+        val userEmail = currentUser.email ?: ""
+        
+        // Automatically save the user's email so Admins can find them
+        if (userEmail.isNotEmpty()) {
+            db.collection("user_settings").document(userId)
+                .set(mapOf("email" to userEmail.lowercase()), SetOptions.merge())
+        }
         
         val prefsForPresets = getSharedPreferences(PREFS_INTRO, Context.MODE_PRIVATE)
         val lastUser = prefsForPresets.getString("last_logged_in_user", userId)
@@ -265,6 +285,23 @@ class MainActivity : AppCompatActivity() {
                     currentFollowUpGoal = defaultFollowUpGoal
                 }
                 refreshProgressUI()
+                
+                // Check User Role (Defaults to regular "agent" if not found)
+                val role = snapshot.getString("role") ?: "agent"
+                val btnAdmin = findViewById<Button>(R.id.btnAdminDashboard)
+                if (role == "admin" || role == "super_admin") {
+                    btnAdmin?.visibility = View.VISIBLE
+                    btnAdmin?.text = if (role == "super_admin") "Super Admin Panel" else "Admin Dashboard"
+                    btnAdmin?.setOnClickListener {
+                        if (role == "super_admin") {
+                            startActivity(Intent(this@MainActivity, SuperAdminDashboardActivity::class.java))
+                        } else {
+                            startActivity(Intent(this@MainActivity, AdminDashboardActivity::class.java))
+                        }
+                    }
+                } else {
+                    btnAdmin?.visibility = View.GONE
+                }
             }
         }
     }
@@ -837,16 +874,68 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showQuickAddDialog() {
+    @android.annotation.SuppressLint("Range")
+    private fun processPickedContact(uri: Uri) {
+        var name = ""
+        var phone = ""
+        var notes = ""
+        
+        try {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    name = cursor.getString(cursor.getColumnIndex(android.provider.ContactsContract.Contacts.DISPLAY_NAME)) ?: ""
+                    val contactId = cursor.getString(cursor.getColumnIndex(android.provider.ContactsContract.Contacts._ID))
+                    val hasPhone = cursor.getString(cursor.getColumnIndex(android.provider.ContactsContract.Contacts.HAS_PHONE_NUMBER))?.toIntOrNull() ?: 0
+                    
+                    if (hasPhone > 0) {
+                        contentResolver.query(
+                            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            null,
+                            "${android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+                            arrayOf(contactId),
+                            null
+                        )?.use { phoneCursor ->
+                            if (phoneCursor.moveToFirst()) {
+                                phone = phoneCursor.getString(phoneCursor.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)) ?: ""
+                            }
+                        }
+                    }
+
+                    contentResolver.query(
+                        android.provider.ContactsContract.Data.CONTENT_URI,
+                        null,
+                        "${android.provider.ContactsContract.Data.CONTACT_ID} = ? AND ${android.provider.ContactsContract.Data.MIMETYPE} = ?",
+                        arrayOf(contactId, android.provider.ContactsContract.CommonDataKinds.Note.CONTENT_ITEM_TYPE),
+                        null
+                    )?.use { noteCursor ->
+                        if (noteCursor.moveToFirst()) {
+                            notes = noteCursor.getString(noteCursor.getColumnIndex(android.provider.ContactsContract.CommonDataKinds.Note.NOTE)) ?: ""
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to read contact", Toast.LENGTH_SHORT).show()
+        }
+
+        showQuickAddDialog(name, phone, notes)
+    }
+
+    private fun showQuickAddDialog(prefilledName: String = "", prefilledPhone: String = "", prefilledNotes: String = "") {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_quick_add, null)
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
 
         val nameInput = dialogView.findViewById<EditText>(R.id.editQuickName)
         val phoneInput = dialogView.findViewById<EditText>(R.id.editQuickPhone)
+        if (prefilledName.isNotEmpty()) nameInput.setText(prefilledName)
+        if (prefilledPhone.isNotEmpty()) phoneInput.setText(prefilledPhone)
+
         val cbRecruit = dialogView.findViewById<CheckBox>(R.id.cbRecruitQuick)
         val cbProspect = dialogView.findViewById<CheckBox>(R.id.cbProspectQuick)
         val cbClient = dialogView.findViewById<CheckBox>(R.id.cbClientQuick)
         val notesInput = dialogView.findViewById<EditText>(R.id.editQuickNotes)
+        if (prefilledNotes.isNotEmpty()) notesInput.setText(prefilledNotes)
+
         val btnSave = dialogView.findViewById<Button>(R.id.btnQuickSave)
 
         btnSave.setOnClickListener {
@@ -882,6 +971,15 @@ class MainActivity : AppCompatActivity() {
     private fun incrementDailyStat(field: String) {
         val userId = auth.currentUser?.uid ?: return
         val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+
+        // Update locally for immediate UI feedback
+        val currentLocalCount = statsPrefs.getInt("${dateStr}_$field", 0)
+        statsPrefs.edit { putInt("${dateStr}_$field", currentLocalCount + 1) }
+        if (field == "total_count" && dateKeyFormat.format(selectedDate) == dateStr) {
+            currentTotalCount = currentLocalCount + 1
+            refreshProgressUI()
+        }
+
         db.collection("user_settings").document(userId)
             .collection("daily_stats").document(dateStr)
             .set(hashMapOf(field to FieldValue.increment(1)), SetOptions.merge())
@@ -925,8 +1023,9 @@ class MainActivity : AppCompatActivity() {
             val leadDateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
             
             when (currentTabPosition) {
-                0 -> leadDateStr == selectedDateStr || (followUpDate != null && followUpDate.toDate().before(selectedDate)) // Today + Overdue
+                0 -> leadDateStr == selectedDateStr // Today only
                 1 -> leadDateStr == tomorrowDateStr // Tomorrow
+                2 -> leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr // Overdue
                 else -> true
             }
         }
@@ -935,7 +1034,11 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-class HotListAdapter(private val context: Context, private val data: List<Map<String, Any>>) : BaseAdapter() {
+class HotListAdapter(
+    private val context: Context, 
+    private val data: List<Map<String, Any>>,
+    private val onCompleteLead: (String) -> Unit
+) : BaseAdapter() {
     override fun getCount(): Int = data.size
     override fun getItem(position: Int) = data[position]
     override fun getItemId(position: Int) = position.toLong()
@@ -988,6 +1091,12 @@ class HotListAdapter(private val context: Context, private val data: List<Map<St
         
         view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
         
+        val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
+        llCompleteAction?.setOnClickListener {
+            val docId = lead["__docId"] as? String ?: return@setOnClickListener
+            onCompleteLead(docId)
+        }
+
         val btnCallIcon = view.findViewById<ImageView>(R.id.btnCallIcon)
         btnCallIcon.setOnClickListener {
             if (phone.isNotEmpty()) {

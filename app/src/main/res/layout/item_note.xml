@@ -28,6 +28,27 @@
                 android:textColor="@color/textColorSecondary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+                
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+                <CheckBox
+                    android:id="@+id/cbNoteCalled"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Called"
+                    android:textSize="12sp"
+                    android:minHeight="0dp" />
+                <CheckBox
+                    android:id="@+id/cbNoteTexted"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Texted"
+                    android:textSize="12sp"
+                    android:minHeight="0dp" />
+            </LinearLayout>
 
             <EditText
                 android:id="@+id/etNoteContent"

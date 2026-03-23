@@ -5,6 +5,7 @@
     <string name="app_name_dashboard">RCRM</string>
     <string name="dashboard_subtitle">Smart Log Dashboard</string>
     <string name="btn_quick_add">+ Quick Add</string>
+    <string name="btn_import_contact">Import</string>
     <string name="btn_follow_ups">Follow Ups</string>
     <string name="btn_contacts">Contacts</string>
     <string name="initial_stat_zero">0</string>
@@ -28,7 +29,7 @@
     <string name="btn_ignore_call_log">Ignore call log</string>
     <string name="category_recruit">Recruit</string>
     <string name="category_client">Client</string>
-    <string name="hint_quick_note_example">Quick Note (e.g., Met at Walmart)</string>
+    <string name="hint_quick_note_example">Quick Note</string>
     <string name="btn_7pm_today">7 PM Today</string>
     <string name="btn_7pm_tomorrow">7 PM Tomorrow</string>
     <string name="btn_preset_today_format">%1$s Today</string>

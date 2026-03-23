@@ -48,6 +48,8 @@
         <activity android:name=".SmartLogActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".FollowUpActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".ContactsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
+        <activity android:name=".AdminDashboardActivity" android:exported="false" />
+        <activity android:name=".SuperAdminDashboardActivity" android:exported="false" />
 
     </application>
 </manifest>
