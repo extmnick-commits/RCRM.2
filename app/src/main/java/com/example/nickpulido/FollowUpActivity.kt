@@ -780,18 +780,22 @@ class FollowUpActivity : AppCompatActivity() {
 
             try {
                 val csvContent = StringBuilder()
-                csvContent.append("Name,Phone,Category,Notes,Follow-Up Date\n")
+                csvContent.append("Name,Phone,Email,Address,Company,Job Title,Category,Notes,Follow-Up Date\n")
                 
                 val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
                 for (doc in snapshot.documents) {
                     val name = doc.getString("name")?.replace(",", " ") ?: ""
                     val phone = doc.getString("phone") ?: ""
+                    val email = doc.getString("email")?.replace(",", " ") ?: ""
+                    val address = doc.getString("address")?.replace(",", " ") ?: ""
+                    val company = doc.getString("company")?.replace(",", " ") ?: ""
+                    val title = doc.getString("jobTitle")?.replace(",", " ") ?: ""
                     val category = doc.getString("category")?.replace(",", " ") ?: ""
                     val notes = doc.getString("notes")?.replace(",", " ")?.replace("\n", " ") ?: ""
                     val followUpDate = doc.getTimestamp("followUpDate")?.toDate()?.let { sdf.format(it) } ?: ""
                     
-                    csvContent.append("\"$name\",\"$phone\",\"$category\",\"$notes\",\"$followUpDate\"\n")
+                    csvContent.append("\"$name\",\"$phone\",\"$email\",\"$address\",\"$company\",\"$title\",\"$category\",\"$notes\",\"$followUpDate\"\n")
                 }
 
                 val fileName = "RCRM_Contacts_Export_${System.currentTimeMillis()}.csv"
@@ -962,6 +966,13 @@ class FollowUpActivity : AppCompatActivity() {
 
         val editName = dialogView.findViewById<EditText>(R.id.editDetailName)
         val editPhone = dialogView.findViewById<EditText>(R.id.editDetailPhone)
+        val editEmail = dialogView.findViewById<EditText>(R.id.editDetailEmail)
+        val btnEmailDetail = dialogView.findViewById<ImageButton>(R.id.btnEmailDetail)
+        val editAddress = dialogView.findViewById<EditText>(R.id.editDetailAddress)
+        val btnMapDetail = dialogView.findViewById<ImageButton>(R.id.btnMapDetail)
+        val editCompany = dialogView.findViewById<EditText>(R.id.editDetailCompany)
+        val editJobTitle = dialogView.findViewById<EditText>(R.id.editDetailJobTitle)
+        val btnSmsDetail = dialogView.findViewById<ImageButton>(R.id.btnSmsDetail)
         val btnCallDetail = dialogView.findViewById<ImageButton>(R.id.btnCallDetail)
         val cbRecruit = dialogView.findViewById<CheckBox>(R.id.cbRecruitDetail)
         val cbProspect = dialogView.findViewById<CheckBox>(R.id.cbProspectDetail)
@@ -993,8 +1004,14 @@ class FollowUpActivity : AppCompatActivity() {
         val btnEditReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnEditReminderIcon)
         val btnDeleteReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnDeleteReminderIcon)
 
+        editPhone.addTextChangedListener(android.telephony.PhoneNumberFormattingTextWatcher())
+
         editName.setText(lead["name"] as? String ?: "")
         editPhone.setText(lead["phone"] as? String ?: "")
+        editEmail.setText(lead["email"] as? String ?: "")
+        editAddress.setText(lead["address"] as? String ?: "")
+        editCompany.setText(lead["company"] as? String ?: "")
+        editJobTitle.setText(lead["jobTitle"] as? String ?: "")
         
         btnCallDetail.setOnClickListener {
             val phone = editPhone.text.toString().trim()
@@ -1003,6 +1020,52 @@ class FollowUpActivity : AppCompatActivity() {
                 startActivity(intent)
             } else {
                 Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnSmsDetail?.setOnClickListener {
+            val phone = editPhone.text.toString().trim()
+            if (phone.isNotEmpty()) {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone"))
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnEmailDetail?.setOnClickListener {
+            val email = editEmail.text.toString().trim()
+            if (email.isNotEmpty()) {
+                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
+                try {
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "No email app found", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "No email address provided", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnMapDetail?.setOnClickListener {
+            val address = editAddress.text.toString().trim()
+            if (address.isNotEmpty()) {
+                val uri = Uri.parse("geo:0,0?q=${Uri.encode(address)}")
+                val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                mapIntent.setPackage("com.google.android.apps.maps")
+                try {
+                    startActivity(mapIntent)
+                } catch (e: Exception) {
+                    // Fallback to any map app or browser if Google Maps isn't installed
+                    val fallbackIntent = Intent(Intent.ACTION_VIEW, uri)
+                    try {
+                        startActivity(fallbackIntent)
+                    } catch (e2: Exception) {
+                        Toast.makeText(this, "No map application found", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                Toast.makeText(this, "No address provided", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -1221,9 +1284,24 @@ class FollowUpActivity : AppCompatActivity() {
                 cal.time
             }
 
+            val rawAddress = editAddress.text.toString().trim()
+            val formattedAddress = rawAddress.split("\\s+".toRegex()).joinToString(" ") { word ->
+                val cleanWord = word.replace(Regex("[^A-Za-z]"), "")
+                if (cleanWord.length == 2) word.uppercase() else word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            }
+
+            val rawName = editName.text.toString().trim()
+            val formattedName = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
+                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
+            }
+
             val updatedData = mutableMapOf<String, Any>(
-                "name" to editName.text.toString(),
+                "name" to formattedName,
                 "phone" to editPhone.text.toString(),
+                "email" to editEmail.text.toString().trim(),
+                "address" to formattedAddress,
+                "company" to editCompany.text.toString().trim(),
+                "jobTitle" to editJobTitle.text.toString().trim(),
                 "category" to cats.joinToString(", "),
                 "targetMarket" to tmList.joinToString(", "),
                 "notes" to serializeNotes(noteList),

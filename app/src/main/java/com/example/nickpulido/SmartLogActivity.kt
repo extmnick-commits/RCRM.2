@@ -44,6 +44,16 @@ class SmartLogActivity : AppCompatActivity() {
 
     private lateinit var statsPrefs: SharedPreferences
 
+    private var cardImageUri: Uri? = null
+    private var currentPhotoPath: String? = null
+    private var progressDialog: AlertDialog? = null
+
+    private val scanCardLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            cardImageUri?.let { uri -> processBusinessCard(uri) }
+        }
+    }
+
     private companion object {
         const val PREFS_NAME = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -65,6 +75,10 @@ class SmartLogActivity : AppCompatActivity() {
 
         val etContactName = findViewById<EditText>(R.id.etContactName)
         val tvLogPhoneNumber = findViewById<TextView>(R.id.tvLogPhoneNumber)
+        val etContactEmail = findViewById<EditText>(R.id.etContactEmail)
+        val etContactAddress = findViewById<EditText>(R.id.etContactAddress)
+        val etContactCompany = findViewById<EditText>(R.id.etContactCompany)
+        val etContactJobTitle = findViewById<EditText>(R.id.etContactJobTitle)
         val btnSkip = findViewById<Button>(R.id.btnSkipPersonal)
         val btnIgnore = findViewById<Button>(R.id.btnIgnoreCallLog)
         val cbRecruit = findViewById<CheckBox>(R.id.cbRecruit)
@@ -83,6 +97,15 @@ class SmartLogActivity : AppCompatActivity() {
 
         etContactName.setText(contactName)
         tvLogPhoneNumber.text = phoneNumber
+
+        val btnScanCard = findViewById<Button>(R.id.btnScanCardSmartLog)
+        btnScanCard.setOnClickListener {
+            val photoFile = java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "card_${System.currentTimeMillis()}.jpg")
+            currentPhotoPath = photoFile.absolutePath
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "${packageName}.fileprovider", photoFile)
+            cardImageUri = uri
+            scanCardLauncher.launch(uri)
+        }
 
         cbClient.setOnCheckedChangeListener { _, isChecked ->
             clientSubCategoryLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
@@ -226,12 +249,15 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener {
             Log.d(TAG, "Save button clicked")
-            val newName = etContactName.text.toString()
+            val rawName = etContactName.text.toString().trim()
+            val newName = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
+                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
+            }
             if (newName != contactName) {
                 saveOrUpdateSystemContact(newName, phoneNumber)
                 contactName = newName
             }
-            performSaveLeadAction(cbRecruit, cbProspect, cbClient, cbInvestment, cbLifeInsurance, etNotes) {
+        performSaveLeadAction(cbRecruit, cbProspect, cbClient, cbInvestment, cbLifeInsurance, etContactEmail, etContactAddress, etContactCompany, etContactJobTitle, etNotes) {
                 Toast.makeText(this, "Lead History Saved", Toast.LENGTH_SHORT).show()
                 finish()
             }
@@ -239,18 +265,220 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnSms.setOnClickListener {
             Log.d(TAG, "SMS button clicked")
-            val newName = etContactName.text.toString()
+            val rawName = etContactName.text.toString().trim()
+            val newName = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
+                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
+            }
             if (newName != contactName) {
                 saveOrUpdateSystemContact(newName, phoneNumber)
                 contactName = newName
             }
-            performSaveLeadAction(cbRecruit, cbProspect, cbClient, cbInvestment, cbLifeInsurance, etNotes) {
+        performSaveLeadAction(cbRecruit, cbProspect, cbClient, cbInvestment, cbLifeInsurance, etContactEmail, etContactAddress, etContactCompany, etContactJobTitle, etNotes) {
                 val message = etIntroText.text.toString()
                 val smsIntent = Intent(Intent.ACTION_VIEW, "sms:$phoneNumber".toUri())
                 smsIntent.putExtra("sms_body", message)
                 startActivity(smsIntent)
                 finish()
             }
+        }
+    }
+
+    private fun processBusinessCard(uri: Uri) {
+        showLoadingDialog()
+        try {
+            val image = com.google.mlkit.vision.common.InputImage.fromFilePath(this, uri)
+            val recognizer = com.google.mlkit.vision.text.TextRecognition.getClient(com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS)
+
+            recognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    hideLoadingDialog()
+                    parseBusinessCardText(visionText.text)
+                    deleteCurrentPhoto()
+                }
+                .addOnFailureListener { e ->
+                    hideLoadingDialog()
+                    Toast.makeText(this, "Failed to read text: ${e.message}", Toast.LENGTH_SHORT).show()
+                    deleteCurrentPhoto()
+                }
+        } catch (e: Exception) {
+            hideLoadingDialog()
+            Toast.makeText(this, "Error processing image", Toast.LENGTH_SHORT).show()
+            deleteCurrentPhoto()
+        }
+    }
+
+    private fun parseBusinessCardText(text: String) {
+        val nameRef = findViewById<EditText>(R.id.etContactName)
+        val phoneRef = findViewById<TextView>(R.id.tvLogPhoneNumber)
+        val emailRef = findViewById<EditText>(R.id.etContactEmail)
+        val addressRef = findViewById<EditText>(R.id.etContactAddress)
+        val companyRef = findViewById<EditText>(R.id.etContactCompany)
+        val titleRef = findViewById<EditText>(R.id.etContactJobTitle)
+        val notesRef = findViewById<EditText>(R.id.etQuickNote)
+
+        val lines = text.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+
+        // --- 1. Smart Phone Number Selection ---
+        val phoneRegex = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}")
+        var bestPhone: String? = null
+        var fallbackPhone: String? = null
+
+        for (line in lines) {
+            val match = phoneRegex.find(line)
+            if (match != null) {
+                val lowerLine = line.lowercase()
+                if (lowerLine.contains("f") || lowerLine.contains("fax")) continue
+                if (fallbackPhone == null) fallbackPhone = match.value
+                
+                if (lowerLine.contains("m") || lowerLine.contains("c") || lowerLine.contains("cell") || lowerLine.contains("mobile") || lowerLine.contains("direct")) {
+                    bestPhone = match.value
+                }
+            }
+        }
+        val finalPhone = bestPhone ?: fallbackPhone
+        if (finalPhone != null && phoneNumber.isEmpty()) {
+            phoneNumber = finalPhone
+            phoneRef.text = finalPhone
+        }
+
+        // --- 2. Email Extraction ---
+        val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+        val emailMatch = emailRegex.find(text)
+        val extractedEmail = emailMatch?.value
+
+        if (extractedEmail != null && emailRef.text.isNullOrEmpty()) {
+            emailRef.setText(extractedEmail)
+        }
+
+        // --- 3. Smart Company & Title Extraction ---
+        val titleKeywords = listOf("manager", "director", "president", "ceo", "engineer", "agent", "representative", "consultant", "founder", "owner", "specialist", "vp", "vice president", "associate", "broker", "realtor", "officer", "advisor")
+        val companyKeywords = listOf("llc", "inc", "corp", "ltd", "company", "group", "solutions", "enterprises", "partners", "agency")
+
+        var detectedTitle: String? = null
+        var detectedCompany: String? = null
+
+        val genericDomains = listOf("gmail", "yahoo", "hotmail", "outlook", "aol", "icloud", "msn", "me", "live")
+        if (extractedEmail != null) {
+            val domainPart = extractedEmail.substringAfter("@").substringBeforeLast(".")
+            if (domainPart.lowercase() !in genericDomains) {
+                val companyLine = lines.firstOrNull { 
+                    it.contains(domainPart, ignoreCase = true) && !it.contains("@") && !it.lowercase().contains("www.")
+                }
+                if (companyLine != null) {
+                    detectedCompany = companyLine
+                } else {
+                    detectedCompany = domainPart.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                }
+            }
+        }
+
+        // --- 4. Smart Name Extraction ---
+        val possibleName = lines.firstOrNull { line ->
+            val lowerLine = line.lowercase()
+            !line.contains(Regex("\\d")) && 
+            !line.contains("@") && 
+            line.split(Regex("\\s+")).size in 2..4 &&
+            !titleKeywords.any { lowerLine.contains(it) } &&
+            !companyKeywords.any { lowerLine.contains(it) }
+        }
+        
+        for (line in lines) {
+            val lowerLine = line.lowercase()
+            if (line == possibleName || line.contains("@") || line.contains(Regex("\\d"))) continue
+            
+            if (detectedTitle == null && titleKeywords.any { lowerLine.contains(it) }) {
+                detectedTitle = line
+            } else if (detectedCompany == null && companyKeywords.any { lowerLine.contains(it) }) {
+                detectedCompany = line
+            }
+        }
+
+        // --- 5. Smart Address Extraction ---
+        var detectedAddress: String? = null
+        val addressKeywords = listOf(
+            "street", "st.", " st ", "avenue", "ave.", " ave ", "boulevard", "blvd", 
+            "road", "rd.", " rd ", "drive", "dr.", " dr ", "suite", "ste ", "pkwy", "parkway", 
+            "lane", "ln.", "court", "ct.", "plaza", "way", "po box", "p.o. box", "floor", "fl."
+        )
+        
+        for (i in lines.indices) {
+            val line = lines[i]
+            val lowerLine = line.lowercase()
+            
+            val startsWithNumber = Regex("^\\d+.*").matches(line)
+            val isPoBox = lowerLine.startsWith("po box") || lowerLine.startsWith("p.o. box")
+            
+            if ((startsWithNumber || isPoBox) && addressKeywords.any { lowerLine.contains(it) }) {
+                detectedAddress = line
+                var lookahead = 1
+                while (i + lookahead < lines.size && lookahead <= 2) {
+                    val nextLine = lines[i + lookahead]
+                    val lowerNext = nextLine.lowercase()
+                    val hasEmail = nextLine.contains("@")
+                    val hasWeb = lowerNext.contains("www.") || lowerNext.contains(".com")
+                    val hasPhone = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}").containsMatchIn(nextLine)
+                    if (hasEmail || hasWeb || hasPhone) break
+                    detectedAddress += ", $nextLine"
+                    if (Regex("\\b\\d{5}(?:-\\d{4})?\\b").containsMatchIn(nextLine)) break
+                    lookahead++
+                }
+                break
+            }
+        }
+        if (detectedAddress != null && addressRef.text.isNullOrEmpty()) {
+            addressRef.setText(detectedAddress)
+        }
+        
+        if (possibleName != null && nameRef.text.isNullOrEmpty()) {
+            val formattedName = possibleName.split("\\s+".toRegex()).joinToString(" ") { word ->
+                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
+            }
+            nameRef.setText(formattedName)
+        }
+        
+        val currentNotes = notesRef.text.toString()
+        
+        if (detectedCompany != null && companyRef.text.isNullOrEmpty()) {
+            companyRef.setText(detectedCompany)
+        }
+        if (detectedTitle != null && titleRef.text.isNullOrEmpty()) {
+            titleRef.setText(detectedTitle)
+        }
+        
+        val parsedNotes = "[Scanned Card]:\n$text"
+        val newNotes = if (currentNotes.isEmpty()) parsedNotes else "$currentNotes\n\n$parsedNotes"
+        notesRef.setText(newNotes.trim())
+    }
+
+    private fun showLoadingDialog() {
+        val builder = AlertDialog.Builder(this)
+        builder.setCancelable(false)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(50, 50, 50, 50)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        container.addView(ProgressBar(this))
+        container.addView(TextView(this).apply {
+            text = "Analyzing Business Card..."
+            setPadding(50, 0, 0, 0)
+            textSize = 16f
+        })
+        builder.setView(container)
+        progressDialog = builder.create()
+        progressDialog?.show()
+    }
+
+    private fun hideLoadingDialog() {
+        progressDialog?.dismiss()
+        progressDialog = null
+    }
+
+    private fun deleteCurrentPhoto() {
+        currentPhotoPath?.let { path ->
+            val file = java.io.File(path)
+            if (file.exists()) file.delete()
+            currentPhotoPath = null
         }
     }
 
@@ -400,7 +628,7 @@ class SmartLogActivity : AppCompatActivity() {
             }.show()
     }
 
-    private fun performSaveLeadAction(cbR: CheckBox, cbP: CheckBox, cbC: CheckBox, cbInv: CheckBox, cbLife: CheckBox, etN: EditText, onSuccess: () -> Unit) {
+    private fun performSaveLeadAction(cbR: CheckBox, cbP: CheckBox, cbC: CheckBox, cbInv: CheckBox, cbLife: CheckBox, etEmail: EditText, etAddress: EditText, etCompany: EditText, etTitle: EditText, etN: EditText, onSuccess: () -> Unit) {
         val cats = mutableListOf<String>()
         if (cbR.isChecked) cats.add(getString(R.string.category_recruit))
         if (cbP.isChecked) cats.add(getString(R.string.category_prospect))
@@ -412,6 +640,14 @@ class SmartLogActivity : AppCompatActivity() {
 
         val finalCategory = cats.joinToString(", ")
         val noteText = etN.text.toString()
+        val emailText = etEmail.text.toString().trim()
+        val rawAddress = etAddress.text.toString().trim()
+        val formattedAddress = rawAddress.split("\\s+".toRegex()).joinToString(" ") { word ->
+            val cleanWord = word.replace(Regex("[^A-Za-z]"), "")
+            if (cleanWord.length == 2) word.uppercase() else word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        }
+        val companyText = etCompany.text.toString().trim()
+        val titleText = etTitle.text.toString().trim()
         val currentUserId = auth.currentUser?.uid
 
         if (currentUserId == null) {
@@ -453,6 +689,10 @@ class SmartLogActivity : AppCompatActivity() {
                     val data = hashMapOf(
                         "name" to contactName, 
                         "phone" to phoneNumber, 
+                        "email" to emailText,
+                        "address" to formattedAddress,
+                        "company" to companyText,
+                        "jobTitle" to titleText,
                         "category" to finalCategory,
                         "notes" to formattedNote, 
                         "followUpDate" to followUpDate?.let { Timestamp(it) }, 
@@ -479,6 +719,10 @@ class SmartLogActivity : AppCompatActivity() {
 
                     val update = mutableMapOf<String, Any?>(
                         "name" to contactName,
+                        "email" to emailText,
+                        "address" to formattedAddress,
+                        "company" to companyText,
+                        "jobTitle" to titleText,
                         "category" to finalCategory, 
                         "notes" to combined, 
                         "timestamp" to Timestamp.now()

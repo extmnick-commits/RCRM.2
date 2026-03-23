@@ -19,6 +19,15 @@
             android:textColor="@color/textColorPrimary"
             android:layout_marginBottom="16dp"/>
 
+        <Button
+            android:id="@+id/btnScanCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📷 Scan Business Card"
+            android:backgroundTint="@color/colorSecondary"
+            android:textColor="@color/white"
+            android:layout_marginBottom="16dp"/>
+
         <EditText
             android:id="@+id/editQuickName"
             android:layout_width="match_parent"
@@ -37,6 +46,35 @@
             android:hint="@string/hint_phone_number"
             android:autofillHints="phone"
             android:inputType="phone" />
+
+        <EditText
+            android:id="@+id/editQuickEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Email Address"
+            android:autofillHints="emailAddress"
+            android:inputType="textEmailAddress" />
+
+        <EditText
+            android:id="@+id/editQuickAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Address"
+            android:inputType="textPostalAddress" />
+
+        <EditText
+            android:id="@+id/editQuickCompany"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Company"
+            android:inputType="textCapWords" />
+
+        <EditText
+            android:id="@+id/editQuickJobTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Job Title"
+            android:inputType="textCapWords" />
 
         <TextView
             android:layout_width="wrap_content"

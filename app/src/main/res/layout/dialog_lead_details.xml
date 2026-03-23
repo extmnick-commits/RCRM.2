@@ -37,6 +37,14 @@
                 android:autofillHints="phone"
                 android:inputType="phone" />
             <ImageButton
+                android:id="@+id/btnSmsDetail"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/sym_action_chat"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Send SMS"
+                app:tint="@color/colorPrimary" />
+            <ImageButton
                 android:id="@+id/btnCallDetail"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
@@ -45,6 +53,65 @@
                 android:contentDescription="@string/call_icon_description"
                 app:tint="@color/colorSuccess" />
         </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <EditText
+                android:id="@+id/editDetailEmail"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Email Address"
+                android:autofillHints="emailAddress"
+                android:inputType="textEmailAddress" />
+            <ImageButton
+                android:id="@+id/btnEmailDetail"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_dialog_email"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Send Email"
+                app:tint="@color/colorPrimary" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <EditText
+                android:id="@+id/editDetailAddress"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Address"
+                android:inputType="textPostalAddress" />
+            <ImageButton
+                android:id="@+id/btnMapDetail"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_dialog_map"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Open in Maps"
+                app:tint="@color/colorPrimary" />
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/editDetailCompany"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Company"
+            android:inputType="textCapWords" />
+
+        <EditText
+            android:id="@+id/editDetailJobTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Job Title"
+            android:inputType="textCapWords" />
 
         <TextView
             android:layout_width="wrap_content"

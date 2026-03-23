@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Expose external files directory (used for camera pictures and CSV exports) -->
+    <external-files-path name="my_images" path="Pictures/" />
+    <external-files-path name="my_docs" path="Documents/" />
+</paths>

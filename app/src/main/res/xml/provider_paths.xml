@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- For the Business Card Camera Images -->
+    <external-files-path name="my_images" path="Pictures" />
+    <!-- For the CSV Contacts Export -->
+    <external-files-path name="my_docs" path="Documents" />
+</paths>

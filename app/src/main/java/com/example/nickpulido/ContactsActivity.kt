@@ -135,12 +135,17 @@ class ContactsActivity : AppCompatActivity() {
         val cbClient = dialogView.findViewById<CheckBox>(R.id.cbClientQuick)
         val notesInput = dialogView.findViewById<EditText>(R.id.editQuickNotes)
         val btnSave = dialogView.findViewById<Button>(R.id.btnQuickSave)
+        
+        phoneInput.addTextChangedListener(android.telephony.PhoneNumberFormattingTextWatcher())
 
         btnSave.setOnClickListener {
-            val name = nameInput.text.toString().trim()
-            if (name.isEmpty()) {
+            val rawName = nameInput.text.toString().trim()
+            if (rawName.isEmpty()) {
                 nameInput.error = "Name required"
                 return@setOnClickListener
+            }
+            val name = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
+                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
             }
 
             val cats = mutableListOf<String>()
