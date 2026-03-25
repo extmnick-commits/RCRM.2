@@ -28,6 +28,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import androidx.work.*
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.firebase.Timestamp
@@ -36,6 +37,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -1158,6 +1162,47 @@ class FollowUpActivity : AppCompatActivity() {
         val btnDefaultIntro = dialogView.findViewById<Button>(R.id.btnDefaultIntro)
         val btnManagePresets = dialogView.findViewById<Button>(R.id.btnManagePresets)
         val btnSendIntroAction = dialogView.findViewById<Button>(R.id.btnSendIntroAction)
+
+        // Dynamic AI Draft Button
+        val btnAIGenerate = Button(this).apply {
+            text = "✨ AI Draft"
+            setBackgroundColor(Color.parseColor("#673AB7"))
+            setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 16, 0, 16)
+            }
+        }
+        containerSmsIntro?.addView(btnAIGenerate)
+
+        btnAIGenerate.setOnClickListener {
+            val contactName = editName.text.toString()
+            val history = parseNotes(lead["notes"] as? String ?: "").joinToString("\n") { "- ${it.content}" }
+            
+            btnAIGenerate.isEnabled = false
+            btnAIGenerate.text = "Drafting..."
+            
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val prompt = "You are an assistant for a Primerica agent. Draft a short, warm, and professional SMS message to $contactName. " +
+                                 "Use the following interaction history for context. Do not mention the notes directly. " +
+                                 "Keep it under 2 sentences and ready to send.\nHistory:\n$history"
+                    val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                    
+                    withContext(Dispatchers.Main) {
+                        etIntroText.setText(response.text?.trim() ?: "Could not generate message.")
+                        btnAIGenerate.isEnabled = true
+                        btnAIGenerate.text = "✨ AI Draft"
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "AI Draft Error", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        btnAIGenerate.isEnabled = true
+                        btnAIGenerate.text = "✨ AI Draft"
+                    }
+                }
+            }
+        }
 
         val tvReminderValue = dialogView.findViewById<TextView>(R.id.tvReminderValue)
         val btnEditReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnEditReminderIcon)

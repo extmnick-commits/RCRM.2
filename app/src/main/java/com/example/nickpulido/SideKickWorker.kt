@@ -95,7 +95,7 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                     val lastActivityTime = notes.maxByOrNull { it.timestamp }?.timestamp ?: 0L
                     val neglectScore = now - lastActivityTime
                     
-                    val suggestion = analyzeLeadHistory(notes)
+                    val suggestion = analyzeLeadHistory(name, notes)
                     val lastNoteContent = notes.maxByOrNull { it.timestamp }?.content ?: "No notes recorded"
 
                     neglectedLeads.add(NeglectedLead(doc.id, name, phone, lastNoteContent, suggestion, neglectScore))
@@ -204,46 +204,23 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
     /**
      * Tailors tips based on Primerica's business model and specific keywords, looking at all interactions.
      */
-    private fun analyzeLeadHistory(notes: List<Note>): String {
+    private suspend fun analyzeLeadHistory(name: String, notes: List<Note>): String {
         if (notes.isEmpty()) return "No notes found. Give them a quick call to establish contact."
         
-        val allContent = notes.joinToString(" ") { it.content.lowercase() }
-        val lastNote = notes.maxByOrNull { it.timestamp }?.content?.lowercase() ?: ""
-        
-        // 1. Check for repeated failed follow-up attempts
-        val followUpAttempts = notes.count { 
-            val text = it.content.lowercase()
-            text.contains("vm") || text.contains("voicemail") || text.contains("left message") || 
-            text.contains("no answer") || text.contains("called") || text.contains("no response")
-        }
-        
-        val hasConnected = allContent.contains("connected") || allContent.contains("spoke") || allContent.contains("met")
-        
-        if (followUpAttempts >= 3 && !hasConnected) {
-            return "You've tried reaching out multiple times without success. Consider sending a 'takeaway' text or wait 30 days before retrying."
-        }
-        
-        // 2. Contextual suggestions based on the most recent interactions
-        return when {
-            lastNote.contains("reschedule") || lastNote.contains("missed") || lastNote.contains("cancel") || lastNote.contains("no show") ->
-                "They missed their appointment. Send a quick text offering two specific alternative times to reschedule."
-            lastNote.contains("spouse") || lastNote.contains("wife") || lastNote.contains("husband") || lastNote.contains("partner") ->
-                "Make sure to coordinate a time when both them and their partner are available to review the information."
-            lastNote.contains("expensive") || lastNote.contains("money") || lastNote.contains("afford") || lastNote.contains("budget") ->
-                "They mentioned budget concerns. Focus on finding a comfortable starting point or emphasize the free value of the FNA."
-            lastNote.contains("fna") || lastNote.contains("kitchen") || lastNote.contains("kt") || lastNote.contains("data") -> 
-                "Suggest following up to present the Financial Needs Analysis (FNA) or finalize next steps."
-            lastNote.contains("recruit") || lastNote.contains("op") || lastNote.contains("ibp") || lastNote.contains("interview") || lastNote.contains("video") || lastNote.contains("overview") -> 
-                "Follow up on their interest in the business opportunity. Ask what they liked most about the overview."
-            lastNote.contains("life") || lastNote.contains("insur") || lastNote.contains("term") || lastNote.contains("app") || lastNote.contains("policy") -> 
-                "Check on the status of their life insurance application or discuss the 'Buy Term and Invest the Difference' strategy."
-            lastNote.contains("ira") || lastNote.contains("401k") || lastNote.contains("invest") || lastNote.contains("rollover") || lastNote.contains("roth") || lastNote.contains("mutual fund") -> 
-                "Suggest touching base on their investment goals, compound interest, or a potential rollover."
-            lastNote.contains("met at") || lastNote.contains("approached") || lastNote.contains("stranger") || lastNote.contains("cold") -> 
-                "Cold Market contact. Suggest a warm-up text offering a complimentary financial review to build trust."
-            lastNote.contains("referral") || lastNote.contains("friend") || lastNote.contains("warm") || lastNote.contains("family") -> 
-                "Warm Market referral. Suggest an immediate phone call mentioning your mutual connection."
-            else -> "Suggest a general check-in call to see how they're doing and keep the relationship warm."
+        val allContent = notes.joinToString("\n") { "- ${it.content}" }
+        val prompt = "You are an expert sales manager for Primerica. " +
+            "Analyze the following interaction history with a prospect named $name and provide ONE short, actionable next step. " +
+            "Keep it under 2 sentences. Here is the history:\n$allContent"
+
+        return try {
+            // This makes a network request to the Google AI API
+            val response = GeminiApiClient.generativeModel.generateContent(prompt)
+            response.text?.trim() ?: "Suggest checking in to keep the relationship warm."
+        } catch (e: Exception) {
+            // Log the error for debugging
+            Log.e(TAG, "Gemini API call failed", e)
+            // Provide a safe fallback message if the API call fails
+            "Could not reach AI. Suggest a general check-in call."
         }
     }
 
