@@ -99,6 +99,125 @@
                 app:tint="@color/colorPrimary" />
         </LinearLayout>
 
+    <!-- Target Market Toggle Header -->
+    <LinearLayout
+        android:id="@+id/headerTargetMarket"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="12dp"
+        android:layout_marginTop="4dp"
+        android:background="?attr/selectableItemBackground">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Target Market"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvToggleTargetMarket"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Edit ▼"
+            android:textColor="@color/colorPrimary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp" />
+    </LinearLayout>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/dialTargetMarket"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            app:indicatorSize="80dp"
+            app:trackThickness="8dp"
+            android:max="100" />
+
+        <TextView
+            android:id="@+id/tvTargetMarketScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="0%"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/textColorPrimary" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/containerTargetMarketCheckboxes"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" />
+            <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" />
+            <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" />
+            <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Occupation" />
+            <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Extended Details Toggle Header -->
+    <LinearLayout
+        android:id="@+id/headerExtendedDetails"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="12dp"
+        android:layout_marginTop="4dp"
+        android:background="?attr/selectableItemBackground">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Extended Details"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvToggleExtended"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Show ▼"
+            android:textColor="@color/colorPrimary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/containerExtendedDetails"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
         <EditText
             android:id="@+id/editDetailCompany"
             android:layout_width="match_parent"
@@ -142,68 +261,39 @@
             <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
         </LinearLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Target Market"
-            android:textStyle="bold"
-            android:textColor="@color/textColorSecondary"
-            android:textSize="12sp"/>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tvBirthdayDisplay"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" />
-                <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" />
-                <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" />
-            </LinearLayout>
+                android:text="Birthday: None"
+                android:textColor="@color/textColorPrimary"
+                android:textStyle="bold" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <Button
+                android:id="@+id/btnSetBirthday"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" />
-                <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Occupation" />
-                <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
-            </LinearLayout>
-
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp">
-
-                <com.google.android.material.progressindicator.CircularProgressIndicator
-                    android:id="@+id/dialTargetMarket"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerInParent="true"
-                    app:indicatorSize="80dp"
-                    app:trackThickness="8dp"
-                    android:max="100" />
-
-                <TextView
-                    android:id="@+id/tvTargetMarketScore"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerInParent="true"
-                    android:text="0%"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/textColorPrimary" />
-            </RelativeLayout>
+                android:text="📅 Add Birthday"
+                android:textColor="@color/colorPrimary"
+                android:textAllCaps="false" />
         </LinearLayout>
+
+    </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:layout_marginTop="12dp">
 
             <TextView
@@ -212,16 +302,32 @@
                 android:layout_weight="1"
                 android:text="Internal Notes"
                 android:textColor="@color/textColorSecondary"
-                android:textSize="12sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvToggleNotes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="View All ▼"
+                android:textColor="@color/colorPrimary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:visibility="gone"
+                android:background="?attr/selectableItemBackgroundBorderless" />
 
             <Button
                 android:id="@+id/btnAddDatedNote"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="@string/btn_add_dated_note"
-                android:textSize="12sp"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="8dp"
+                android:text="📝"
+                android:textSize="18sp"
                 android:backgroundTint="?attr/colorSurface"
                 android:textColor="@color/colorPrimary" />
         </LinearLayout>
@@ -326,6 +432,42 @@
             android:layout_marginTop="24dp"
             android:layout_marginBottom="16dp"/>
 
+    <!-- SMS Intro Toggle Header -->
+    <LinearLayout
+        android:id="@+id/headerSmsIntro"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="12dp"
+        android:background="?attr/selectableItemBackground">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Quick Intro SMS"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvToggleSms"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Show ▼"
+            android:textColor="@color/colorPrimary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/containerSmsIntro"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
@@ -400,6 +542,8 @@
             android:text="@string/btn_send_intro"
             android:textColor="@color/colorPrimary"
             android:textStyle="bold" />
+
+    </LinearLayout>
 
         <Button
             android:id="@+id/btnSaveChanges"

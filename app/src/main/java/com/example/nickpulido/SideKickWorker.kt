@@ -66,6 +66,7 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 val followUpTimestamp = doc.getTimestamp(FIELD_FOLLOW_UP_DATE)
                 val lastFollowUpDate = followUpTimestamp?.toDate()?.time ?: 0L
                 val rawNotes = doc.getString(FIELD_NOTES) ?: ""
+                val birthday = doc.getString("birthday")
                 
                 val notes = parseNotes(rawNotes)
                 
@@ -80,7 +81,17 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 // Recency: Last follow up was more than 14 days ago
                 val isOldFollowUp = lastFollowUpDate < fourteenDaysAgo && lastFollowUpDate != 0L
 
-                if (isNeglected || (isOldFollowUp && recentNotesCount == 0)) {
+                var isBirthdayToday = false
+                if (birthday != null) {
+                    val todayStr = SimpleDateFormat("-MM-dd", Locale.getDefault()).format(Date())
+                    if (birthday.endsWith(todayStr)) {
+                        isBirthdayToday = true
+                    }
+                }
+
+                if (isBirthdayToday) {
+                    neglectedLeads.add(NeglectedLead(doc.id, name, phone, "🎂 Birthday Today!", "It's their birthday! Send a quick text or call to wish them well.", Long.MAX_VALUE))
+                } else if (isNeglected || (isOldFollowUp && recentNotesCount == 0)) {
                     val lastActivityTime = notes.maxByOrNull { it.timestamp }?.timestamp ?: 0L
                     val neglectScore = now - lastActivityTime
                     
@@ -271,18 +282,29 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val birthdays = leads.filter { it.neglectScore == Long.MAX_VALUE }
+        val title = if (birthdays.isNotEmpty()) {
+            "🎂 ${birthdays.size} Birthday(s) Today!"
+        } else {
+            "Side-Kick: ${leads.size} leads need attention"
+        }
+        
+        val contentText = if (birthdays.isNotEmpty()) {
+            "Don't forget to wish ${birthdays.first().name} a happy birthday!"
+        } else {
+            "Check coaching suggestions for your neglected leads"
+        }
+
         val inboxStyle = NotificationCompat.InboxStyle()
-        inboxStyle.setBigContentTitle("Side-Kick: ${leads.size} leads need attention")
+        inboxStyle.setBigContentTitle(title)
         for (lead in leads) {
             inboxStyle.addLine("${lead.name}: ${lead.suggestion}")
         }
-        
-        val title = "Side-Kick: ${leads.size} leads need attention"
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
-            .setContentText("Check coaching suggestions for your neglected leads")
+            .setContentText(contentText)
             .setStyle(inboxStyle)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

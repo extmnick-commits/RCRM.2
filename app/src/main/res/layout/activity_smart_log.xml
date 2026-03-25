@@ -62,41 +62,6 @@
                     android:textSize="14sp"
                     tools:text="(555) 555-5555" />
 
-                <EditText
-                    android:id="@+id/etContactEmail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Email Address"
-                    android:inputType="textEmailAddress"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no" />
-
-                <EditText
-                    android:id="@+id/etContactAddress"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Address"
-                    android:inputType="textPostalAddress"
-                    android:layout_marginTop="8dp" />
-
-                <EditText
-                    android:id="@+id/etContactCompany"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Company"
-                    android:inputType="textCapWords"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no" />
-
-                <EditText
-                    android:id="@+id/etContactJobTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Job Title"
-                    android:inputType="textCapWords"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no" />
-
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -138,33 +103,106 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/label_category"
-                android:textStyle="bold"
-                android:textColor="@color/textColorSecondary"
-                android:textSize="12sp"/>
-
+            <!-- Advanced Logging Toggle Header -->
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <CheckBox android:id="@+id/cbRecruit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
-                <CheckBox android:id="@+id/cbProspect" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
-                <CheckBox android:id="@+id/cbClient" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/clientSubCategoryLayout"
+                android:id="@+id/headerAdvancedLogging"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:visibility="gone"
-                android:layout_marginStart="16dp">
-                <CheckBox android:id="@+id/cbInvestment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" />
-                <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:layout_marginTop="4dp"
+                android:background="?attr/selectableItemBackground">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Advanced Details (Email, Address, Company, etc)"
+                    android:textColor="@color/textColorPrimary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvToggleAdvanced"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Show ▼"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/containerAdvancedLogging"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <EditText
+                    android:id="@+id/etContactEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Email Address"
+                    android:inputType="textEmailAddress"
+                    android:layout_marginTop="8dp"
+                    android:importantForAutofill="no" />
+
+                <EditText
+                    android:id="@+id/etContactAddress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Address"
+                    android:inputType="textPostalAddress"
+                    android:layout_marginTop="8dp" />
+
+                <EditText
+                    android:id="@+id/etContactCompany"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Company"
+                    android:inputType="textCapWords"
+                    android:layout_marginTop="8dp"
+                    android:importantForAutofill="no" />
+
+                <EditText
+                    android:id="@+id/etContactJobTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Job Title"
+                    android:inputType="textCapWords"
+                    android:layout_marginTop="8dp"
+                    android:importantForAutofill="no" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/label_category"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorSecondary"
+                    android:textSize="12sp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <CheckBox android:id="@+id/cbRecruit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
+                    <CheckBox android:id="@+id/cbProspect" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
+                    <CheckBox android:id="@+id/cbClient" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/clientSubCategoryLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:visibility="gone"
+                    android:layout_marginStart="16dp">
+                    <CheckBox android:id="@+id/cbInvestment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" />
+                    <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
+                </LinearLayout>
             </LinearLayout>
 
             <EditText
@@ -224,6 +262,17 @@
                     style="?android:attr/buttonStyleSmall"/>
             </LinearLayout>
 
+            <Button
+                android:id="@+id/btnScheduleCustom"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:backgroundTint="?attr/colorSurface"
+                android:text="Schedule"
+                android:textAllCaps="false"
+                android:textColor="@color/textColorPrimary" />
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
@@ -231,9 +280,45 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="16dp"/>
 
-            <RelativeLayout
+            <!-- SMS Intro Toggle Header -->
+            <LinearLayout
+                android:id="@+id/headerSmsIntro"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="12dp"
+                android:background="?attr/selectableItemBackground">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Quick Intro SMS"
+                    android:textColor="@color/textColorPrimary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvToggleSms"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Show ▼"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/containerSmsIntro"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
 
                 <TextView
                     android:id="@+id/tvIntroTextLabel"
@@ -296,6 +381,17 @@
                     android:textSize="14sp" />
             </com.google.android.material.card.MaterialCardView>
 
+                <Button
+                    android:id="@+id/btnSendIntroAction"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="?attr/colorSurface"
+                    android:text="@string/btn_send_intro"
+                    android:textColor="@color/colorPrimary"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/bottomActionContainer"
                 android:layout_width="match_parent"
@@ -311,16 +407,6 @@
                     android:text="@string/btn_save_lead"
                     android:textColor="@color/white"
                     android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/btnSendIntroAction"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
-                    android:backgroundTint="?attr/colorSurface"
-                    android:text="@string/btn_send_intro"
-                    android:textColor="@color/colorPrimary"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>

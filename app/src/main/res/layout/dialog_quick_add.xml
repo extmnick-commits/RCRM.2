@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/backgroundColor">
@@ -75,6 +76,90 @@
             android:layout_height="wrap_content"
             android:hint="Job Title"
             android:inputType="textCapWords" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvQuickBirthdayDisplay"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="Birthday: None"
+                android:textColor="@color/textColorPrimary"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnQuickSetBirthday"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅 Add Birthday"
+                android:textColor="@color/colorPrimary"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Target Market"
+            android:textStyle="bold"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="12sp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox android:id="@+id/cbTmMarriedQuick" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" />
+                <CheckBox android:id="@+id/cbTmAgeQuick" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" />
+                <CheckBox android:id="@+id/cbTmChildrenQuick" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox android:id="@+id/cbTmHomeownerQuick" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" />
+                <CheckBox android:id="@+id/cbTmOccupationQuick" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Occupation" />
+                <View android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            </LinearLayout>
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/dialTargetMarketQuick"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    app:indicatorSize="80dp"
+                    app:trackThickness="8dp"
+                    android:max="100" />
+
+                <TextView
+                    android:id="@+id/tvTargetMarketScoreQuick"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="0%"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary" />
+            </RelativeLayout>
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"

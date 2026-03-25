@@ -72,6 +72,7 @@ class FollowUpActivity : AppCompatActivity() {
     
     private var currentFollowUpCount = 0
     private var currentFollowUpGoal = 5
+    private var hasPulsedFollowUpGoal = false
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { writeBackupToFile(it) }
@@ -275,6 +276,78 @@ class FollowUpActivity : AppCompatActivity() {
         progressFollowUps.progress = currentFollowUpCount
         tvFollowUpCountDisplay.text = currentFollowUpCount.toString()
         tvFollowUpGoalDisplay.text = "Goal: $currentFollowUpGoal"
+
+        if (currentFollowUpCount >= currentFollowUpGoal && currentFollowUpGoal > 0 && !hasPulsedFollowUpGoal) {
+            hasPulsedFollowUpGoal = true
+            pulseView(progressFollowUps)
+        } else if (currentFollowUpCount < currentFollowUpGoal) {
+            hasPulsedFollowUpGoal = false
+        }
+    }
+
+    private fun pulseView(view: View) {
+        val scaleX = android.animation.ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.2f, 1f)
+        val scaleY = android.animation.ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.2f, 1f)
+        scaleX.duration = 300
+        scaleY.duration = 300
+        scaleX.repeatCount = 1
+        scaleY.repeatCount = 1
+        val animatorSet = android.animation.AnimatorSet()
+        animatorSet.playTogether(scaleX, scaleY)
+        animatorSet.start()
+
+        explodeConfetti(view)
+    }
+
+    private fun explodeConfetti(anchor: View) {
+        val root = findViewById<ViewGroup>(android.R.id.content)
+        val anchorLocation = IntArray(2)
+        val rootLocation = IntArray(2)
+        anchor.getLocationInWindow(anchorLocation)
+        root.getLocationInWindow(rootLocation)
+
+        val startX = (anchorLocation[0] - rootLocation[0]) + anchor.width / 2f
+        val startY = (anchorLocation[1] - rootLocation[1]) + anchor.height / 2f
+
+        val random = java.util.Random()
+        val colors = intArrayOf(
+            Color.parseColor("#FF5252"), Color.parseColor("#FF4081"), Color.parseColor("#E040FB"),
+            Color.parseColor("#7C4DFF"), Color.parseColor("#536DFE"), Color.parseColor("#448AFF"),
+            Color.parseColor("#40C4FF"), Color.parseColor("#18FFFF"), Color.parseColor("#64FFDA"),
+            Color.parseColor("#69F0AE"), Color.parseColor("#B2FF59"), Color.parseColor("#EEFF41"),
+            Color.parseColor("#FFFF00"), Color.parseColor("#FFD740"), Color.parseColor("#FFAB40")
+        )
+
+        for (i in 0..40) {
+            val particle = View(this)
+            val size = random.nextInt(20) + 15
+            particle.layoutParams = ViewGroup.LayoutParams(size, size)
+
+            val shape = GradientDrawable()
+            shape.shape = if (random.nextBoolean()) GradientDrawable.OVAL else GradientDrawable.RECTANGLE
+            shape.setColor(colors[random.nextInt(colors.size)])
+            particle.background = shape
+
+            particle.x = startX - size / 2f
+            particle.y = startY - size / 2f
+            particle.elevation = 10f
+            root.addView(particle)
+
+            val angle = random.nextDouble() * 2 * Math.PI
+            val distance = random.nextInt(400) + 150
+            val endX = startX + (Math.cos(angle) * distance).toFloat()
+            val endY = startY + (Math.sin(angle) * distance).toFloat() + 200f // Dropdown gravity effect
+
+            particle.animate()
+                .x(endX)
+                .y(endY)
+                .rotation(random.nextInt(720).toFloat())
+                .alpha(0f)
+                .setDuration((random.nextInt(500) + 600).toLong())
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .withEndAction { root.removeView(particle) }
+                .start()
+        }
     }
 
     private fun showGoalDialog(prefKey: String, title: String, currentVal: Int) {
@@ -363,6 +436,7 @@ class FollowUpActivity : AppCompatActivity() {
         val popup = PopupMenu(this, view)
         popup.menu.add("All Categories")
         popup.menu.add("💡 Side-Kick Tips")
+        popup.menu.add("⏰ Overdue")
         popup.menu.add(getString(R.string.category_recruit))
         popup.menu.add(getString(R.string.category_prospect))
         popup.menu.add(getString(R.string.category_client))
@@ -377,6 +451,7 @@ class FollowUpActivity : AppCompatActivity() {
 
     private fun applyFilters() {
         displayLeadsData.clear()
+        val currentTime = System.currentTimeMillis()
         for (lead in allLeadsData) {
             val name = (lead["name"] as? String ?: "").lowercase()
             val category = (lead["category"] as? String ?: "").lowercase()
@@ -386,6 +461,9 @@ class FollowUpActivity : AppCompatActivity() {
 
             val matchesCategory = if (currentCategoryFilter == "💡 Side-Kick Tips") {
                 sideKickTip.isNotEmpty()
+            } else if (currentCategoryFilter == "⏰ Overdue") {
+                val followUpTs = lead["followUpDate"] as? Timestamp
+                followUpTs != null && followUpTs.toDate().time < currentTime
             } else {
                 currentCategoryFilter == null || category.contains(currentCategoryFilter!!.lowercase())
             }
@@ -401,6 +479,8 @@ class FollowUpActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.dialog_settings, null)
         
         val switchSideKick = view.findViewById<MaterialSwitch>(R.id.switchSideKick)
+        val btnForceRunSideKick = view.findViewById<Button>(R.id.btnForceRunSideKick)
+        val progressSideKick = view.findViewById<ProgressBar>(R.id.progressSideKick)
         val switchFollowSystem = view.findViewById<MaterialSwitch>(R.id.switchFollowSystemTheme)
         val switchDarkMode = view.findViewById<MaterialSwitch>(R.id.switchDarkMode)
         
@@ -424,6 +504,22 @@ class FollowUpActivity : AppCompatActivity() {
         switchDarkMode.isEnabled = !switchFollowSystem.isChecked
         switchFollowSystem.setOnCheckedChangeListener { _, isChecked ->
             switchDarkMode.isEnabled = !isChecked
+        }
+
+        btnForceRunSideKick?.setOnClickListener {
+            btnForceRunSideKick.isEnabled = false
+            progressSideKick?.visibility = View.VISIBLE
+            val request = OneTimeWorkRequestBuilder<SideKickWorker>().build()
+            WorkManager.getInstance(this).enqueue(request)
+            
+            WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.id).observe(this) { workInfo ->
+                if (workInfo != null && workInfo.state.isFinished) {
+                    btnForceRunSideKick.isEnabled = true
+                    progressSideKick?.visibility = View.GONE
+                    Toast.makeText(this, "Side-Kick check complete!", Toast.LENGTH_SHORT).show()
+                    loadLeadsFromCloud()
+                }
+            }
         }
 
         switchSideKick.isChecked = settingsPrefs.getBoolean(KEY_SIDE_KICK, false)
@@ -838,7 +934,7 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun scheduleSideKickWorker() {
-        val workRequest = PeriodicWorkRequestBuilder<SideKickWorker>(24, TimeUnit.HOURS)
+        val workRequest = PeriodicWorkRequestBuilder<SideKickWorker>(4, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
 
@@ -954,6 +1050,11 @@ class FollowUpActivity : AppCompatActivity() {
                     data["__docId"] = document.id
                     allLeadsData.add(data)
                 }
+
+                // Sort leads so the most recently added ones appear at the top
+                allLeadsData.sortByDescending { lead ->
+                    (lead["timestamp"] as? Timestamp)?.seconds ?: 0L
+                }
                 applyFilters()
                 
                 targetPhone?.let { phone ->
@@ -1001,6 +1102,57 @@ class FollowUpActivity : AppCompatActivity() {
         val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
         val btnAddCalendar = dialogView.findViewById<Button>(R.id.btnAddCalendar)
         val btnSaveChanges = dialogView.findViewById<Button>(R.id.btnSaveChanges)
+
+        val tvBirthdayDisplay = dialogView.findViewById<TextView>(R.id.tvBirthdayDisplay)
+        val btnSetBirthday = dialogView.findViewById<Button>(R.id.btnSetBirthday)
+
+        val containerTargetMarketCheckboxes = dialogView.findViewById<LinearLayout>(R.id.containerTargetMarketCheckboxes)
+        val tvToggleTargetMarket = dialogView.findViewById<TextView>(R.id.tvToggleTargetMarket)
+        val headerTargetMarket = dialogView.findViewById<LinearLayout>(R.id.headerTargetMarket)
+
+        val containerExtendedDetails = dialogView.findViewById<LinearLayout>(R.id.containerExtendedDetails)
+        val tvToggleExtended = dialogView.findViewById<TextView>(R.id.tvToggleExtended)
+        val headerExtendedDetails = dialogView.findViewById<LinearLayout>(R.id.headerExtendedDetails)
+        
+        val containerSmsIntro = dialogView.findViewById<LinearLayout>(R.id.containerSmsIntro)
+        val tvToggleSms = dialogView.findViewById<TextView>(R.id.tvToggleSms)
+        val headerSmsIntro = dialogView.findViewById<LinearLayout>(R.id.headerSmsIntro)
+        
+        val tvToggleNotes = dialogView.findViewById<TextView>(R.id.tvToggleNotes)
+        var isNotesExpanded = false
+
+        headerTargetMarket?.setOnClickListener {
+            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
+            if (containerTargetMarketCheckboxes?.visibility == View.GONE) {
+                containerTargetMarketCheckboxes.visibility = View.VISIBLE
+                tvToggleTargetMarket?.text = "Hide ▲"
+            } else {
+                containerTargetMarketCheckboxes?.visibility = View.GONE
+                tvToggleTargetMarket?.text = "Edit ▼"
+            }
+        }
+
+        headerExtendedDetails?.setOnClickListener {
+            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
+            if (containerExtendedDetails?.visibility == View.GONE) {
+                containerExtendedDetails.visibility = View.VISIBLE
+                tvToggleExtended?.text = "Hide ▲"
+            } else {
+                containerExtendedDetails?.visibility = View.GONE
+                tvToggleExtended?.text = "Show ▼"
+            }
+        }
+        
+        headerSmsIntro?.setOnClickListener {
+            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
+            if (containerSmsIntro?.visibility == View.GONE) {
+                containerSmsIntro.visibility = View.VISIBLE
+                tvToggleSms?.text = "Hide ▲"
+            } else {
+                containerSmsIntro?.visibility = View.GONE
+                tvToggleSms?.text = "Show ▼"
+            }
+        }
 
         val etIntroText = dialogView.findViewById<EditText>(R.id.etIntroText)
         val btnDefaultIntro = dialogView.findViewById<Button>(R.id.btnDefaultIntro)
@@ -1121,6 +1273,14 @@ class FollowUpActivity : AppCompatActivity() {
 
             dialTargetMarket.progress = percentage
             tvTargetMarketScore.text = "$percentage%"
+            
+            val color = when {
+                percentage >= 80 -> Color.parseColor("#4CAF50")
+                percentage >= 40 -> Color.parseColor("#FF9800")
+                else -> Color.parseColor("#F44336")
+            }
+            dialTargetMarket.setIndicatorColor(color)
+            tvTargetMarketScore.setTextColor(color)
         }
 
         cbTmMarried.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
@@ -1130,6 +1290,50 @@ class FollowUpActivity : AppCompatActivity() {
         cbTmOccupation.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
         
         updateTargetMarketDial()
+
+        var currentBirthday: String? = lead["birthday"] as? String
+
+        fun updateBirthdayUI() {
+            if (currentBirthday != null) {
+                try {
+                    val displayFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                    val parsedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(currentBirthday!!)
+                    tvBirthdayDisplay?.text = "Birthday: ${parsedDate?.let { displayFormat.format(it) } ?: currentBirthday}"
+                } catch (e: Exception) {
+                    tvBirthdayDisplay?.text = "Birthday: $currentBirthday"
+                }
+                btnSetBirthday?.text = "📅 Edit Birthday"
+            } else {
+                tvBirthdayDisplay?.text = "Birthday: None"
+                btnSetBirthday?.text = "📅 Add Birthday"
+            }
+        }
+        updateBirthdayUI()
+
+        btnSetBirthday?.setOnClickListener {
+            val cal = Calendar.getInstance()
+            if (currentBirthday != null) {
+                val parts = currentBirthday!!.split("-")
+                if (parts.size >= 3) {
+                    cal.set(Calendar.YEAR, parts[0].toIntOrNull() ?: cal.get(Calendar.YEAR))
+                    cal.set(Calendar.MONTH, (parts[1].toIntOrNull() ?: 1) - 1)
+                    cal.set(Calendar.DAY_OF_MONTH, parts[2].toIntOrNull() ?: 1)
+                }
+            }
+            
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            
+            DatePickerDialog(this, theme, { _, year, month, day ->
+                val monthStr = (month + 1).toString().padStart(2, '0')
+                val dayStr = day.toString().padStart(2, '0')
+                currentBirthday = "$year-$monthStr-$dayStr"
+                updateBirthdayUI()
+                
+                // Instantly save to cloud so it is never accidentally discarded!
+                db.collection("leads").document(docId).update("birthday", currentBirthday)
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
 
         fun applyDefaultIntro() {
             val currentName = editName.text.toString()
@@ -1159,7 +1363,17 @@ class FollowUpActivity : AppCompatActivity() {
         
         fun refreshNotesUI() {
             notesContainer.removeAllViews()
-            for (note in noteList) {
+            
+            if (noteList.size > 1) {
+                tvToggleNotes?.visibility = View.VISIBLE
+                tvToggleNotes?.text = if (isNotesExpanded) "Hide History ▲" else "View All (${noteList.size}) ▼"
+            } else {
+                tvToggleNotes?.visibility = View.GONE
+            }
+            
+            val notesToShow = if (isNotesExpanded || noteList.size <= 1) noteList else noteList.take(1)
+            
+            for (note in notesToShow) {
                 val noteView = LayoutInflater.from(this).inflate(R.layout.item_note, notesContainer, false)
                 val tvDate = noteView.findViewById<TextView>(R.id.tvNoteDate)
                 val etContent = noteView.findViewById<EditText>(R.id.etNoteContent)
@@ -1200,11 +1414,18 @@ class FollowUpActivity : AppCompatActivity() {
         }
         refreshNotesUI()
 
+        tvToggleNotes?.setOnClickListener {
+            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
+            isNotesExpanded = !isNotesExpanded
+            refreshNotesUI()
+        }
+
         var noteAddedThisSession = false
         btnAddDatedNote.setOnClickListener {
             val timestamp = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
             noteList.add(0, NoteItem(timestamp, ""))
             noteAddedThisSession = true
+            isNotesExpanded = true
             refreshNotesUI()
         }
 
@@ -1223,7 +1444,7 @@ class FollowUpActivity : AppCompatActivity() {
 
         fun updateReminderUI() {
             if (newFollowUpDate != null && newFollowUpDate!!.after(Date())) {
-                val format = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+                val format = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
                 tvReminderValue.text = format.format(newFollowUpDate!!)
                 btnEditReminderIcon.visibility = View.VISIBLE
                 btnDeleteReminderIcon.visibility = View.VISIBLE
@@ -1240,9 +1461,13 @@ class FollowUpActivity : AppCompatActivity() {
         val onSetReminderClicked = View.OnClickListener {
             val cal = Calendar.getInstance()
             newFollowUpDate?.let { if (it.after(Date())) cal.time = it }
-            DatePickerDialog(this, { _, year, month, day ->
+            
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            
+            DatePickerDialog(this, theme, { _, year, month, day ->
                 cal.set(year, month, day)
-                TimePickerDialog(this, { _, hour, minute ->
+                TimePickerDialog(this, theme, { _, hour, minute ->
                     cal.set(Calendar.HOUR_OF_DAY, hour)
                     cal.set(Calendar.MINUTE, minute)
                     newFollowUpDate = cal.time
@@ -1315,6 +1540,12 @@ class FollowUpActivity : AppCompatActivity() {
                 "followUpDate" to Timestamp(finalFollowUpDate),
                 "sideKickSuggestion" to FieldValue.delete() // Clears the tip once the user takes action
             )
+
+            if (currentBirthday != null) {
+                updatedData["birthday"] = currentBirthday!!
+            } else {
+                updatedData["birthday"] = FieldValue.delete()
+            }
 
             db.collection("leads").document(docId).update(updatedData).addOnSuccessListener {
                 if (noteAddedThisSession) {
@@ -1453,6 +1684,7 @@ class FollowUpAdapter(
         val tvName = view.findViewById<TextView>(R.id.tvLeadName)
         val tvDetails = view.findViewById<TextView>(R.id.tvLeadDetails)
         val tvCategoryLabel = view.findViewById<TextView>(R.id.tvCategoryLabel)
+        val tvNewBadge = view.findViewById<TextView>(R.id.tvNewBadge)
         val btnCallIcon = view.findViewById<ImageView>(R.id.btnCallIcon)
         val cbSelectLead = view.findViewById<CheckBox>(R.id.cbSelectLead)
         val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
@@ -1464,7 +1696,15 @@ class FollowUpAdapter(
         val notes = lead["notes"] as? String ?: ""
         val sideKickSuggestion = lead["sideKickSuggestion"] as? String ?: ""
 
-        tvName.text = context.getString(R.string.lead_name_format, name)
+        val birthday = lead["birthday"] as? String
+        var nameText = context.getString(R.string.lead_name_format, name)
+        if (birthday != null) {
+            val todayStr = SimpleDateFormat("-MM-dd", Locale.getDefault()).format(Date())
+            if (birthday.endsWith(todayStr)) {
+                nameText += " 🎂"
+            }
+        }
+        tvName.text = nameText
         
         if (category.isNotEmpty()) {
             tvCategoryLabel.text = category
@@ -1487,12 +1727,51 @@ class FollowUpAdapter(
             tvCategoryLabel.visibility = View.GONE
         }
 
-        val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "")
-        if (sideKickSuggestion.isNotEmpty()) {
-            tvDetails.text = "💡 Side-Kick Tip: $sideKickSuggestion\n\nLast Note: ${latestNote.ifEmpty { "None" }}"
+        val timestamp = lead["timestamp"] as? Timestamp
+        val createdDate = timestamp?.toDate()?.let { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(it) } ?: "Unknown"
+        
+        if (timestamp != null && tvNewBadge != null) {
+            val now = System.currentTimeMillis()
+            val createdTime = timestamp.toDate().time
+            // 24 hours in milliseconds
+            if ((now - createdTime) <= 24 * 60 * 60 * 1000L) {
+                tvNewBadge.visibility = View.VISIBLE
+                val badgeBg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#FF5252")) // Bright red/orange to catch attention
+                    cornerRadius = 16f
+                }
+                tvNewBadge.background = badgeBg
+            } else {
+                tvNewBadge.visibility = View.GONE
+            }
         } else {
-            tvDetails.text = latestNote.ifEmpty { "No notes available" }
+            tvNewBadge?.visibility = View.GONE
         }
+
+        val followUpTs = lead["followUpDate"] as? Timestamp
+        val followUpDate = followUpTs?.toDate()?.let { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(it) } ?: "None"
+
+        val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "").trim()
+
+        val detailsText = android.text.SpannableStringBuilder()
+        if (sideKickSuggestion.isNotEmpty()) detailsText.append("💡 Tip: $sideKickSuggestion\n\n")
+        
+        val followUpStart = detailsText.length
+        detailsText.append("⏰ Follow-up: $followUpDate\n")
+        
+        if (followUpTs != null && followUpTs.toDate().time < System.currentTimeMillis()) {
+            detailsText.setSpan(
+                android.text.style.ForegroundColorSpan(Color.parseColor("#FF5252")),
+                followUpStart,
+                detailsText.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        
+        detailsText.append("📝 Note: ${latestNote.ifEmpty { "None" }}\n")
+        detailsText.append("📅 Added: $createdDate")
+        
+        tvDetails.text = detailsText
 
         // Hide the complete action on this page entirely
         llCompleteAction?.visibility = View.GONE

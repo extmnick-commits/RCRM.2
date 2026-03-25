@@ -50,7 +50,19 @@ class SmartLogActivity : AppCompatActivity() {
 
     private val scanCardLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.TakePicture()) { success ->
         if (success) {
-            cardImageUri?.let { uri -> processBusinessCard(uri) }
+            cardImageUri?.let { uri -> performCrop(uri) }
+        }
+    }
+
+    private var croppedImageUri: Uri? = null
+
+    private val pickGalleryLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) performCrop(uri)
+    }
+
+    private val cropLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            croppedImageUri?.let { processBusinessCard(it) }
         }
     }
 
@@ -95,16 +107,56 @@ class SmartLogActivity : AppCompatActivity() {
         val btnManagePresets = findViewById<Button>(R.id.btnManagePresets)
         val btnDefaultIntro = findViewById<Button>(R.id.btnDefaultIntro)
 
+        val headerAdvancedLogging = findViewById<LinearLayout>(R.id.headerAdvancedLogging)
+        val containerAdvancedLogging = findViewById<LinearLayout>(R.id.containerAdvancedLogging)
+        val tvToggleAdvanced = findViewById<TextView>(R.id.tvToggleAdvanced)
+
+        headerAdvancedLogging?.setOnClickListener {
+            android.transition.TransitionManager.beginDelayedTransition(findViewById(android.R.id.content))
+            if (containerAdvancedLogging?.visibility == View.GONE) {
+                containerAdvancedLogging.visibility = View.VISIBLE
+                tvToggleAdvanced?.text = "Hide ▲"
+            } else {
+                containerAdvancedLogging?.visibility = View.GONE
+                tvToggleAdvanced?.text = "Show ▼"
+            }
+        }
+
+        val headerSmsIntro = findViewById<LinearLayout>(R.id.headerSmsIntro)
+        val containerSmsIntro = findViewById<LinearLayout>(R.id.containerSmsIntro)
+        val tvToggleSms = findViewById<TextView>(R.id.tvToggleSms)
+
+        headerSmsIntro?.setOnClickListener {
+            android.transition.TransitionManager.beginDelayedTransition(findViewById(android.R.id.content))
+            if (containerSmsIntro?.visibility == View.GONE) {
+                containerSmsIntro.visibility = View.VISIBLE
+                tvToggleSms?.text = "Hide ▲"
+            } else {
+                containerSmsIntro?.visibility = View.GONE
+                tvToggleSms?.text = "Show ▼"
+            }
+        }
+
         etContactName.setText(contactName)
         tvLogPhoneNumber.text = phoneNumber
 
         val btnScanCard = findViewById<Button>(R.id.btnScanCardSmartLog)
         btnScanCard.setOnClickListener {
-            val photoFile = java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "card_${System.currentTimeMillis()}.jpg")
-            currentPhotoPath = photoFile.absolutePath
-            val uri = androidx.core.content.FileProvider.getUriForFile(this, "${packageName}.fileprovider", photoFile)
-            cardImageUri = uri
-            scanCardLauncher.launch(uri)
+            val options = arrayOf("📷 Take Photo", "🖼️ Choose from Gallery")
+            AlertDialog.Builder(this)
+                .setTitle("Scan Business Card")
+                .setItems(options) { _, which ->
+                    if (which == 0) {
+                        val photoFile = java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "card_${System.currentTimeMillis()}.jpg")
+                        currentPhotoPath = photoFile.absolutePath
+                        val uri = androidx.core.content.FileProvider.getUriForFile(this, "${packageName}.fileprovider", photoFile)
+                        cardImageUri = uri
+                        scanCardLauncher.launch(uri)
+                    } else {
+                        pickGalleryLauncher.launch("image/*")
+                    }
+                }
+                .show()
         }
 
         cbClient.setOnCheckedChangeListener { _, isChecked ->
@@ -178,6 +230,16 @@ class SmartLogActivity : AppCompatActivity() {
 
         val btn7pmToday = findViewById<Button>(R.id.btn7pmToday)
         val btn7pmTomorrow = findViewById<Button>(R.id.btn7pmTomorrow)
+        val btnScheduleCustom = findViewById<Button>(R.id.btnScheduleCustom)
+
+        btnScheduleCustom.setOnClickListener {
+            showDateTimePicker(Calendar.getInstance())
+        }
+
+        btnScheduleCustom.setOnLongClickListener {
+            showDateTimePicker(Calendar.getInstance())
+            true
+        }
 
         btn7pmToday.setOnClickListener {
             val cal = Calendar.getInstance().apply {
@@ -187,12 +249,15 @@ class SmartLogActivity : AppCompatActivity() {
                 set(Calendar.MILLISECOND, 0)
             }
             followUpDate = cal.time
-            val sdf = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+            val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
             Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate!!)}", Toast.LENGTH_SHORT).show()
         }
 
         btn7pmToday.setOnLongClickListener {
-            TimePickerDialog(this, { _, hour, minute ->
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            
+            TimePickerDialog(this, theme, { _, hour, minute ->
                 todayPresetHour = hour
                 todayPresetMinute = minute
                 updateFollowUpButtons()
@@ -220,12 +285,15 @@ class SmartLogActivity : AppCompatActivity() {
                 set(Calendar.MILLISECOND, 0)
             }
             followUpDate = cal.time
-            val sdf = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
+            val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
             Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate!!)}", Toast.LENGTH_SHORT).show()
         }
 
         btn7pmTomorrow.setOnLongClickListener {
-            TimePickerDialog(this, { _, hour, minute ->
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            
+            TimePickerDialog(this, theme, { _, hour, minute ->
                 tomorrowPresetHour = hour
                 tomorrowPresetMinute = minute
                 updateFollowUpButtons()
@@ -280,6 +348,40 @@ class SmartLogActivity : AppCompatActivity() {
                 startActivity(smsIntent)
                 finish()
             }
+        }
+    }
+
+    private fun performCrop(sourceUri: Uri) {
+        try {
+            val cropIntent = Intent("com.android.camera.action.CROP")
+            cropIntent.setDataAndType(sourceUri, "image/*")
+            cropIntent.putExtra("crop", "true")
+            cropIntent.putExtra("aspectX", 7)
+            cropIntent.putExtra("aspectY", 4)
+            cropIntent.putExtra("scale", true)
+            cropIntent.putExtra("return-data", false)
+
+            val cropFile = java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES), "crop_${System.currentTimeMillis()}.jpg")
+            val cropOutputUri = androidx.core.content.FileProvider.getUriForFile(this, "${packageName}.fileprovider", cropFile)
+            croppedImageUri = cropOutputUri
+
+            cropIntent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, cropOutputUri)
+            cropIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+
+            val resInfoList = packageManager.queryIntentActivities(cropIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            if (resInfoList.isEmpty()) {
+                processBusinessCard(sourceUri)
+                return
+            }
+
+            for (resolveInfo in resInfoList) {
+                val packageName = resolveInfo.activityInfo.packageName
+                grantUriPermission(packageName, sourceUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                grantUriPermission(packageName, cropOutputUri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            cropLauncher.launch(cropIntent)
+        } catch (e: Exception) {
+            processBusinessCard(sourceUri)
         }
     }
 
@@ -356,6 +458,7 @@ class SmartLogActivity : AppCompatActivity() {
 
         var detectedTitle: String? = null
         var detectedCompany: String? = null
+        var companyLineUsed: String? = null
 
         val genericDomains = listOf("gmail", "yahoo", "hotmail", "outlook", "aol", "icloud", "msn", "me", "live")
         if (extractedEmail != null) {
@@ -366,6 +469,7 @@ class SmartLogActivity : AppCompatActivity() {
                 }
                 if (companyLine != null) {
                     detectedCompany = companyLine
+                    companyLineUsed = companyLine
                 } else {
                     detectedCompany = domainPart.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
                 }
@@ -390,6 +494,7 @@ class SmartLogActivity : AppCompatActivity() {
                 detectedTitle = line
             } else if (detectedCompany == null && companyKeywords.any { lowerLine.contains(it) }) {
                 detectedCompany = line
+                companyLineUsed = line
             }
         }
 
@@ -398,29 +503,40 @@ class SmartLogActivity : AppCompatActivity() {
         val addressKeywords = listOf(
             "street", "st.", " st ", "avenue", "ave.", " ave ", "boulevard", "blvd", 
             "road", "rd.", " rd ", "drive", "dr.", " dr ", "suite", "ste ", "pkwy", "parkway", 
-            "lane", "ln.", "court", "ct.", "plaza", "way", "po box", "p.o. box", "floor", "fl."
+            "lane", "ln.", "court", "ct.", "plaza", "way", "po box", "p.o. box", "floor", "fl.", "highway", "hwy",
+            "bldg", "building", "terrace", "circle", "cir", "trail", "trl", "square", "sq"
         )
+        val zipRegex = Regex("\\b\\d{5}(?:-\\d{4})?\\b")
+        val stateZipRegex = Regex("\\b[A-Za-z]{2}[\\s,]+\\d{5}(?:-\\d{4})?\\b")
+        val addressParts = mutableListOf<String>()
         
         for (i in lines.indices) {
             val line = lines[i]
             val lowerLine = line.lowercase()
             
-            val startsWithNumber = Regex("^\\d+.*").matches(line)
-            val isPoBox = lowerLine.startsWith("po box") || lowerLine.startsWith("p.o. box")
+            val startsWithNumber = Regex("^\\s*\\d+.*").matches(line)
+            val isPoBox = lowerLine.contains("po box") || lowerLine.contains("p.o. box")
+            val hasKeyword = addressKeywords.any { lowerLine.contains(it) }
+            val hasZip = zipRegex.containsMatchIn(line)
+            val hasStateZip = stateZipRegex.containsMatchIn(line)
             
-            if ((startsWithNumber || isPoBox) && addressKeywords.any { lowerLine.contains(it) }) {
+            if ((startsWithNumber && hasKeyword) || isPoBox || hasStateZip) {
                 detectedAddress = line
-                var lookahead = 1
-                while (i + lookahead < lines.size && lookahead <= 2) {
-                    val nextLine = lines[i + lookahead]
-                    val lowerNext = nextLine.lowercase()
-                    val hasEmail = nextLine.contains("@")
-                    val hasWeb = lowerNext.contains("www.") || lowerNext.contains(".com")
-                    val hasPhone = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}").containsMatchIn(nextLine)
-                    if (hasEmail || hasWeb || hasPhone) break
-                    detectedAddress += ", $nextLine"
-                    if (Regex("\\b\\d{5}(?:-\\d{4})?\\b").containsMatchIn(nextLine)) break
-                    lookahead++
+                addressParts.add(line)
+                if (!hasZip) {
+                    var lookahead = 1
+                    while (i + lookahead < lines.size && lookahead <= 3) {
+                        val nextLine = lines[i + lookahead]
+                        val lowerNext = nextLine.lowercase()
+                        val hasEmail = nextLine.contains("@")
+                        val hasWeb = lowerNext.contains("www.") || lowerNext.contains(".com")
+                        val hasPhone = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}").containsMatchIn(nextLine)
+                        if (hasEmail || hasWeb || hasPhone) break
+                        detectedAddress += ", $nextLine"
+                        addressParts.add(nextLine)
+                        if (zipRegex.containsMatchIn(nextLine)) break
+                        lookahead++
+                    }
                 }
                 break
             }
@@ -429,7 +545,8 @@ class SmartLogActivity : AppCompatActivity() {
             addressRef.setText(detectedAddress)
         }
         
-        if (possibleName != null && nameRef.text.isNullOrEmpty()) {
+        val currentNameText = nameRef.text?.toString() ?: ""
+        if (possibleName != null && (currentNameText.isEmpty() || currentNameText == getString(R.string.unknown_contact))) {
             val formattedName = possibleName.split("\\s+".toRegex()).joinToString(" ") { word ->
                 if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
             }
@@ -445,8 +562,17 @@ class SmartLogActivity : AppCompatActivity() {
             titleRef.setText(detectedTitle)
         }
         
-        val parsedNotes = "[Scanned Card]:\n$text"
-        val newNotes = if (currentNotes.isEmpty()) parsedNotes else "$currentNotes\n\n$parsedNotes"
+        val unusedLines = lines.toMutableList()
+        if (finalPhone != null) unusedLines.removeAll { it.contains(finalPhone) }
+        if (extractedEmail != null) unusedLines.removeAll { it.contains(extractedEmail) }
+        if (possibleName != null) unusedLines.remove(possibleName)
+        if (detectedTitle != null) unusedLines.remove(detectedTitle)
+        if (companyLineUsed != null) unusedLines.remove(companyLineUsed)
+        unusedLines.removeAll(addressParts)
+
+        val leftoverText = unusedLines.joinToString("\n").trim()
+        val parsedNotes = if (leftoverText.isNotEmpty()) "[Scanned Card Extra Info]:\n$leftoverText" else ""
+        val newNotes = if (currentNotes.isEmpty()) parsedNotes else if (parsedNotes.isNotEmpty()) "$currentNotes\n\n$parsedNotes" else currentNotes
         notesRef.setText(newNotes.trim())
     }
 
@@ -542,16 +668,22 @@ class SmartLogActivity : AppCompatActivity() {
     }
 
     private fun showDateTimePicker(initialCal: Calendar) {
-        DatePickerDialog(this, { _, year, month, day ->
+        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+        
+        DatePickerDialog(this, theme, { _, year, month, day ->
             initialCal.set(year, month, day)
-            TimePickerDialog(this, { _, hour, minute ->
+            TimePickerDialog(this, theme, { _, hour, minute ->
                 initialCal.set(Calendar.HOUR_OF_DAY, hour)
                 initialCal.set(Calendar.MINUTE, minute)
                 val selectedDate = initialCal.time
                 followUpDate = selectedDate
                 
-                val sdf = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
-                Toast.makeText(this, "Reminder set: ${sdf.format(selectedDate)}", Toast.LENGTH_SHORT).show()
+                val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
+                val formattedDate = sdf.format(selectedDate)
+                Toast.makeText(this, "Reminder set: $formattedDate", Toast.LENGTH_SHORT).show()
+                
+                findViewById<Button>(R.id.btnScheduleCustom)?.text = formattedDate
             }, initialCal.get(Calendar.HOUR_OF_DAY), initialCal.get(Calendar.MINUTE), false).show()
         }, initialCal.get(Calendar.YEAR), initialCal.get(Calendar.MONTH), initialCal.get(Calendar.DAY_OF_MONTH)).show()
     }
@@ -680,12 +812,12 @@ class SmartLogActivity : AppCompatActivity() {
                     }
                 }
 
-                val time = SimpleDateFormat("[MMM dd, hh:mm a]", Locale.getDefault()).format(Date())
+                val time = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
                 
                 if (existingLead == null) {
                     // REALLY a new contact for this user
                     Log.d(TAG, "New lead detected, incrementing goal")
-                    val formattedNote = if (noteText.isNotEmpty()) "$time: $noteText" else ""
+                    val formattedNote = if (noteText.isNotEmpty()) "[$time]: $noteText" else ""
                     val data = hashMapOf(
                         "name" to contactName, 
                         "phone" to phoneNumber, 
@@ -714,7 +846,7 @@ class SmartLogActivity : AppCompatActivity() {
                     Log.d(TAG, "Existing lead found, updating notes only")
                     val docId = existingLead.id
                     val existingNotes = existingLead.getString("notes") ?: ""
-                    val formatted = if (noteText.isNotEmpty()) "$time: $noteText" else ""
+                    val formatted = if (noteText.isNotEmpty()) "[$time]: $noteText" else ""
                     val combined = if (existingNotes.isNotEmpty() && formatted.isNotEmpty()) "$existingNotes\n\n$formatted" else formatted.ifEmpty { existingNotes }
 
                     val update = mutableMapOf<String, Any?>(
@@ -872,5 +1004,21 @@ class SmartLogActivity : AppCompatActivity() {
             Log.e(TAG, "Error querying contact name", e)
         }
         return Pair(name, exists)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        cardImageUri?.let { outState.putParcelable("CARD_IMAGE_URI", it) }
+        croppedImageUri?.let { outState.putParcelable("CROPPED_IMAGE_URI", it) }
+        currentPhotoPath?.let { outState.putString("CURRENT_PHOTO_PATH", it) }
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        @Suppress("DEPRECATION")
+        cardImageUri = savedInstanceState.getParcelable("CARD_IMAGE_URI")
+        @Suppress("DEPRECATION")
+        croppedImageUri = savedInstanceState.getParcelable("CROPPED_IMAGE_URI")
+        currentPhotoPath = savedInstanceState.getString("CURRENT_PHOTO_PATH")
     }
 }

@@ -71,6 +71,9 @@ class MainActivity : AppCompatActivity() {
     private var currentFollowUpCount = 0
     private var currentFollowUpGoal = 5
 
+    private var hasPulsedTotalGoal = false
+    private var hasPulsedFollowUpGoal = false
+
     private var currentTabPosition = 0
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -100,8 +103,20 @@ class MainActivity : AppCompatActivity() {
     private val scanCardLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             cardImageUri?.let { uri ->
-                processBusinessCard(uri)
+                performCrop(uri)
             }
+        }
+    }
+
+    private var croppedImageUri: Uri? = null
+
+    private val pickGalleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) performCrop(uri)
+    }
+
+    private val cropLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            croppedImageUri?.let { processBusinessCard(it) }
         }
     }
 
@@ -353,10 +368,89 @@ class MainActivity : AppCompatActivity() {
         tvTotalLeads.text = currentTotalCount.toString()
         tvTotalLeadsGoal.text = "Goal: $currentTotalGoal"
 
+        if (currentTotalCount >= currentTotalGoal && currentTotalGoal > 0 && !hasPulsedTotalGoal) {
+            hasPulsedTotalGoal = true
+            pulseView(progressTotalLeads)
+        } else if (currentTotalCount < currentTotalGoal) {
+            hasPulsedTotalGoal = false
+        }
+
         progressFollowUps.max = if (currentFollowUpGoal > 0) currentFollowUpGoal else 1
         progressFollowUps.progress = currentFollowUpCount
         tvFollowUpCountDisplay.text = currentFollowUpCount.toString()
         tvFollowUpGoalDisplay.text = "Goal: $currentFollowUpGoal"
+
+        if (currentFollowUpCount >= currentFollowUpGoal && currentFollowUpGoal > 0 && !hasPulsedFollowUpGoal) {
+            hasPulsedFollowUpGoal = true
+            pulseView(progressFollowUps)
+        } else if (currentFollowUpCount < currentFollowUpGoal) {
+            hasPulsedFollowUpGoal = false
+        }
+    }
+
+    private fun pulseView(view: View) {
+        val scaleX = android.animation.ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.2f, 1f)
+        val scaleY = android.animation.ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.2f, 1f)
+        scaleX.duration = 300
+        scaleY.duration = 300
+        scaleX.repeatCount = 1
+        scaleY.repeatCount = 1
+        val animatorSet = android.animation.AnimatorSet()
+        animatorSet.playTogether(scaleX, scaleY)
+        animatorSet.start()
+
+        explodeConfetti(view)
+    }
+
+    private fun explodeConfetti(anchor: View) {
+        val root = findViewById<ViewGroup>(android.R.id.content)
+        val anchorLocation = IntArray(2)
+        val rootLocation = IntArray(2)
+        anchor.getLocationInWindow(anchorLocation)
+        root.getLocationInWindow(rootLocation)
+
+        val startX = (anchorLocation[0] - rootLocation[0]) + anchor.width / 2f
+        val startY = (anchorLocation[1] - rootLocation[1]) + anchor.height / 2f
+
+        val random = java.util.Random()
+        val colors = intArrayOf(
+            Color.parseColor("#FF5252"), Color.parseColor("#FF4081"), Color.parseColor("#E040FB"),
+            Color.parseColor("#7C4DFF"), Color.parseColor("#536DFE"), Color.parseColor("#448AFF"),
+            Color.parseColor("#40C4FF"), Color.parseColor("#18FFFF"), Color.parseColor("#64FFDA"),
+            Color.parseColor("#69F0AE"), Color.parseColor("#B2FF59"), Color.parseColor("#EEFF41"),
+            Color.parseColor("#FFFF00"), Color.parseColor("#FFD740"), Color.parseColor("#FFAB40")
+        )
+
+        for (i in 0..40) {
+            val particle = View(this)
+            val size = random.nextInt(20) + 15
+            particle.layoutParams = ViewGroup.LayoutParams(size, size)
+
+            val shape = GradientDrawable()
+            shape.shape = if (random.nextBoolean()) GradientDrawable.OVAL else GradientDrawable.RECTANGLE
+            shape.setColor(colors[random.nextInt(colors.size)])
+            particle.background = shape
+
+            particle.x = startX - size / 2f
+            particle.y = startY - size / 2f
+            particle.elevation = 10f
+            root.addView(particle)
+
+            val angle = random.nextDouble() * 2 * Math.PI
+            val distance = random.nextInt(400) + 150
+            val endX = startX + (Math.cos(angle) * distance).toFloat()
+            val endY = startY + (Math.sin(angle) * distance).toFloat() + 200f // Dropdown gravity effect
+
+            particle.animate()
+                .x(endX)
+                .y(endY)
+                .rotation(random.nextInt(720).toFloat())
+                .alpha(0f)
+                .setDuration((random.nextInt(500) + 600).toLong())
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .withEndAction { root.removeView(particle) }
+                .start()
+        }
     }
 
     private fun showGoalDialog(prefKey: String, title: String, currentVal: Int) {
@@ -430,7 +524,11 @@ class MainActivity : AppCompatActivity() {
     private fun showDatePicker() {
         val cal = Calendar.getInstance()
         cal.time = selectedDate
-        DatePickerDialog(this, { _, year, month, day ->
+        
+        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+        
+        DatePickerDialog(this, theme, { _, year, month, day ->
             cal.set(year, month, day)
             selectedDate = cal.time
             loadLocalStats()
@@ -444,6 +542,8 @@ class MainActivity : AppCompatActivity() {
         val switchSideKick = view.findViewById<MaterialSwitch>(R.id.switchSideKick)
         val switchFollowSystem = view.findViewById<MaterialSwitch>(R.id.switchFollowSystemTheme)
         val switchDarkMode = view.findViewById<MaterialSwitch>(R.id.switchDarkMode)
+        val btnForceRunSideKick = view.findViewById<Button>(R.id.btnForceRunSideKick)
+        val progressSideKick = view.findViewById<ProgressBar>(R.id.progressSideKick)
         
         val etNewPreset = view.findViewById<EditText>(R.id.etNewPreset)
         val btnInsertName = view.findViewById<Button>(R.id.btnInsertNameTagDialog)
@@ -464,6 +564,22 @@ class MainActivity : AppCompatActivity() {
         switchDarkMode.isChecked = prefs.getBoolean("dark_mode", false)
         
         switchDarkMode.isEnabled = !switchFollowSystem.isChecked
+
+        btnForceRunSideKick?.setOnClickListener {
+            btnForceRunSideKick.isEnabled = false
+            progressSideKick?.visibility = View.VISIBLE
+            val request = OneTimeWorkRequestBuilder<SideKickWorker>().build()
+            WorkManager.getInstance(this).enqueue(request)
+            
+            WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.id).observe(this) { workInfo ->
+                if (workInfo != null && workInfo.state.isFinished) {
+                    btnForceRunSideKick.isEnabled = true
+                    progressSideKick?.visibility = View.GONE
+                    Toast.makeText(this, "Side-Kick check complete!", Toast.LENGTH_SHORT).show()
+                    loadHotList()
+                }
+            }
+        }
 
         switchFollowSystem.setOnCheckedChangeListener { _, isChecked ->
             switchDarkMode.isEnabled = !isChecked
@@ -884,7 +1000,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun scheduleSideKickWorker() {
-        val request = PeriodicWorkRequestBuilder<SideKickWorker>(1, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<SideKickWorker>(4, TimeUnit.HOURS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("SideKickWorker", ExistingPeriodicWorkPolicy.KEEP, request)
@@ -900,6 +1016,22 @@ class MainActivity : AppCompatActivity() {
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        cardImageUri?.let { outState.putParcelable("CARD_IMAGE_URI", it) }
+        croppedImageUri?.let { outState.putParcelable("CROPPED_IMAGE_URI", it) }
+        currentPhotoPath?.let { outState.putString("CURRENT_PHOTO_PATH", it) }
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        @Suppress("DEPRECATION")
+        cardImageUri = savedInstanceState.getParcelable("CARD_IMAGE_URI")
+        @Suppress("DEPRECATION")
+        croppedImageUri = savedInstanceState.getParcelable("CROPPED_IMAGE_URI")
+        currentPhotoPath = savedInstanceState.getString("CURRENT_PHOTO_PATH")
     }
 
     @android.annotation.SuppressLint("Range")
@@ -980,12 +1112,110 @@ class MainActivity : AppCompatActivity() {
         quickAddCompanyRef = companyInput
         quickAddTitleRef = titleInput
 
+        val cbTmMarried = dialogView.findViewById<CheckBox>(R.id.cbTmMarriedQuick)
+        val cbTmAge = dialogView.findViewById<CheckBox>(R.id.cbTmAgeQuick)
+        val cbTmChildren = dialogView.findViewById<CheckBox>(R.id.cbTmChildrenQuick)
+        val cbTmHomeowner = dialogView.findViewById<CheckBox>(R.id.cbTmHomeownerQuick)
+        val cbTmOccupation = dialogView.findViewById<CheckBox>(R.id.cbTmOccupationQuick)
+        val dialTargetMarket = dialogView.findViewById<com.google.android.material.progressindicator.CircularProgressIndicator>(R.id.dialTargetMarketQuick)
+        val tvTargetMarketScore = dialogView.findViewById<TextView>(R.id.tvTargetMarketScoreQuick)
+
+        fun updateTargetMarketDial() {
+            var points = 0
+            if (cbTmMarried.isChecked) points++
+            if (cbTmAge.isChecked) points++
+            if (cbTmChildren.isChecked) points++
+            if (cbTmHomeowner.isChecked) points++
+            if (cbTmOccupation.isChecked) points++
+
+            val percentage = when (points) {
+                1 -> 2
+                2 -> 9
+                3 -> 19
+                4 -> 42
+                5 -> 95
+                else -> 0
+            }
+
+            dialTargetMarket.progress = percentage
+            tvTargetMarketScore.text = "$percentage%"
+            
+            val color = when {
+                percentage >= 80 -> Color.parseColor("#4CAF50")
+                percentage >= 40 -> Color.parseColor("#FF9800")
+                else -> Color.parseColor("#F44336")
+            }
+            dialTargetMarket.setIndicatorColor(color)
+            tvTargetMarketScore.setTextColor(color)
+        }
+
+        cbTmMarried.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmAge.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmChildren.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmHomeowner.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        cbTmOccupation.setOnCheckedChangeListener { _, _ -> updateTargetMarketDial() }
+        
+        updateTargetMarketDial()
+
+        var currentQuickBirthday: String? = null
+        val tvQuickBirthdayDisplay = dialogView.findViewById<TextView>(R.id.tvQuickBirthdayDisplay)
+        val btnQuickSetBirthday = dialogView.findViewById<Button>(R.id.btnQuickSetBirthday)
+
+        fun updateQuickBirthdayUI() {
+            if (currentQuickBirthday != null) {
+                try {
+                    val displayFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                    val parsedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(currentQuickBirthday!!)
+                    tvQuickBirthdayDisplay?.text = "Birthday: ${parsedDate?.let { displayFormat.format(it) } ?: currentQuickBirthday}"
+                } catch (e: Exception) {
+                    tvQuickBirthdayDisplay?.text = "Birthday: $currentQuickBirthday"
+                }
+                btnQuickSetBirthday?.text = "📅 Edit Birthday"
+            } else {
+                tvQuickBirthdayDisplay?.text = "Birthday: None"
+                btnQuickSetBirthday?.text = "📅 Add Birthday"
+            }
+        }
+        updateQuickBirthdayUI()
+
+        btnQuickSetBirthday?.setOnClickListener {
+            val cal = Calendar.getInstance()
+            if (currentQuickBirthday != null) {
+                val parts = currentQuickBirthday!!.split("-")
+                if (parts.size >= 3) {
+                    cal.set(Calendar.YEAR, parts[0].toIntOrNull() ?: cal.get(Calendar.YEAR))
+                    cal.set(Calendar.MONTH, (parts[1].toIntOrNull() ?: 1) - 1)
+                    cal.set(Calendar.DAY_OF_MONTH, parts[2].toIntOrNull() ?: 1)
+                }
+            }
+
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+
+            DatePickerDialog(this, theme, { _, year, month, day ->
+                val monthStr = (month + 1).toString().padStart(2, '0')
+                val dayStr = day.toString().padStart(2, '0')
+                currentQuickBirthday = "$year-$monthStr-$dayStr"
+                updateQuickBirthdayUI()
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
         btnScanCard?.setOnClickListener {
-            val photoFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "card_${System.currentTimeMillis()}.jpg")
-            currentPhotoPath = photoFile.absolutePath
-            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", photoFile)
-            cardImageUri = uri
-            scanCardLauncher.launch(uri)
+            val options = arrayOf("📷 Take Photo", "🖼️ Choose from Gallery")
+            AlertDialog.Builder(this)
+                .setTitle("Scan Business Card")
+                .setItems(options) { _, which ->
+                    if (which == 0) {
+                        val photoFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "card_${System.currentTimeMillis()}.jpg")
+                        currentPhotoPath = photoFile.absolutePath
+                        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", photoFile)
+                        cardImageUri = uri
+                        scanCardLauncher.launch(uri)
+                    } else {
+                        pickGalleryLauncher.launch("image/*")
+                    }
+                }
+                .show()
         }
 
         val btnSave = dialogView.findViewById<Button>(R.id.btnQuickSave)
@@ -1008,8 +1238,16 @@ class MainActivity : AppCompatActivity() {
                 if (cleanWord.length == 2) word.uppercase() else word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
             }
 
-            val timestamp = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date())
-            val leadData = hashMapOf(
+            val timestamp = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
+            
+            val tmList = mutableListOf<String>()
+            if (cbTmMarried.isChecked) tmList.add("Married")
+            if (cbTmAge.isChecked) tmList.add("Age 25-55")
+            if (cbTmChildren.isChecked) tmList.add("Children")
+            if (cbTmHomeowner.isChecked) tmList.add("Homeowner")
+            if (cbTmOccupation.isChecked) tmList.add("Occupation")
+
+            val leadData = hashMapOf<String, Any?>(
                 "name" to name,
                 "phone" to phoneInput.text.toString(),
                 "email" to emailInput.text.toString().trim(),
@@ -1017,11 +1255,16 @@ class MainActivity : AppCompatActivity() {
                 "company" to companyInput.text.toString().trim(),
                 "jobTitle" to titleInput.text.toString().trim(),
                 "category" to cats.joinToString(", "),
+                "targetMarket" to tmList.joinToString(", "),
                 "notes" to "[$timestamp]: ${notesInput.text.ifEmpty { "Created lead" }}",
                 "followUpDate" to Timestamp(Date(System.currentTimeMillis() + 86400000)),
                 "timestamp" to FieldValue.serverTimestamp(),
                 "ownerId" to auth.currentUser?.uid
             )
+
+            if (currentQuickBirthday != null) {
+                leadData["birthday"] = currentQuickBirthday!!
+            }
 
             db.collection("leads").add(leadData).addOnSuccessListener {
                 incrementDailyStat("total_count")
@@ -1031,6 +1274,40 @@ class MainActivity : AppCompatActivity() {
             }
         }
         dialog.show()
+    }
+
+    private fun performCrop(sourceUri: Uri) {
+        try {
+            val cropIntent = Intent("com.android.camera.action.CROP")
+            cropIntent.setDataAndType(sourceUri, "image/*")
+            cropIntent.putExtra("crop", "true")
+            cropIntent.putExtra("aspectX", 7)
+            cropIntent.putExtra("aspectY", 4)
+            cropIntent.putExtra("scale", true)
+            cropIntent.putExtra("return-data", false)
+
+            val cropFile = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "crop_${System.currentTimeMillis()}.jpg")
+            val cropOutputUri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", cropFile)
+            croppedImageUri = cropOutputUri
+
+            cropIntent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, cropOutputUri)
+            cropIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+
+            val resInfoList = packageManager.queryIntentActivities(cropIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            if (resInfoList.isEmpty()) {
+                processBusinessCard(sourceUri)
+                return
+            }
+
+            for (resolveInfo in resInfoList) {
+                val packageName = resolveInfo.activityInfo.packageName
+                grantUriPermission(packageName, sourceUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                grantUriPermission(packageName, cropOutputUri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            cropLauncher.launch(cropIntent)
+        } catch (e: Exception) {
+            processBusinessCard(sourceUri)
+        }
     }
 
     private fun processBusinessCard(uri: Uri) {
@@ -1100,6 +1377,7 @@ class MainActivity : AppCompatActivity() {
 
         var detectedTitle: String? = null
         var detectedCompany: String? = null
+        var companyLineUsed: String? = null
 
         // Heuristic: Use the email domain to confidently find the exact company name
         val genericDomains = listOf("gmail", "yahoo", "hotmail", "outlook", "aol", "icloud", "msn", "me", "live")
@@ -1112,6 +1390,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (companyLine != null) {
                     detectedCompany = companyLine
+                    companyLineUsed = companyLine
                 } else {
                     // Fallback to capitalizing the domain itself
                     detectedCompany = domainPart.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
@@ -1138,6 +1417,7 @@ class MainActivity : AppCompatActivity() {
                 detectedTitle = line
             } else if (detectedCompany == null && companyKeywords.any { lowerLine.contains(it) }) {
                 detectedCompany = line
+                companyLineUsed = line
             }
         }
 
@@ -1145,40 +1425,51 @@ class MainActivity : AppCompatActivity() {
         var detectedAddress: String? = null
         val addressKeywords = listOf(
             "street", "st.", " st ", "avenue", "ave.", " ave ", "boulevard", "blvd", 
-            "road", "rd.", " rd ", "drive", "dr.", " dr ", "suite", "ste ", "pkwy", "parkway", 
-            "lane", "ln.", "court", "ct.", "plaza", "way", "po box", "p.o. box", "floor", "fl."
+            "road", "rd.", " rd ", "drive", "dr.", " dr ", "suite", "ste.", " ste ", "pkwy", "parkway", 
+            "lane", "ln.", "court", "ct.", "plaza", "way", "po box", "p.o. box", "floor", "fl.", "highway", "hwy",
+            "bldg", "building", "terrace", "circle", "cir", "trail", "trl", "square", "sq"
         )
+        val zipRegex = Regex("\\b\\d{5}(?:-\\d{4})?\\b")
+        val stateZipRegex = Regex("\\b[A-Za-z]{2}[\\s,]+\\d{5}(?:-\\d{4})?\\b")
+        val addressParts = mutableListOf<String>()
         
         for (i in lines.indices) {
             val line = lines[i]
             val lowerLine = line.lowercase()
             
-            val startsWithNumber = Regex("^\\d+.*").matches(line)
-            val isPoBox = lowerLine.startsWith("po box") || lowerLine.startsWith("p.o. box")
+            val startsWithNumber = Regex("^\\s*\\d+.*").matches(line)
+            val isPoBox = lowerLine.contains("po box") || lowerLine.contains("p.o. box")
+            val hasKeyword = addressKeywords.any { lowerLine.contains(it) }
+            val hasZip = zipRegex.containsMatchIn(line)
+            val hasStateZip = stateZipRegex.containsMatchIn(line)
             
-            if ((startsWithNumber || isPoBox) && addressKeywords.any { lowerLine.contains(it) }) {
+            if ((startsWithNumber && hasKeyword) || isPoBox || hasStateZip) {
                 detectedAddress = line
+                addressParts.add(line)
                 
-                // Look ahead up to 2 lines to grab Suite/Floor, and City, State, Zip
-                var lookahead = 1
-                while (i + lookahead < lines.size && lookahead <= 2) {
-                    val nextLine = lines[i + lookahead]
-                    val lowerNext = nextLine.lowercase()
-                    
-                    // Stop early if we hit an email, website, or phone number
-                    val hasEmail = nextLine.contains("@")
-                    val hasWeb = lowerNext.contains("www.") || lowerNext.contains(".com")
-                    val hasPhone = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}").containsMatchIn(nextLine)
-                    
-                    if (hasEmail || hasWeb || hasPhone) break
-                    
-                    detectedAddress += ", $nextLine"
-                    
-                    // If we found a 5 or 9 digit zip code, we're definitively at the end of the address
-                    if (Regex("\\b\\d{5}(?:-\\d{4})?\\b").containsMatchIn(nextLine)) {
-                        break
+                if (!hasZip) {
+                    // Look ahead up to 3 lines to grab Suite/Floor, and City, State, Zip
+                    var lookahead = 1
+                    while (i + lookahead < lines.size && lookahead <= 3) {
+                        val nextLine = lines[i + lookahead]
+                        val lowerNext = nextLine.lowercase()
+                        
+                        // Stop early if we hit an email, website, or phone number
+                        val hasEmail = nextLine.contains("@")
+                        val hasWeb = lowerNext.contains("www.") || lowerNext.contains(".com")
+                        val hasPhone = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}").containsMatchIn(nextLine)
+                        
+                        if (hasEmail || hasWeb || hasPhone) break
+                        
+                        detectedAddress += ", $nextLine"
+                        addressParts.add(nextLine)
+                        
+                        // If we found a 5 or 9 digit zip code, we're definitively at the end of the address
+                        if (zipRegex.containsMatchIn(nextLine)) {
+                            break
+                        }
+                        lookahead++
                     }
-                    lookahead++
                 }
                 break
             }
@@ -1200,9 +1491,18 @@ class MainActivity : AppCompatActivity() {
             quickAddTitleRef?.setText(detectedTitle)
         }
         
-        val parsedNotes = "[Scanned Card]:\n$text"
+        val unusedLines = lines.toMutableList()
+        if (finalPhone != null) unusedLines.removeAll { it.contains(finalPhone) }
+        if (extractedEmail != null) unusedLines.removeAll { it.contains(extractedEmail) }
+        if (possibleName != null) unusedLines.remove(possibleName)
+        if (detectedTitle != null) unusedLines.remove(detectedTitle)
+        if (companyLineUsed != null) unusedLines.remove(companyLineUsed)
+        unusedLines.removeAll(addressParts)
+
+        val leftoverText = unusedLines.joinToString("\n").trim()
+        val parsedNotes = if (leftoverText.isNotEmpty()) "[Scanned Card Extra Info]:\n$leftoverText" else ""
         
-        val newNotes = if (currentNotes.isEmpty()) parsedNotes else "$currentNotes\n\n$parsedNotes"
+        val newNotes = if (currentNotes.isEmpty()) parsedNotes else if (parsedNotes.isNotEmpty()) "$currentNotes\n\n$parsedNotes" else currentNotes
         quickAddNotesRef?.setText(newNotes.trim())
     }
 
@@ -1330,7 +1630,7 @@ class HotListAdapter(
         
         view.findViewById<TextView>(R.id.tvLeadName).text = name
         
-        val sdf = SimpleDateFormat("MMM dd, yyyy @ hh:mm a", Locale.getDefault())
+        val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
         val dateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
         
         val tvCategoryLabel = view.findViewById<TextView>(R.id.tvCategoryLabel)
@@ -1358,13 +1658,20 @@ class HotListAdapter(
         val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "")
         val fallbackNote = if (latestNote.isEmpty()) "No notes available" else latestNote
         
-        val detailsText = if (dateStr.isNotEmpty()) {
-            "Due: $dateStr\n$fallbackNote"
+        if (dateStr.isNotEmpty()) {
+            val detailsText = android.text.SpannableStringBuilder("Due: $dateStr\n$fallbackNote")
+            if (followUpDate != null && followUpDate.toDate().time < System.currentTimeMillis()) {
+                detailsText.setSpan(
+                    android.text.style.ForegroundColorSpan(Color.parseColor("#FF5252")),
+                    0,
+                    "Due: $dateStr".length,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
         } else {
-            fallbackNote
+            view.findViewById<TextView>(R.id.tvLeadDetails).text = fallbackNote
         }
-        
-        view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
         
         val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
         llCompleteAction?.setOnClickListener {

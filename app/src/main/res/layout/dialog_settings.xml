@@ -239,6 +239,30 @@
                     android:textSize="12sp"
                     android:textColor="@color/textColorSecondary"
                     android:layout_marginTop="4dp"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="8dp">
+
+                    <Button
+                        android:id="@+id/btnForceRunSideKick"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Force Run Side-Kick"
+                        android:textColor="@color/colorPrimary"
+                        android:textAllCaps="false" />
+
+                    <ProgressBar
+                        android:id="@+id/progressSideKick"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="12dp"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
