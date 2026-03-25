@@ -13,7 +13,7 @@ object GeminiApiClient {
             temperature = 0.7f
         }
         GenerativeModel(
-            modelName = "gemini-1.5-flash",
+            modelName = "gemini-2.5-flash",
             apiKey = API_KEY,
             generationConfig = config
         )
