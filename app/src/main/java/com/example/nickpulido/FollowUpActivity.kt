@@ -1176,7 +1176,8 @@ class FollowUpActivity : AppCompatActivity() {
 
         btnAIGenerate.setOnClickListener {
             val contactName = editName.text.toString()
-            val history = parseNotes(lead["notes"] as? String ?: "").joinToString("\n") { "- ${it.content}" }
+            // Limit history to the 5 most recent notes to save tokens and keep context relevant
+            val history = parseNotes(lead["notes"] as? String ?: "").take(5).joinToString("\n") { "- ${it.content}" }
             
             btnAIGenerate.isEnabled = false
             btnAIGenerate.text = "Drafting..."

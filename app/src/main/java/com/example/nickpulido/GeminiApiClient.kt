@@ -11,6 +11,8 @@ object GeminiApiClient {
     val generativeModel: GenerativeModel by lazy {
         val config = generationConfig {
             temperature = 0.7f
+            // Pro Tip: Limit the output length to keep responses concise and minimize token costs.
+            maxOutputTokens = 150
         }
         GenerativeModel(
             modelName = "gemini-2.5-flash",

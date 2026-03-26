@@ -207,7 +207,8 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
     private suspend fun analyzeLeadHistory(name: String, notes: List<Note>): String {
         if (notes.isEmpty()) return "No notes found. Give them a quick call to establish contact."
         
-        val allContent = notes.joinToString("\n") { "- ${it.content}" }
+        // Pro Tip: Limit the history context sent to the AI to minimize token usage.
+        val allContent = notes.take(10).joinToString("\n") { "- ${it.content}" }
         val prompt = "You are an expert sales manager for Primerica. " +
             "Analyze the following interaction history with a prospect named $name and provide ONE short, actionable next step. " +
             "Keep it under 2 sentences. Here is the history:\n$allContent"

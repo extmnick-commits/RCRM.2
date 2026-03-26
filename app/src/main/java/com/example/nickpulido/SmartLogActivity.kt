@@ -7,6 +7,7 @@ import android.content.ContentProviderOperation
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
@@ -19,11 +20,15 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -139,6 +144,47 @@ class SmartLogActivity : AppCompatActivity() {
 
         etContactName.setText(contactName)
         tvLogPhoneNumber.text = phoneNumber
+
+        // Dynamic AI Draft Button
+        val btnAIGenerate = Button(this).apply {
+            text = "✨ AI Draft"
+            setBackgroundColor(Color.parseColor("#673AB7"))
+            setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 16, 0, 16)
+            }
+        }
+        containerSmsIntro?.addView(btnAIGenerate)
+
+        btnAIGenerate.setOnClickListener {
+            val currentName = etContactName.text.toString()
+            val currentNote = etNotes.text.toString()
+            
+            btnAIGenerate.isEnabled = false
+            btnAIGenerate.text = "Drafting..."
+            
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val prompt = "You are an assistant for a Primerica agent. Draft a short, warm, and professional SMS message to $currentName. " +
+                                 "Use the following notes for context. Do not mention the notes directly. " +
+                                 "Keep it under 2 sentences and ready to send.\nNotes:\n$currentNote"
+                    val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                    
+                    withContext(Dispatchers.Main) {
+                        etIntroText.setText(response.text?.trim() ?: "Could not generate message.")
+                        btnAIGenerate.isEnabled = true
+                        btnAIGenerate.text = "✨ AI Draft"
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "AI Draft Error", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@SmartLogActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        btnAIGenerate.isEnabled = true
+                        btnAIGenerate.text = "✨ AI Draft"
+                    }
+                }
+            }
+        }
 
         val btnScanCard = findViewById<Button>(R.id.btnScanCardSmartLog)
         btnScanCard.setOnClickListener {
