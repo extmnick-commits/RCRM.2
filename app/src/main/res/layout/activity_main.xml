@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="20dp"
+    android:paddingTop="32dp"
+    android:paddingHorizontal="24dp"
     android:background="@color/backgroundColor">
 
     <!-- Search & Settings Header -->
@@ -13,14 +14,16 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="24dp">
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp">
             <EditText
                 android:id="@+id/search_bar"
                 android:layout_width="match_parent"
@@ -29,8 +32,11 @@
                 android:autofillHints="none"
                 android:importantForAutofill="no"
                 android:background="@android:color/transparent"
-                android:paddingHorizontal="12dp"
-                android:textSize="14sp"
+                android:drawableStart="@android:drawable/ic_menu_search"
+                android:drawableTint="@color/textColorSecondary"
+                android:drawablePadding="12dp"
+                android:paddingHorizontal="16dp"
+                android:textSize="15sp"
                 android:inputType="text" />
         </com.google.android.material.card.MaterialCardView>
 
@@ -38,7 +44,7 @@
             android:id="@+id/btnSettings"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="12dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/menu_settings"
             android:src="@android:drawable/ic_menu_preferences"
@@ -49,7 +55,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="24dp">
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -59,84 +65,121 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/app_name_dashboard"
-                android:textSize="22sp"
+                android:textSize="28sp"
                 android:textStyle="bold"
+                android:letterSpacing="-0.02"
                 android:textColor="@color/textColorPrimary" />
             <TextView
                 android:id="@+id/tvSelectedDateDisplay"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="Today"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textColor="@color/colorPrimary"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPickDate"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:text="View History"
-            android:textSize="12sp"
+            android:text="History"
+            android:textSize="13sp"
             android:textAllCaps="false"
             app:icon="@android:drawable/ic_menu_today" />
     </RelativeLayout>
 
-    <!-- Quick Actions -->
+    <!-- Quick Actions (2x2 Grid) -->
     <LinearLayout
-        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="20dp">
-        <Button
-            android:id="@+id/btnQuickAdd"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
+        android:orientation="vertical"
+        android:layout_marginBottom="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/btn_quick_add"
-            android:backgroundTint="@color/colorPrimary"
-            android:textColor="@color/white" />
-        <Button
-            android:id="@+id/btnImportContact"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnQuickAdd"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="64dp"
+                android:layout_marginEnd="6dp"
+                android:text="@string/btn_quick_add"
+                app:cornerRadius="16dp"
+                android:backgroundTint="@color/colorPrimary"
+                android:textColor="@color/white"
+                app:icon="@android:drawable/ic_input_add"
+                app:iconGravity="textStart"
+                app:iconTint="@color/white"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnImportContact"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="64dp"
+                android:layout_marginStart="6dp"
+                android:text="@string/btn_import_contact"
+                app:cornerRadius="16dp"
+                android:backgroundTint="@color/colorInfo"
+                android:textColor="@color/white"
+                app:icon="@android:drawable/stat_sys_download"
+                app:iconGravity="textStart"
+                app:iconTint="@color/white"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/btn_import_contact"
-            android:backgroundTint="@color/colorInfo"
-            android:textColor="@color/white" />
-        <Button
-            android:id="@+id/btnFollowUpList"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/btn_follow_ups"
-            android:backgroundTint="?attr/colorSurface"
-            android:textColor="@color/colorPrimary" />
-        <Button
-            android:id="@+id/btn_view_contacts"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/btn_contacts"
-            android:backgroundTint="?attr/colorSurface"
-            android:textColor="@color/textColorSecondary" />
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFollowUpList"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="64dp"
+                android:layout_marginEnd="6dp"
+                android:text="@string/btn_follow_ups"
+                app:cornerRadius="16dp"
+                app:strokeColor="@color/colorPrimary"
+                android:textColor="@color/colorPrimary"
+                app:icon="@android:drawable/ic_menu_my_calendar"
+                app:iconGravity="textStart"
+                app:iconTint="@color/colorPrimary"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_view_contacts"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="64dp"
+                android:layout_marginStart="6dp"
+                android:text="@string/btn_contacts"
+                app:cornerRadius="16dp"
+                app:strokeColor="@color/dividerColor"
+                android:textColor="@color/textColorSecondary"
+                app:icon="@android:drawable/ic_menu_sort_by_size"
+                app:iconGravity="textStart"
+                app:iconTint="@color/textColorSecondary"/>
+        </LinearLayout>
     </LinearLayout>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAdminDashboard"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:layout_marginBottom="16dp"
         android:text="Admin Dashboard"
         android:visibility="gone"
+        app:cornerRadius="16dp"
         android:backgroundTint="@color/colorPrimary"
         android:textColor="@color/white" />
 
@@ -154,18 +197,18 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="6dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
+            android:layout_marginEnd="8dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp"
             android:clickable="true"
-            android:focusable="true"
-            android:foreground="?attr/selectableItemBackground">
+            android:focusable="true">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingVertical="24dp"
-                android:paddingHorizontal="8dp"
+                android:paddingHorizontal="16dp"
                 android:gravity="center">
                 <FrameLayout
                     android:layout_width="110dp"
@@ -175,7 +218,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        app:indicatorSize="90dp"
+                        app:indicatorSize="100dp"
                         app:trackThickness="8dp"
                         app:indicatorColor="@color/colorPrimary"
                         app:trackColor="@color/dividerColor"
@@ -193,24 +236,25 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="0"
-                            android:textSize="22sp"
+                            android:textSize="26sp"
                             android:textStyle="bold"
                             android:textColor="@color/textColorPrimary" />
                         <TextView
                             android:id="@+id/tvTotalLeadsGoal"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="-2dp"
                             android:text="Goal: 0"
-                            android:textSize="11sp"
+                            android:textSize="12sp"
                             android:textColor="@color/textColorSecondary" />
                     </LinearLayout>
                 </FrameLayout>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="16dp"
                     android:text="Contacts"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="@color/textColorSecondary" />
             </LinearLayout>
@@ -222,18 +266,18 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
+            android:layout_marginStart="8dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp"
             android:clickable="true"
-            android:focusable="true"
-            android:foreground="?attr/selectableItemBackground">
+            android:focusable="true">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingVertical="24dp"
-                android:paddingHorizontal="8dp"
+                android:paddingHorizontal="16dp"
                 android:gravity="center">
                 <FrameLayout
                     android:layout_width="110dp"
@@ -243,7 +287,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        app:indicatorSize="90dp"
+                        app:indicatorSize="100dp"
                         app:trackThickness="8dp"
                         app:indicatorColor="@color/colorSuccess"
                         app:trackColor="@color/dividerColor"
@@ -261,24 +305,25 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="0"
-                            android:textSize="22sp"
+                            android:textSize="26sp"
                             android:textStyle="bold"
                             android:textColor="@color/textColorPrimary" />
                         <TextView
                             android:id="@+id/tvFollowUpGoalDisplay"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="-2dp"
                             android:text="Goal: 0"
-                            android:textSize="11sp"
+                            android:textSize="12sp"
                             android:textColor="@color/textColorSecondary" />
                     </LinearLayout>
                 </FrameLayout>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="16dp"
                     android:text="Follow-Ups"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="@color/textColorSecondary" />
             </LinearLayout>
@@ -292,6 +337,10 @@
         android:layout_marginBottom="8dp"
         app:tabMode="fixed"
         app:tabGravity="fill"
+        app:tabIndicatorAnimationMode="elastic"
+        app:tabIndicatorColor="@color/colorPrimary"
+        app:tabIndicatorFullWidth="false"
+        app:tabSelectedTextColor="@color/colorPrimary"
         android:background="@android:color/transparent">
 
         <com.google.android.material.tabs.TabItem
@@ -316,6 +365,8 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:divider="@android:color/transparent"
-        android:dividerHeight="8dp" />
+        android:clipToPadding="false"
+        android:paddingBottom="24dp"
+        android:dividerHeight="12dp" />
 
 </LinearLayout>

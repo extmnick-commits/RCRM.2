@@ -4,23 +4,24 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:paddingTop="32dp"
     android:background="@color/backgroundColor">
 
     <!-- Header Section -->
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="20dp"
-        android:background="?attr/colorSurface"
-        android:elevation="4dp">
+        android:paddingHorizontal="24dp"
+        android:layout_marginBottom="16dp">
 
         <TextView
             android:id="@+id/tvContactsHeader"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="All Contacts"
-            android:textSize="24sp"
+            android:textSize="28sp"
             android:textStyle="bold"
+            android:letterSpacing="-0.02"
             android:textColor="@color/textColorPrimary" />
 
         <TextView
@@ -28,6 +29,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@id/tvContactsHeader"
+            android:layout_marginTop="2dp"
             android:text="Manage your network"
             android:textSize="14sp"
             android:textColor="@color/colorSecondary" />
@@ -48,50 +50,70 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="12dp"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="2dp">
-            <EditText
-                android:id="@+id/etSearchContacts"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:hint="Search contacts..."
-                android:background="@android:color/transparent"
-                android:paddingHorizontal="12dp"
-                android:textSize="14sp"
-                android:inputType="text"
-                android:maxLines="1" />
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="16dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_menu_search"
+                    app:tint="@color/textColorSecondary" />
+
+                <EditText
+                    android:id="@+id/etSearchContacts"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
+                    android:hint="Search contacts..."
+                    android:paddingHorizontal="10dp"
+                    android:textSize="15sp"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="@color/textColorPrimary"
+                    android:textColorHint="@color/textColorSecondary" />
+            </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <ImageButton
             android:id="@+id/btnFilterContacts"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
             android:src="@android:drawable/ic_menu_sort_by_size"
-            android:background="?attr/selectableItemBackground"
-            app:tint="@color/textColorPrimary" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@color/colorPrimary" />
     </LinearLayout>
 
     <!-- Contact List -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:paddingHorizontal="24dp">
 
         <ListView
             android:id="@+id/listViewContacts"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="@color/dividerColor"
-            android:dividerHeight="1dp"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="12dp"
             android:clipToPadding="false"
             android:paddingBottom="80dp" />
 
@@ -110,10 +132,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
-            android:layout_margin="24dp"
+            android:layout_margin="16dp"
             android:src="@android:drawable/ic_input_add"
             app:backgroundTint="@color/colorPrimary"
-            app:tint="@color/white" />
+            app:tint="@color/white"
+            app:elevation="4dp" />
     </FrameLayout>
 
 </LinearLayout>

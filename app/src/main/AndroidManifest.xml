@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -49,6 +50,7 @@
         <activity android:name=".FollowUpActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".ContactsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".AdminDashboardActivity" android:exported="false" />
+        <activity android:name=".SideKickActivity" />
         <activity android:name=".SuperAdminDashboardActivity" android:exported="false" />
 
         <provider

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    tools:context=".SideKickActivity">
+
+    <TextView
+        android:id="@+id/tvSideKickTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="💡 Side-Kick Daily Briefing"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="16dp"/>
+
+    <ListView
+        android:id="@+id/listViewSideKick"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/tvSideKickTitle"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="10.0sp"/>
+
+    <TextView
+        android:id="@+id/tvNoSuggestions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="No suggestions from Side-Kick in the last 24 hours. Check back later!"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:visibility="gone"
+        android:textSize="16sp"/>
+
+</RelativeLayout>

@@ -4,17 +4,18 @@ import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.generationConfig
 
 object GeminiApiClient {
-    // This key is hardcoded for simplicity. For a production app,
-    // it's recommended to secure this using the BuildConfig method.
-    private const val API_KEY = "AIzaSyBaWZ7b6k0Fs5Tg92bXGazi0U8r0qd8c4Y"
+    // The API key is now securely accessed from BuildConfig.
+    private const val API_KEY = BuildConfig.GEMINI_API_KEY
 
     val generativeModel: GenerativeModel by lazy {
         val config = generationConfig {
             temperature = 0.7f
-            // Pro Tip: Limit the output length to keep responses concise and minimize token costs.
-            maxOutputTokens = 150
+            // Significant increase to accommodate the "thinking" process of Gemini 2.5 models,
+            // which can consume many tokens before providing the final response.
+            maxOutputTokens = 8192
         }
         GenerativeModel(
+            // Using the requested 'gemini-2.5-flash' model.
             modelName = "gemini-2.5-flash",
             apiKey = API_KEY,
             generationConfig = config

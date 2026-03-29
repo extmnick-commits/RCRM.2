@@ -145,17 +145,8 @@ class SmartLogActivity : AppCompatActivity() {
         etContactName.setText(contactName)
         tvLogPhoneNumber.text = phoneNumber
 
-        // Dynamic AI Draft Button
-        val btnAIGenerate = Button(this).apply {
-            text = "✨ AI Draft"
-            setBackgroundColor(Color.parseColor("#673AB7"))
-            setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 16, 0, 16)
-            }
-        }
-        containerSmsIntro?.addView(btnAIGenerate)
-
+        // AI Draft Button
+        val btnAIGenerate = findViewById<Button>(R.id.btnAIGenerate)
         btnAIGenerate.setOnClickListener {
             val currentName = etContactName.text.toString()
             val currentNote = etNotes.text.toString()
@@ -909,6 +900,9 @@ class SmartLogActivity : AppCompatActivity() {
                     
                     db.collection("leads").document(docId).update(update)
                         .addOnSuccessListener { 
+                            if (noteText.isNotEmpty()) {
+                                incrementDailyStat("followup_count")
+                            }
                             onSuccess() 
                         }
                 }

@@ -177,6 +177,7 @@ class MainActivity : AppCompatActivity() {
         listView.setOnItemClickListener { _, _, position, _ ->
             val lead = hotListData[position]
             val intent = Intent(this, FollowUpActivity::class.java)
+            intent.putExtra("targetLeadId", lead["id"] as? String)
             intent.putExtra("targetPhone", lead["phone"] as? String)
             startActivity(intent)
         }
@@ -1000,10 +1001,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun scheduleSideKickWorker() {
-        val request = PeriodicWorkRequestBuilder<SideKickWorker>(4, TimeUnit.HOURS)
+        val briefingHour = prefs.getInt("side_kick_briefing_hour", 8)
+        val briefingMinute = prefs.getInt("side_kick_briefing_minute", 0)
+
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, briefingHour)
+            set(Calendar.MINUTE, briefingMinute)
+            set(Calendar.SECOND, 0)
+            if (before(Calendar.getInstance())) {
+                add(Calendar.DATE, 1)
+            }
+        }
+        val initialDelay = (calendar.timeInMillis - System.currentTimeMillis()).coerceAtLeast(0)
+
+        val request = PeriodicWorkRequestBuilder<SideKickWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork("SideKickWorker", ExistingPeriodicWorkPolicy.KEEP, request)
+        // Use REPLACE to ensure the latest schedule is always used
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork("SideKickWorker", ExistingPeriodicWorkPolicy.REPLACE, request)
     }
 
     private fun checkPermissions() {

@@ -608,6 +608,7 @@ class ContactsActivity : AppCompatActivity() {
 
     private fun showLeadDetailsDialog(lead: Map<String, Any>) {
         val intent = Intent(this, FollowUpActivity::class.java)
+        intent.putExtra("targetLeadId", lead["__docId"] as? String)
         intent.putExtra("targetPhone", lead["phone"] as? String)
         startActivity(intent)
     }

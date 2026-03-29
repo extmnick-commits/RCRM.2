@@ -1,6 +1,9 @@
 package com.nickpulido.rcrm
 
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -48,6 +51,12 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
+        // Check for network connectivity before attempting login
+        if (!isNetworkAvailable()) {
+            Toast.makeText(this, getString(R.string.error_no_internet_connection), Toast.LENGTH_SHORT).show()
+            return
+        }
+
         binding.progressBar.visibility = View.VISIBLE
         binding.btnLogin.isEnabled = false
 
@@ -73,5 +82,25 @@ class LoginActivity : AppCompatActivity() {
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()
+    }
+
+    /**
+     * Checks if the device has an active network connection.
+     * Requires ACCESS_NETWORK_STATE permission in AndroidManifest.xml.
+     */
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                   capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                   capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        } else {
+            @Suppress("DEPRECATION")
+            val activeNetworkInfo = connectivityManager.activeNetworkInfo
+            @Suppress("DEPRECATION")
+            return activeNetworkInfo != null && activeNetworkInfo.isConnected
+        }
     }
 }

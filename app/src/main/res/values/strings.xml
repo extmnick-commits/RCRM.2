@@ -104,6 +104,7 @@
     <string name="signup_link">Don\'t have an account? Sign up</string>
     <string name="error_email_required">Email is required</string>
     <string name="error_password_required">Password is required</string>
+    <string name="error_no_internet_connection">No internet connection. Please check your network.</string>
     <string name="auth_failed">Authentication failed: %1$s</string>
     <string name="btn_sign_out">Sign Out</string>
     <string name="menu_settings">Settings</string>
@@ -136,4 +137,5 @@
     <string name="dialog_delete_reminder_msg">Are you sure you want to remove the follow-up reminder?</string>
     <string name="msg_reminder_removed">Reminder removed</string>
     <string name="btn_change_reminder">Change Reminder</string>
+    <string name="empty_follow_ups">No follow-ups for today!</string>
 </resources>

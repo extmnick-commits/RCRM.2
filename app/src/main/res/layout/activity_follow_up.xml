@@ -4,30 +4,33 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="20dp"
+    android:paddingTop="32dp"
+    android:paddingHorizontal="24dp"
     android:background="@color/backgroundColor">
 
     <!-- Search & Filter/Settings Header -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="24dp">
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp">
             
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="match_parent"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="12dp">
+                android:paddingHorizontal="16dp">
 
                 <ImageView
                     android:layout_width="20dp"
@@ -44,45 +47,59 @@
                     android:importantForAutofill="no"
                     android:inputType="textPersonName"
                     android:paddingHorizontal="10dp"
-                    android:textSize="14sp"
+                    android:textSize="15sp"
                     android:textColor="@color/textColorPrimary"
                     android:textColorHint="@color/textColorSecondary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSideKickPage"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="💡 Side-Kick"
+            android:textAllCaps="false"
+            android:textColor="@color/colorPrimary" />
+
         <ImageButton
             android:id="@+id/btnFilterCategory"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_sort_by_size"
             android:contentDescription="Filter Category"
             app:tint="@color/colorPrimary" />
-
-        <ImageButton
-            android:id="@+id/btnSettings"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Settings"
-            android:src="@android:drawable/ic_menu_preferences"
-            app:tint="@color/textColorSecondary" />
     </LinearLayout>
 
     <!-- App Title / Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginBottom="20dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="24dp">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:src="@android:drawable/ic_menu_revert"
+            app:tint="@color/textColorPrimary" />
+
         <TextView
             android:id="@+id/tvFollowUpHeader"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/follow_up_header"
-            android:textSize="22sp"
+            android:textSize="28sp"
             android:textStyle="bold"
+            android:letterSpacing="-0.02"
             android:textColor="@color/textColorPrimary" />
     </LinearLayout>
 
@@ -92,18 +109,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="4dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="2dp"
+        app:strokeWidth="0dp"
         android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground">
+        android:focusable="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingVertical="24dp"
-            android:paddingHorizontal="8dp"
+            android:paddingHorizontal="16dp"
             android:gravity="center">
 
             <FrameLayout
@@ -115,7 +132,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    app:indicatorSize="90dp"
+                    app:indicatorSize="100dp"
                     app:trackThickness="8dp"
                     app:indicatorColor="@color/colorSuccess"
                     app:trackColor="@color/dividerColor"
@@ -134,73 +151,79 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textSize="22sp"
+                        android:textSize="26sp"
                         android:textStyle="bold"
                         android:textColor="@color/textColorPrimary" />
                     <TextView
                         android:id="@+id/tvFollowUpGoalDisplay"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="-2dp"
                         android:text="Goal: 0"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textColor="@color/textColorSecondary" />
                 </LinearLayout>
             </FrameLayout>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="16dp"
                 android:text="Follow-Ups Today"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@color/textColorSecondary" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <ListView
-        android:id="@+id/listViewFollowUps"
+    <TextView
+        android:id="@+id/tvEmptyFollowUps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No leads found."
+        android:gravity="center"
+        android:padding="24dp"
+        android:textSize="16sp"
+        android:textColor="@color/textColorSecondary"
+        android:visibility="gone" />
+
+<androidx.recyclerview.widget.RecyclerView
+    android:id="@+id/rvFollowUps"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:divider="@android:color/transparent"
-        android:dividerHeight="8dp" />
+        android:clipToPadding="false"
+        android:paddingBottom="24dp"
+    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
     <LinearLayout
         android:id="@+id/bulkActionBar"
-        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:visibility="gone"
-        android:paddingTop="16dp">
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBulkDelete"
-            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="64dp"
             android:layout_weight="1"
-            android:text="Delete Selected"
+            android:layout_marginEnd="8dp"
+            android:text="Delete"
+            app:cornerRadius="16dp"
             android:backgroundTint="@color/colorDanger"
             android:textColor="@color/white" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCancelBulk"
-            style="?android:attr/buttonBarButtonStyle"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="64dp"
             android:layout_weight="1"
             android:text="Cancel"
+            app:cornerRadius="16dp"
+            app:strokeColor="@color/dividerColor"
             android:textColor="@color/textColorSecondary" />
-
-        <Button
-            android:id="@+id/btnBulkSnooze"
-            style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/btn_bulk_snooze"
-            android:backgroundTint="@color/colorPrimary"
-            android:textColor="@color/white" />
     </LinearLayout>
 </LinearLayout>
