@@ -22,8 +22,8 @@ android {
         applicationId = "com.nickpulido.rcrm"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -36,7 +36,7 @@ android {
             firebaseAppDistribution {
                 artifactType = "APK"
                 groups = "qa-testers"
-                releaseNotes = "Added 'Import Contact' feature to easily import leads directly from the phone's contact book, auto-filling name, phone number, and any existing notes."
+                releaseNotes = "Various updates and improvements."
             }
         }
         release {
