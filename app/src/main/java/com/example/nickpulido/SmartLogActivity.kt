@@ -42,6 +42,11 @@ class SmartLogActivity : AppCompatActivity() {
     private var followUpDate: Date? = null
     private var accountDefaultSms: String? = null
     
+    // Appointment variables
+    private var appointmentDate: Date? = null
+    private var appointmentLocation: String? = null
+    private var defaultOfficeAddress: String = ""
+    
     private var todayPresetHour: Int = 19
     private var todayPresetMinute: Int = 0
     private var tomorrowPresetHour: Int = 19
@@ -268,6 +273,11 @@ class SmartLogActivity : AppCompatActivity() {
         val btn7pmToday = findViewById<Button>(R.id.btn7pmToday)
         val btn7pmTomorrow = findViewById<Button>(R.id.btn7pmTomorrow)
         val btnScheduleCustom = findViewById<Button>(R.id.btnScheduleCustom)
+        val btnMarkAppointment = findViewById<Button>(R.id.btnMarkAppointment)
+        
+        btnMarkAppointment.setOnClickListener {
+            showAppointmentDialog()
+        }
 
         btnScheduleCustom.setOnClickListener {
             showDateTimePicker(Calendar.getInstance())
@@ -665,6 +675,7 @@ class SmartLogActivity : AppCompatActivity() {
         db.collection("user_settings").document(userId).get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
                 accountDefaultSms = snapshot.getString("default_intro_sms")
+                defaultOfficeAddress = snapshot.getString("default_office_address") ?: ""
                 
                 prefsForPresets.edit {
                     putString("local_account_default_sms", accountDefaultSms)
@@ -702,6 +713,149 @@ class SmartLogActivity : AppCompatActivity() {
         }.addOnFailureListener {
             onLoaded()
         }
+    }
+
+    private fun showAppointmentDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_appointment, null)
+        val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val btnApptDate = dialogView.findViewById<Button>(R.id.btnApptDate)
+        val btnApptTime = dialogView.findViewById<Button>(R.id.btnApptTime)
+        val tvSelectedDateTime = dialogView.findViewById<TextView>(R.id.tvSelectedDateTime)
+        
+        val rgApptLocation = dialogView.findViewById<RadioGroup>(R.id.rgApptLocation)
+        val rbOffice = dialogView.findViewById<RadioButton>(R.id.rbOffice)
+        val rbCustom = dialogView.findViewById<RadioButton>(R.id.rbCustom)
+        
+        val llOfficeAddressConfig = dialogView.findViewById<LinearLayout>(R.id.llOfficeAddressConfig)
+        val tvCurrentOffice = dialogView.findViewById<TextView>(R.id.tvCurrentOffice)
+        val btnEditOffice = dialogView.findViewById<Button>(R.id.btnEditOffice)
+        
+        val tilCustomAddress = dialogView.findViewById<View>(R.id.tilCustomAddress)
+        val etCustomAddress = dialogView.findViewById<EditText>(R.id.etCustomAddress)
+        
+        val btnCancelAppt = dialogView.findViewById<Button>(R.id.btnCancelAppt)
+        val btnSaveAppt = dialogView.findViewById<Button>(R.id.btnSaveAppt)
+        
+        var tempCal: Calendar? = if (appointmentDate != null) Calendar.getInstance().apply { time = appointmentDate!! } else null
+        
+        val sdfDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+        val sdfTime = SimpleDateFormat("h:mm a", Locale.getDefault())
+
+        fun updateDateTimeUI() {
+            if (tempCal != null) {
+                tvSelectedDateTime.text = "${sdfDate.format(tempCal!!.time)} at ${sdfTime.format(tempCal!!.time)}"
+            } else {
+                tvSelectedDateTime.text = "No date/time selected"
+            }
+        }
+        
+        fun updateOfficeUI() {
+            if (defaultOfficeAddress.isNotEmpty()) {
+                tvCurrentOffice.text = defaultOfficeAddress
+            } else {
+                tvCurrentOffice.text = "No address set"
+            }
+        }
+        
+        updateDateTimeUI()
+        updateOfficeUI()
+
+        rgApptLocation.setOnCheckedChangeListener { _, checkedId ->
+            if (checkedId == R.id.rbOffice) {
+                llOfficeAddressConfig.visibility = View.VISIBLE
+                tilCustomAddress.visibility = View.GONE
+            } else {
+                llOfficeAddressConfig.visibility = View.GONE
+                tilCustomAddress.visibility = View.VISIBLE
+            }
+        }
+        
+        if (appointmentLocation != null) {
+            if (appointmentLocation == defaultOfficeAddress) {
+                rbOffice.isChecked = true
+            } else {
+                rbCustom.isChecked = true
+                etCustomAddress.setText(appointmentLocation)
+                llOfficeAddressConfig.visibility = View.GONE
+                tilCustomAddress.visibility = View.VISIBLE
+            }
+        } else {
+            rbOffice.isChecked = true
+            llOfficeAddressConfig.visibility = View.VISIBLE
+            tilCustomAddress.visibility = View.GONE
+        }
+
+        btnEditOffice.setOnClickListener {
+            val input = EditText(this).apply {
+                setText(defaultOfficeAddress)
+                setPadding(48, 24, 48, 24)
+            }
+            
+            AlertDialog.Builder(this)
+                .setTitle("Default Office Address")
+                .setView(input)
+                .setPositiveButton("Save") { _, _ ->
+                    defaultOfficeAddress = input.text.toString().trim()
+                    updateOfficeUI()
+                    auth.currentUser?.uid?.let { userId ->
+                        db.collection("user_settings").document(userId)
+                            .set(mapOf("default_office_address" to defaultOfficeAddress), SetOptions.merge())
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        btnApptDate.setOnClickListener {
+            val cal = tempCal ?: Calendar.getInstance()
+            DatePickerDialog(this, { _, year, month, day ->
+                if (tempCal == null) tempCal = Calendar.getInstance()
+                tempCal!!.set(year, month, day)
+                updateDateTimeUI()
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        btnApptTime.setOnClickListener {
+            val cal = tempCal ?: Calendar.getInstance()
+            TimePickerDialog(this, { _, hour, minute ->
+                if (tempCal == null) tempCal = Calendar.getInstance()
+                tempCal!!.set(Calendar.HOUR_OF_DAY, hour)
+                tempCal!!.set(Calendar.MINUTE, minute)
+                updateDateTimeUI()
+            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
+        }
+
+        btnCancelAppt.setOnClickListener { dialog.dismiss() }
+
+        btnSaveAppt.setOnClickListener {
+            if (tempCal == null) {
+                Toast.makeText(this, "Please select Date & Time", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (rbOffice.isChecked && defaultOfficeAddress.isEmpty()) {
+                Toast.makeText(this, "Please set a default Office Address first", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            
+            val finalLoc = if (rbOffice.isChecked) defaultOfficeAddress else etCustomAddress.text.toString().trim()
+            if (finalLoc.isEmpty()) {
+                Toast.makeText(this, "Please provide a location", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            appointmentDate = tempCal!!.time
+            appointmentLocation = finalLoc
+            
+            val summarySdf = SimpleDateFormat("MMM dd h:mm a", Locale.getDefault())
+            findViewById<Button>(R.id.btnMarkAppointment)?.text = "Appt: ${summarySdf.format(appointmentDate!!)}"
+            
+            Toast.makeText(this, "Appointment scheduled for saving", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun showDateTimePicker(initialCal: Calendar) {
@@ -865,6 +1019,8 @@ class SmartLogActivity : AppCompatActivity() {
                         "category" to finalCategory,
                         "notes" to formattedNote, 
                         "followUpDate" to followUpDate?.let { Timestamp(it) }, 
+                        "appointmentDate" to appointmentDate?.let { Timestamp(it) },
+                        "appointmentLocation" to appointmentLocation,
                         "timestamp" to Timestamp.now(),
                         "ownerId" to currentUserId,
                         "source" to "smart_log"
@@ -872,6 +1028,11 @@ class SmartLogActivity : AppCompatActivity() {
                     db.collection("leads").add(data)
                         .addOnSuccessListener { 
                             incrementDailyStat("total_count")
+                        if (appointmentDate != null && phoneNumber.isNotEmpty()) {
+                            ReminderReceiver.scheduleReminder(this, phoneNumber, "Appointment: $contactName", appointmentDate!!.time)
+                        } else if (followUpDate != null && phoneNumber.isNotEmpty()) {
+                                ReminderReceiver.scheduleReminder(this, phoneNumber, contactName, followUpDate!!.time)
+                            }
                             onSuccess() 
                         }
                         .addOnFailureListener { e ->
@@ -897,11 +1058,21 @@ class SmartLogActivity : AppCompatActivity() {
                         "timestamp" to Timestamp.now()
                     )
                     followUpDate?.let { update["followUpDate"] = Timestamp(it) }
+                    appointmentDate?.let { update["appointmentDate"] = Timestamp(it) }
+                    appointmentLocation?.let { update["appointmentLocation"] = it }
+                    
                     
                     db.collection("leads").document(docId).update(update)
                         .addOnSuccessListener { 
                             if (noteText.isNotEmpty()) {
                                 incrementDailyStat("followup_count")
+                            }
+                        if (appointmentDate != null && phoneNumber.isNotEmpty()) {
+                            ReminderReceiver.scheduleReminder(this, phoneNumber, "Appointment: $contactName", appointmentDate!!.time)
+                        } else if (followUpDate != null && phoneNumber.isNotEmpty()) {
+                                ReminderReceiver.scheduleReminder(this, phoneNumber, contactName, followUpDate!!.time)
+                            } else if (phoneNumber.isNotEmpty()) {
+                                ReminderReceiver.cancelReminder(this, phoneNumber)
                             }
                             onSuccess() 
                         }

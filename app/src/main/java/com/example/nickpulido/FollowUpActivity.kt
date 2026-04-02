@@ -263,6 +263,7 @@ class FollowUpActivity : AppCompatActivity() {
         
         val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
         val btnAddCalendar = dialogView.findViewById<Button>(R.id.btnAddCalendar)
+        val btnMarkAppointmentDetail = dialogView.findViewById<Button>(R.id.btnMarkAppointmentDetail)
         val btnSave = dialogView.findViewById<Button>(R.id.btnSaveChanges)
 
         val sideKickSuggestionContainer = dialogView.findViewById<View>(R.id.sideKickSuggestionContainer)
@@ -609,6 +610,181 @@ class FollowUpActivity : AppCompatActivity() {
                 }.setNegativeButton("Cancel", null).show()
         }
 
+        var appointmentDate: Date? = (lead["appointmentDate"] as? Timestamp)?.toDate()
+        var appointmentLocation: String? = lead["appointmentLocation"] as? String
+
+        fun updateAppointmentButtonUI() {
+            if (appointmentDate != null) {
+                val summarySdf = SimpleDateFormat("MMM dd h:mm a", Locale.getDefault())
+                btnMarkAppointmentDetail?.text = "Appt: ${summarySdf.format(appointmentDate!!)}"
+            } else {
+                btnMarkAppointmentDetail?.text = "Schedule Appointment"
+            }
+        }
+        updateAppointmentButtonUI()
+
+        btnMarkAppointmentDetail?.setOnClickListener {
+            val apptDialogView = layoutInflater.inflate(R.layout.dialog_appointment, null)
+            val apptDialog = AlertDialog.Builder(this@FollowUpActivity).setView(apptDialogView).create()
+            apptDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+            val btnApptDate = apptDialogView.findViewById<Button>(R.id.btnApptDate)
+            val btnApptTime = apptDialogView.findViewById<Button>(R.id.btnApptTime)
+            val tvSelectedDateTime = apptDialogView.findViewById<TextView>(R.id.tvSelectedDateTime)
+            
+            val rgApptLocation = apptDialogView.findViewById<RadioGroup>(R.id.rgApptLocation)
+            val rbOffice = apptDialogView.findViewById<RadioButton>(R.id.rbOffice)
+            val rbCustom = apptDialogView.findViewById<RadioButton>(R.id.rbCustom)
+            
+            val llOfficeAddressConfig = apptDialogView.findViewById<LinearLayout>(R.id.llOfficeAddressConfig)
+            val tvCurrentOffice = apptDialogView.findViewById<TextView>(R.id.tvCurrentOffice)
+            val btnEditOffice = apptDialogView.findViewById<Button>(R.id.btnEditOffice)
+            
+            val tilCustomAddress = apptDialogView.findViewById<View>(R.id.tilCustomAddress)
+            val etCustomAddress = apptDialogView.findViewById<EditText>(R.id.etCustomAddress)
+            
+            val btnCancelAppt = apptDialogView.findViewById<Button>(R.id.btnCancelAppt)
+            val btnSaveAppt = apptDialogView.findViewById<Button>(R.id.btnSaveAppt)
+            
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            var defaultOfficeAddress = prefs.getString("default_office_address", "") ?: ""
+            
+            var tempCal: Calendar? = if (appointmentDate != null) Calendar.getInstance().apply { time = appointmentDate!! } else null
+            
+            val sdfDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            val sdfTime = SimpleDateFormat("h:mm a", Locale.getDefault())
+
+            fun updateDateTimeUI() {
+                if (tempCal != null) {
+                    tvSelectedDateTime?.text = "${sdfDate.format(tempCal!!.time)} at ${sdfTime.format(tempCal!!.time)}"
+                } else {
+                    tvSelectedDateTime?.text = "No date/time selected"
+                }
+            }
+            
+            fun updateOfficeUI() {
+                if (defaultOfficeAddress.isNotEmpty()) {
+                    tvCurrentOffice?.text = defaultOfficeAddress
+                } else {
+                    tvCurrentOffice?.text = "No address set"
+                }
+            }
+            
+            updateDateTimeUI()
+            updateOfficeUI()
+
+            rgApptLocation?.setOnCheckedChangeListener { _, checkedId ->
+                if (checkedId == R.id.rbOffice) {
+                    llOfficeAddressConfig?.visibility = View.VISIBLE
+                    tilCustomAddress?.visibility = View.GONE
+                } else {
+                    llOfficeAddressConfig?.visibility = View.GONE
+                    tilCustomAddress?.visibility = View.VISIBLE
+                }
+            }
+            
+            if (appointmentLocation != null) {
+                if (appointmentLocation == defaultOfficeAddress) {
+                    rbOffice?.isChecked = true
+                } else {
+                    rbCustom?.isChecked = true
+                    etCustomAddress?.setText(appointmentLocation)
+                    llOfficeAddressConfig?.visibility = View.GONE
+                    tilCustomAddress?.visibility = View.VISIBLE
+                }
+            } else {
+                rbOffice?.isChecked = true
+                llOfficeAddressConfig?.visibility = View.VISIBLE
+                tilCustomAddress?.visibility = View.GONE
+            }
+
+            btnEditOffice?.setOnClickListener {
+                val input = EditText(this@FollowUpActivity).apply {
+                    setText(defaultOfficeAddress)
+                    setPadding(48, 24, 48, 24)
+                }
+                
+                AlertDialog.Builder(this@FollowUpActivity)
+                    .setTitle("Default Office Address")
+                    .setView(input)
+                    .setPositiveButton("Save") { _, _ ->
+                        defaultOfficeAddress = input.text.toString().trim()
+                        updateOfficeUI()
+                        prefs.edit { putString("default_office_address", defaultOfficeAddress) }
+                        auth.currentUser?.uid?.let { userId ->
+                            db.collection("user_settings").document(userId)
+                                .set(mapOf("default_office_address" to defaultOfficeAddress), SetOptions.merge())
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+
+            btnApptDate?.setOnClickListener {
+                val cal = tempCal ?: Calendar.getInstance()
+                DatePickerDialog(this@FollowUpActivity, { _, year, month, day ->
+                    if (tempCal == null) tempCal = Calendar.getInstance()
+                    tempCal!!.set(year, month, day)
+                    updateDateTimeUI()
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }
+
+            btnApptTime?.setOnClickListener {
+                val cal = tempCal ?: Calendar.getInstance()
+                TimePickerDialog(this@FollowUpActivity, { _, hour, minute ->
+                    if (tempCal == null) tempCal = Calendar.getInstance()
+                    tempCal!!.set(Calendar.HOUR_OF_DAY, hour)
+                    tempCal!!.set(Calendar.MINUTE, minute)
+                    updateDateTimeUI()
+                }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
+            }
+
+            btnCancelAppt?.setOnClickListener { apptDialog.dismiss() }
+
+            btnSaveAppt?.setOnClickListener {
+                if (tempCal == null) {
+                    Toast.makeText(this@FollowUpActivity, "Please select Date & Time", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                if (rbOffice?.isChecked == true && defaultOfficeAddress.isEmpty()) {
+                    Toast.makeText(this@FollowUpActivity, "Please set a default Office Address first", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                
+                val finalLoc = if (rbOffice?.isChecked == true) defaultOfficeAddress else etCustomAddress?.text.toString().trim()
+                if (finalLoc.isEmpty()) {
+                    Toast.makeText(this@FollowUpActivity, "Please provide a location", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                appointmentDate = tempCal!!.time
+                appointmentLocation = finalLoc
+                
+                updateAppointmentButtonUI()
+                
+                Toast.makeText(this@FollowUpActivity, "Appointment scheduled for saving", Toast.LENGTH_SHORT).show()
+                apptDialog.dismiss()
+            }
+
+            apptDialog.show()
+        }
+
+        btnMarkAppointmentDetail?.setOnLongClickListener {
+            if (appointmentDate != null) {
+                AlertDialog.Builder(this@FollowUpActivity)
+                    .setTitle("Remove Appointment?")
+                    .setMessage("Do you want to clear this scheduled appointment?")
+                    .setPositiveButton("Remove") { _, _ ->
+                        appointmentDate = null
+                        appointmentLocation = null
+                        updateAppointmentButtonUI()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            true
+        }
+
         btnDefaultIntro.setOnClickListener {
             val firstName = editName.text.toString().split(" ").firstOrNull() ?: ""
             val defaultMsg = getSharedPreferences("settings", Context.MODE_PRIVATE).getString("default_intro_sms", null)
@@ -655,7 +831,9 @@ class FollowUpActivity : AppCompatActivity() {
                 "notes" to updatedNotes,
                 "targetMarket" to tmList.joinToString(", "),
                 "followUpDate" to selectedFollowUpDate?.let { Timestamp(it) },
-                "birthday" to selectedBirthday?.let { Timestamp(it) }
+                "birthday" to selectedBirthday?.let { Timestamp(it) },
+                "appointmentDate" to appointmentDate?.let { Timestamp(it) },
+                "appointmentLocation" to appointmentLocation
             )
             
             // Instantly update the local item in memory so the UI is fresh if reopened quickly
@@ -668,6 +846,16 @@ class FollowUpActivity : AppCompatActivity() {
                 if (notesList.size > originalNotesCount) {
                     incrementDailyStat("followup_count")
                 }
+                
+                val phoneToNotify = editPhone.text.toString()
+                if (appointmentDate != null && phoneToNotify.isNotEmpty()) {
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: ${editName.text}", appointmentDate!!.time)
+                } else if (selectedFollowUpDate != null && phoneToNotify.isNotEmpty()) {
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, editName.text.toString(), selectedFollowUpDate!!.time)
+                } else if (phoneToNotify.isNotEmpty()) {
+                    ReminderReceiver.cancelReminder(this, phoneToNotify)
+                }
+                
                 Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }

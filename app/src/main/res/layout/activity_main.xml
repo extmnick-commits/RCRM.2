@@ -112,7 +112,7 @@
                 android:layout_weight="1"
                 android:layout_height="64dp"
                 android:layout_marginEnd="6dp"
-                android:text="@string/btn_quick_add"
+                android:text="Quick Add / Import"
                 app:cornerRadius="16dp"
                 android:backgroundTint="@color/colorPrimary"
                 android:textColor="@color/white"
@@ -121,16 +121,16 @@
                 app:iconTint="@color/white"/>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnImportContact"
+                android:id="@+id/btnAppointments"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="64dp"
                 android:layout_marginStart="6dp"
-                android:text="@string/btn_import_contact"
+                android:text="Appointments"
                 app:cornerRadius="16dp"
-                android:backgroundTint="@color/colorInfo"
+                android:backgroundTint="#4CAF50"
                 android:textColor="@color/white"
-                app:icon="@android:drawable/stat_sys_download"
+                app:icon="@android:drawable/ic_menu_my_calendar"
                 app:iconGravity="textStart"
                 app:iconTint="@color/white"/>
         </LinearLayout>

@@ -53,4 +53,47 @@ class ReminderReceiver : BroadcastReceiver() {
         val notificationId = leadPhone?.hashCode() ?: leadName.hashCode()
         notificationManager.notify(notificationId, builder.build())
     }
+
+    companion object {
+        fun scheduleReminder(context: Context, leadPhone: String, leadName: String, timeInMillis: Long) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val intent = Intent(context, ReminderReceiver::class.java).apply {
+                putExtra("LEAD_PHONE", leadPhone)
+                putExtra("LEAD_NAME", leadName)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                leadPhone.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                    } else {
+                        alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                    }
+                } else {
+                    alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                }
+            } catch (e: SecurityException) {
+                // Fallback if unable to schedule exact alarm
+                alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+            }
+        }
+
+        fun cancelReminder(context: Context, leadPhone: String) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val intent = Intent(context, ReminderReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                leadPhone.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+        }
+    }
 }

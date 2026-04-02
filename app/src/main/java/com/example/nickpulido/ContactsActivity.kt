@@ -346,6 +346,11 @@ class ContactsActivity : AppCompatActivity() {
 
             db.collection("leads").add(leadData).addOnSuccessListener {
                 incrementDailyStat("total_count")
+                val phoneToNotify = phoneInput.text.toString()
+                if (phoneToNotify.isNotEmpty()) {
+                    val timeInMillis = System.currentTimeMillis() + 86400000
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, name, timeInMillis)
+                }
                 loadContacts()
                 dialog.dismiss()
             }

@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="?attr/colorSurface">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🗓 Mark Appointment"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/textColorPrimary"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnApptDate"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="56dp"
+            android:text="Select Date"
+            app:icon="@android:drawable/ic_menu_today"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:textColor="@color/textColorPrimary"
+            app:strokeColor="@color/dividerColor"
+            android:layout_marginEnd="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnApptTime"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="56dp"
+            android:text="Select Time"
+            app:icon="@android:drawable/ic_menu_recent_history"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:textColor="@color/textColorPrimary"
+            app:strokeColor="@color/dividerColor" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvSelectedDateTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No date/time selected"
+        android:textColor="@color/colorPrimary"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:layout_marginBottom="24dp"
+        android:gravity="center" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Location"
+        android:textStyle="bold"
+        android:textColor="@color/textColorSecondary"
+        android:textSize="12sp"
+        android:layout_marginBottom="8dp" />
+
+    <RadioGroup
+        android:id="@+id/rgApptLocation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="8dp">
+
+        <RadioButton
+            android:id="@+id/rbOffice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Default Office"
+            android:textColor="@color/textColorPrimary" />
+            
+        <RadioButton
+            android:id="@+id/rbCustom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Custom Location"
+            android:textColor="@color/textColorPrimary" />
+    </RadioGroup>
+
+    <!-- Editing Default Office Container -->
+    <LinearLayout
+        android:id="@+id/llOfficeAddressConfig"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginStart="32dp"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone">
+        <TextView
+            android:id="@+id/tvCurrentOffice"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="No address set"
+            android:textSize="13sp"
+            android:textColor="@color/textColorSecondary"
+            android:ellipsize="end"
+            android:maxLines="2" />
+        <Button
+            android:id="@+id/btnEditOffice"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Edit"
+            android:textSize="12sp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:minHeight="0dp"
+            android:contentDescription="Edit Office Address" />
+    </LinearLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilCustomAddress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Custom Location / Address"
+        android:visibility="gone"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_marginBottom="16dp">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etCustomAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textPostalAddress" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:gravity="end">
+        <Button
+            android:id="@+id/btnCancelAppt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancel"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:textColor="@color/textColorSecondary" />
+        <Button
+            android:id="@+id/btnSaveAppt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Confirm"
+            android:backgroundTint="@color/colorPrimary"
+            android:textColor="@color/white" />
+    </LinearLayout>
+
+</LinearLayout>

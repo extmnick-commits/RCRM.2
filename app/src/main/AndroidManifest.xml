@@ -51,6 +51,7 @@
         <activity android:name=".ContactsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".AdminDashboardActivity" android:exported="false" />
         <activity android:name=".SideKickActivity" />
+        <activity android:name=".AppointmentsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".SuperAdminDashboardActivity" android:exported="false" />
 
         <provider

@@ -94,6 +94,30 @@
             android:contentDescription="Call Lead"
             app:tint="@color/colorSuccess" />
 
+        <ImageView
+            android:id="@+id/btnCompleteIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="Dismiss Overdue"
+            android:visibility="gone"
+            app:tint="@color/textColorSecondary" />
+
+        <ImageView
+            android:id="@+id/btnExportCalendar"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:src="@android:drawable/ic_menu_my_calendar"
+            android:contentDescription="Export to Calendar"
+            android:visibility="gone"
+            app:tint="@color/colorPrimary" />
+
         <!-- Hidden layout preserved to maintain adapter compatibility -->
         <LinearLayout
             android:id="@+id/llCompleteAction"

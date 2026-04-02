@@ -272,6 +272,18 @@
                 android:text="Schedule"
                 android:textAllCaps="false"
                 android:textColor="@color/textColorPrimary" />
+                
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnMarkAppointment"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_marginTop="16dp"
+                android:text="🗓️ Mark Appointment"
+                app:cornerRadius="12dp"
+                android:backgroundTint="?attr/colorSurface"
+                android:textColor="@color/colorPrimary"
+                app:strokeColor="@color/colorPrimary"
+                app:strokeWidth="1dp" />
 
             <View
                 android:layout_width="match_parent"

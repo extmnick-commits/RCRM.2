@@ -158,6 +158,11 @@ class MainActivity : AppCompatActivity() {
             db.collection("leads").document(docId)
                 .update("followUpDate", null)
                 .addOnSuccessListener {
+                    val lead = hotListData.find { it["__docId"] == docId }
+                    val phone = lead?.get("phone") as? String
+                    if (!phone.isNullOrEmpty()) {
+                        ReminderReceiver.cancelReminder(this, phone)
+                    }
                     Toast.makeText(this, "Follow-up marked complete", Toast.LENGTH_SHORT).show()
                     loadHotList()
                 }
@@ -168,6 +173,7 @@ class MainActivity : AppCompatActivity() {
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 currentTabPosition = tab.position
+                (adapter as? HotListAdapter)?.currentTab = currentTabPosition
                 filterHotList(findViewById<EditText>(R.id.search_bar).text.toString())
             }
             override fun onTabUnselected(tab: TabLayout.Tab) {}
@@ -184,7 +190,9 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsDialog() }
         findViewById<Button>(R.id.btnQuickAdd).setOnClickListener { showQuickAddDialog() }
-        findViewById<Button>(R.id.btnImportContact).setOnClickListener { pickContactLauncher.launch(null) }
+        findViewById<Button>(R.id.btnAppointments).setOnClickListener { 
+            startActivity(Intent(this, AppointmentsActivity::class.java)) 
+        }
         findViewById<Button>(R.id.btnFollowUpList).setOnClickListener { 
             startActivity(Intent(this, FollowUpActivity::class.java)) 
         }
@@ -1234,6 +1242,11 @@ class MainActivity : AppCompatActivity() {
                 .show()
         }
 
+        val btnQuickAddImport = dialogView.findViewById<Button>(R.id.btnQuickAddImport)
+        btnQuickAddImport?.setOnClickListener {
+            pickContactLauncher.launch(null)
+        }
+
         val btnSave = dialogView.findViewById<Button>(R.id.btnQuickSave)
 
         btnSave.setOnClickListener {
@@ -1284,6 +1297,11 @@ class MainActivity : AppCompatActivity() {
 
             db.collection("leads").add(leadData).addOnSuccessListener {
                 incrementDailyStat("total_count")
+                val phoneToNotify = phoneInput.text.toString()
+                if (phoneToNotify.isNotEmpty()) {
+                    val timeInMillis = System.currentTimeMillis() + 86400000
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, name, timeInMillis)
+                }
                 Toast.makeText(this, "Lead added!", Toast.LENGTH_SHORT).show()
                 loadHotList()
                 dialog.dismiss()
@@ -1610,6 +1628,8 @@ class MainActivity : AppCompatActivity() {
             
             if (!matchesSearch) return@filter false
             
+            
+            
             val followUpDate = lead["followUpDate"] as? Timestamp
             val leadDateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
             
@@ -1630,6 +1650,8 @@ class HotListAdapter(
     private val data: List<Map<String, Any>>,
     private val onCompleteLead: (String) -> Unit
 ) : BaseAdapter() {
+    var currentTab: Int = 0
+    
     override fun getCount(): Int = data.size
     override fun getItem(position: Int) = data[position]
     override fun getItemId(position: Int) = position.toLong()
@@ -1674,25 +1696,76 @@ class HotListAdapter(
         val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "")
         val fallbackNote = if (latestNote.isEmpty()) "No notes available" else latestNote
         
-        if (dateStr.isNotEmpty()) {
-            val detailsText = android.text.SpannableStringBuilder("Due: $dateStr\n$fallbackNote")
-            if (followUpDate != null && followUpDate.toDate().time < System.currentTimeMillis()) {
-                detailsText.setSpan(
-                    android.text.style.ForegroundColorSpan(Color.parseColor("#FF5252")),
-                    0,
-                    "Due: $dateStr".length,
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
+        val btnExportCalendar = view.findViewById<ImageView>(R.id.btnExportCalendar)
+        val appointmentDate = lead["appointmentDate"] as? Timestamp
+        val appointmentLocation = lead["appointmentLocation"] as? String ?: ""
+
+        if (currentTab == 3 && appointmentDate != null) {
+            val apptSdf = SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
+            val apptStr = apptSdf.format(appointmentDate.toDate())
+            val detailsText = android.text.SpannableStringBuilder("Appt: $apptStr\nLoc: $appointmentLocation\n$fallbackNote")
+            detailsText.setSpan(
+                android.text.style.ForegroundColorSpan(Color.parseColor("#4CAF50")),
+                0,
+                "Appt: $apptStr".length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
             view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
+            
+            if (btnExportCalendar != null) {
+                btnExportCalendar.visibility = View.VISIBLE
+                btnExportCalendar.setOnClickListener {
+                    val intent = Intent(Intent.ACTION_INSERT)
+                        .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+                        .putExtra(android.provider.CalendarContract.Events.TITLE, "Meeting with $name")
+                        .putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, appointmentLocation)
+                        .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, appointmentDate.toDate().time)
+                        .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, appointmentDate.toDate().time + 3600000)
+                    context.startActivity(intent)
+                }
+            }
+            
+            val btnCompleteIcon = view.findViewById<ImageView>(R.id.btnCompleteIcon)
+            if (btnCompleteIcon != null) btnCompleteIcon.visibility = View.GONE
+            val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
+            llCompleteAction?.setOnClickListener(null)
+            
         } else {
-            view.findViewById<TextView>(R.id.tvLeadDetails).text = fallbackNote
-        }
-        
-        val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
-        llCompleteAction?.setOnClickListener {
-            val docId = lead["__docId"] as? String ?: return@setOnClickListener
-            onCompleteLead(docId)
+            if (btnExportCalendar != null) btnExportCalendar.visibility = View.GONE
+
+            if (dateStr.isNotEmpty()) {
+                val detailsText = android.text.SpannableStringBuilder("Due: $dateStr\n$fallbackNote")
+                if (followUpDate != null && followUpDate.toDate().time < System.currentTimeMillis()) {
+                    detailsText.setSpan(
+                        android.text.style.ForegroundColorSpan(Color.parseColor("#FF5252")),
+                        0,
+                        "Due: $dateStr".length,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
+            } else {
+                view.findViewById<TextView>(R.id.tvLeadDetails).text = fallbackNote
+            }
+            
+            val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
+            llCompleteAction?.setOnClickListener {
+                val docId = lead["__docId"] as? String ?: return@setOnClickListener
+                onCompleteLead(docId)
+            }
+    
+            val btnCompleteIcon = view.findViewById<ImageView>(R.id.btnCompleteIcon)
+            if (btnCompleteIcon != null) {
+                if (followUpDate != null && followUpDate.toDate().time < System.currentTimeMillis()) {
+                    btnCompleteIcon.visibility = View.VISIBLE
+                    btnCompleteIcon.setOnClickListener {
+                        val docId = lead["__docId"] as? String ?: return@setOnClickListener
+                        onCompleteLead(docId)
+                    }
+                } else {
+                    btnCompleteIcon.visibility = View.GONE
+                }
+            }
         }
 
         val btnCallIcon = view.findViewById<ImageView>(R.id.btnCallIcon)
