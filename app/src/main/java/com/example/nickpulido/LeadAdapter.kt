@@ -56,8 +56,7 @@ class LeadAdapter(
             tvCategoryLabel.visibility = View.GONE
         }
 
-        val latestNote = notes.substringBefore("\n\n").replace(Regex("^\\[.*?\\]: "), "")
-        tvDetails.text = latestNote.ifEmpty { "No notes available" }
+        tvDetails.text = NoteUtils.getDisplayNote(notes)
 
         btnCallIcon.setOnClickListener {
             val phone = lead["phone"] as? String
