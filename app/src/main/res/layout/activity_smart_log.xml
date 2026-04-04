@@ -32,14 +32,32 @@
                     android:textStyle="bold"
                     android:alpha="0.6" />
 
-                <Button
-                    android:id="@+id/btnScanCardSmartLog"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📷 Scan Business Card"
-                    android:backgroundTint="@color/colorSecondary"
-                    android:textColor="@color/white"
-                    android:layout_marginTop="8dp"/>
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <Button
+                        android:id="@+id/btnScanCardSmartLog"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="📷 Scan Card"
+                        android:backgroundTint="@color/colorSecondary"
+                        android:textColor="@color/white"
+                        android:layout_marginEnd="4dp"/>
+
+                    <Button
+                        android:id="@+id/btnVoiceLog"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:text="🎤 Dictate Log"
+                        android:backgroundTint="#FF9800"
+                        android:textColor="@color/white"
+                        android:layout_marginStart="4dp"/>
+                </LinearLayout>
 
                 <EditText
                     android:id="@+id/etContactName"
@@ -203,6 +221,27 @@
                     <CheckBox android:id="@+id/cbInvestment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" />
                     <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
                 </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Target Market"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorSecondary"
+                    android:textSize="12sp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <CheckBox android:id="@+id/cbTmMarried" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Married" />
+                    <CheckBox android:id="@+id/cbTmAge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Age 25-55" />
+                    <CheckBox android:id="@+id/cbTmChildren" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Children" />
+                    <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Homeowner" />
+                    <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" />
+                </LinearLayout>
+
             </LinearLayout>
 
             <EditText

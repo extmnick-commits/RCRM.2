@@ -47,6 +47,32 @@ class FollowUpActivity : AppCompatActivity() {
     private var currentSearchQuery = ""
     private var currentCategoryFilter = "All"
     private var showOnlySideKick = false
+
+    private var applyVoiceLogToDialog: ((org.json.JSONObject, String) -> Unit)? = null
+
+    private val speechRecognizerLauncherDetails = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            val spokenText = data?.get(0) ?: ""
+            if (spokenText.isNotEmpty()) {
+                processVoiceLogDetailsWithAI(spokenText)
+            }
+        }
+    }
+
+    private var dictatingForLeadId: String? = null
+
+    private val speechRecognizerLauncherList = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            val spokenText = data?.get(0) ?: ""
+            val leadId = dictatingForLeadId
+            if (spokenText.isNotEmpty() && leadId != null) {
+                processVoiceLogListWithAI(leadId, spokenText)
+            }
+        }
+        dictatingForLeadId = null
+    }
     
     private companion object {
         const val PREFS_NAME = "IntroPresets"
@@ -84,6 +110,17 @@ class FollowUpActivity : AppCompatActivity() {
             selectedLeads.clear()
             adapter.notifyDataSetChanged()
             updateUI()
+        }
+
+        binding.btnBulkDictate.setOnClickListener {
+            dictatingForLeadId = selectedLeads.firstOrNull()
+            if (dictatingForLeadId != null) {
+                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your updates for this lead...")
+                try { speechRecognizerLauncherList.launch(intent) } catch (e: Exception) { Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show() }
+            }
         }
 
         binding.btnSideKickPage.setOnClickListener {
@@ -192,6 +229,7 @@ class FollowUpActivity : AppCompatActivity() {
     private fun updateUI() {
         binding.tvEmptyFollowUps.visibility = if (leads.isEmpty()) View.VISIBLE else View.GONE
         binding.bulkActionBar.visibility = if (selectedLeads.isEmpty()) View.GONE else View.VISIBLE
+        binding.btnBulkDictate.visibility = if (selectedLeads.size == 1) View.VISIBLE else View.GONE
     }
 
     private fun performBulkDelete() {
@@ -554,6 +592,48 @@ class FollowUpActivity : AppCompatActivity() {
         }
         refreshNotesUI()
 
+
+        val notesParent = btnAddDatedNote.parent as? ViewGroup
+        if (notesParent != null) {
+            val index = notesParent.indexOfChild(btnAddDatedNote)
+            notesParent.removeView(btnAddDatedNote)
+            
+            val wrapper = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = btnAddDatedNote.layoutParams
+            }
+            
+            btnAddDatedNote.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
+            
+            val btnVoiceLog = Button(this).apply {
+                text = "🎤 Dictate Log"
+                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF9800"))
+                setTextColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = 8 }
+            }
+            
+            wrapper.addView(btnAddDatedNote)
+            wrapper.addView(btnVoiceLog)
+            notesParent.addView(wrapper, index)
+            
+            btnVoiceLog.setOnClickListener {
+                btnVoiceLog.isEnabled = false
+                // Re-enable button as soon as AI processing completes (not just on dialog close)
+                onVoiceLogComplete = { btnVoiceLog.isEnabled = true }
+                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your updates...")
+                try {
+                    speechRecognizerLauncherDetails.launch(intent)
+                } catch (e: Exception) {
+                    btnVoiceLog.isEnabled = true
+                    onVoiceLogComplete = null
+                    Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
         btnAddDatedNote.setOnClickListener {
             val input = EditText(this).apply { hint = "Add a new note..." }
             AlertDialog.Builder(this).setTitle("Add Dated Note").setView(input)
@@ -769,6 +849,72 @@ class FollowUpActivity : AppCompatActivity() {
             apptDialog.show()
         }
 
+        // Assign lambda AFTER all local dialog variables are declared so the closure
+        // can correctly reference selectedFollowUpDate, appointmentDate, notesList, etc.
+        applyVoiceLogToDialog = { json, spokenText ->
+            if (json.has("phone") && !json.isNull("phone")) {
+                editPhone.setText(json.getString("phone"))
+            }
+            if (json.has("email") && !json.isNull("email")) {
+                editEmail.setText(json.getString("email"))
+            }
+            if (json.has("category") && !json.isNull("category")) {
+                val cat = json.getString("category")
+                cbRecruit.isChecked = cat.contains("Recruit", true)
+                cbProspect.isChecked = cat.contains("Prospect", true)
+                cbClient.isChecked = cat.contains("Client", true)
+            }
+            if (json.has("targetMarket") && !json.isNull("targetMarket")) {
+                val tmArray = json.getJSONArray("targetMarket")
+                for (i in 0 until tmArray.length()) {
+                    val trait = tmArray.getString(i)
+                    if (trait.contains("Married", true)) cbTmMarried.isChecked = true
+                    if (trait.contains("Age", true)) cbTmAge.isChecked = true
+                    if (trait.contains("Children", true)) cbTmChildren.isChecked = true
+                    if (trait.contains("Homeowner", true)) cbTmHomeowner.isChecked = true
+                    if (trait.contains("Occupation", true)) cbTmOccupation.isChecked = true
+                }
+                updateTargetMarketScore()
+            }
+            var extractedNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
+            if (json.has("followUpDate") && !json.isNull("followUpDate")) {
+                val dateStr = json.getString("followUpDate")
+                try {
+                    val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
+                    if (parsedDate != null) {
+                        selectedFollowUpDate = parsedDate
+                        updateReminderUI()
+                        extractedNotes += "\n[Reminder Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
+                    }
+                } catch (e: Exception) { Log.e(TAG, "Failed to parse followUpDate: $dateStr", e) }
+            }
+            if (json.has("appointmentDate") && !json.isNull("appointmentDate")) {
+                val dateStr = json.getString("appointmentDate")
+                try {
+                    val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
+                    if (parsedDate != null) {
+                        appointmentDate = parsedDate
+                        extractedNotes += "\n[Appointment Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
+                        Toast.makeText(this@FollowUpActivity, "Appointment captured!", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) { Log.e(TAG, "Failed to parse appointmentDate: $dateStr", e) }
+            }
+            if (json.has("appointmentLocation") && !json.isNull("appointmentLocation")) {
+                appointmentLocation = json.getString("appointmentLocation")
+                extractedNotes += " at $appointmentLocation"
+            }
+            updateAppointmentButtonUI()
+            notesList.add(0, DatedNote(SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date()), "[Voice Log]: $extractedNotes"))
+            refreshNotesUI()
+        }
+
+        // Clear lambda on dismiss to prevent stale dialog view references from being
+        // applied to a different lead if a delayed result arrives.
+        dialog.setOnDismissListener {
+            applyVoiceLogToDialog = null
+            onVoiceLogComplete = null
+        }
+
         btnMarkAppointmentDetail?.setOnLongClickListener {
             if (appointmentDate != null) {
                 AlertDialog.Builder(this@FollowUpActivity)
@@ -956,6 +1102,173 @@ class FollowUpActivity : AppCompatActivity() {
                     updateFollowUpProgressUI(count, goal)
                 }
             }
+    }
+
+    private var onVoiceLogComplete: (() -> Unit)? = null
+
+    private fun processVoiceLogDetailsWithAI(spokenText: String) {
+        Toast.makeText(this, "Processing Voice Log...", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Truncate very long transcriptions to avoid exceeding API token limits,
+                // which can happen with long dictations.
+                val maxChars = 15000
+                val truncatedText = if (spokenText.length > maxChars) {
+                    spokenText.substring(0, maxChars) + "\n...[TRUNCATED]"
+                } else {
+                    spokenText
+                }
+                val prompt = """
+                    You are a CRM assistant. Extract data from the following voice transcription.
+                    Return ONLY a strict JSON object with these exact keys:
+                    - "notes" (string, summary of the interaction)
+                    - "phone" (string, extract phone number or null if none)
+                    - "email" (string, extract email address or null if none)
+                    - "category" (string, choose ONE from: "Recruit", "Prospect", "Client", or null)
+                    - "followUpDate" (string, format "yyyy-MM-dd HH:mm" or null if no date mentioned)
+                    - "appointmentDate" (string, format "yyyy-MM-dd HH:mm" or null if they mention booking/scheduling a meeting)
+                    - "appointmentLocation" (string, null if none mentioned)
+                    - "targetMarket" (array of strings, extract applicable traits from: "Married", "Age 25-55", "Children", "Homeowner", "Occupation" or empty array)
+                    
+                    Transcription: "$truncatedText"
+                    
+                    Important: The output MUST be a valid JSON object. No markdown, no backticks.
+                """.trimIndent()
+                
+                val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                val rawText = response.text ?: "{}"
+                val fenced = Regex("```(?:json)?\\s*([\\s\\S]+?)```", RegexOption.IGNORE_CASE).find(rawText)
+                val jsonString = (fenced?.groupValues?.get(1) ?: rawText).trim()
+                val json = org.json.JSONObject(jsonString)
+                
+                withContext(Dispatchers.Main) {
+                    applyVoiceLogToDialog?.invoke(json, spokenText)
+                    onVoiceLogComplete?.invoke()
+                    onVoiceLogComplete = null
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    val fallbackJson = org.json.JSONObject().apply { put("notes", spokenText) }
+                    applyVoiceLogToDialog?.invoke(fallbackJson, spokenText)
+                    onVoiceLogComplete?.invoke()
+                    onVoiceLogComplete = null
+                }
+            }
+        }
+    }
+
+    private fun processVoiceLogListWithAI(leadId: String, spokenText: String) {
+        Toast.makeText(this, "Processing Voice Log...", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Truncate very long transcriptions to avoid exceeding API token limits,
+                // which can happen with long dictations.
+                val maxChars = 15000
+                val truncatedText = if (spokenText.length > maxChars) {
+                    spokenText.substring(0, maxChars) + "\n...[TRUNCATED]"
+                } else {
+                    spokenText
+                }
+                val prompt = """
+                    You are a CRM assistant. Extract data from the following voice transcription.
+                    Return ONLY a strict JSON object with these exact keys:
+                    - "notes" (string, summary of the interaction)
+                    - "phone" (string, extract phone number or null if none)
+                    - "email" (string, extract email address or null if none)
+                    - "category" (string, choose ONE from: "Recruit", "Prospect", "Client", or null)
+                    - "followUpDate" (string, format "yyyy-MM-dd HH:mm" or null if no date mentioned)
+                    - "appointmentDate" (string, format "yyyy-MM-dd HH:mm" or null if they mention booking/scheduling a meeting)
+                    - "appointmentLocation" (string, null if none mentioned)
+                    - "targetMarket" (array of strings, extract applicable traits from: "Married", "Age 25-55", "Children", "Homeowner", "Occupation" or empty array)
+                    
+                    Transcription: "$truncatedText"
+                    
+                    Important: The output MUST be a valid JSON object. No markdown, no backticks.
+                """.trimIndent()
+                
+                val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                val rawText = response.text ?: "{}"
+                val fenced = Regex("```(?:json)?\\s*([\\s\\S]+?)```", RegexOption.IGNORE_CASE).find(rawText)
+                val jsonString = (fenced?.groupValues?.get(1) ?: rawText).trim()
+                val json = org.json.JSONObject(jsonString)
+                
+                withContext(Dispatchers.Main) {
+                    applyVoiceLogToListLead(leadId, json, spokenText)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    val fallbackJson = org.json.JSONObject().apply { put("notes", spokenText) }
+                    applyVoiceLogToListLead(leadId, fallbackJson, spokenText)
+                }
+            }
+        }
+    }
+
+    private fun applyVoiceLogToListLead(leadId: String, json: org.json.JSONObject, spokenText: String) {
+        val lead = allLeads.find { it["id"] == leadId } as? MutableMap<String, Any?> ?: return
+        val updates = mutableMapOf<String, Any?>()
+
+        if (json.has("phone") && !json.isNull("phone")) updates["phone"] = json.getString("phone")
+        if (json.has("email") && !json.isNull("email")) updates["email"] = json.getString("email")
+        if (json.has("category") && !json.isNull("category")) updates["category"] = json.getString("category")
+
+        var extractedNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
+        
+        if (json.has("followUpDate") && !json.isNull("followUpDate")) {
+            val dateStr = json.getString("followUpDate")
+            try {
+                val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
+                if (parsedDate != null) {
+                    updates["followUpDate"] = Timestamp(parsedDate)
+                    extractedNotes += "\n[Reminder Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
+                }
+            } catch (e: Exception) { Log.e(TAG, "Failed to parse followUpDate: $dateStr", e) }
+        }
+
+        if (json.has("appointmentDate") && !json.isNull("appointmentDate")) {
+            val dateStr = json.getString("appointmentDate")
+            try {
+                val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
+                if (parsedDate != null) {
+                    updates["appointmentDate"] = Timestamp(parsedDate)
+                    extractedNotes += "\n[Appointment Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
+                }
+            } catch (e: Exception) { Log.e(TAG, "Failed to parse appointmentDate: $dateStr", e) }
+        }
+        if (json.has("appointmentLocation") && !json.isNull("appointmentLocation")) {
+            val loc = json.getString("appointmentLocation")
+            updates["appointmentLocation"] = loc
+            extractedNotes += " at $loc"
+        }
+
+        if (json.has("targetMarket") && !json.isNull("targetMarket")) {
+            val tmArray = json.getJSONArray("targetMarket")
+            val newTmList = mutableListOf<String>()
+            for (i in 0 until tmArray.length()) newTmList.add(tmArray.getString(i))
+            
+            val existingTmStr = lead["targetMarket"] as? String ?: ""
+            val existingTm = existingTmStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+            existingTm.addAll(newTmList)
+            updates["targetMarket"] = existingTm.joinToString(", ")
+        }
+
+        val timestampStr = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
+        val formattedNote = "[$timestampStr]: [Voice Log]: $extractedNotes"
+        val existingNotes = lead["notes"] as? String ?: ""
+        updates["notes"] = if (existingNotes.isEmpty()) formattedNote else "$formattedNote\n\n$existingNotes"
+
+        db.collection("leads").document(leadId).update(updates).addOnSuccessListener {
+            // Instantly update local memory for snappy UI reload
+            lead.putAll(updates)
+            Toast.makeText(this, "Log added to lead!", Toast.LENGTH_SHORT).show()
+            selectedLeads.clear()
+            applyFilters()
+            incrementDailyStat("followup_count")
+        }.addOnFailureListener {
+            Toast.makeText(this, "Failed to apply voice log.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onDestroy() {

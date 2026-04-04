@@ -10,13 +10,13 @@ object GeminiApiClient {
     val generativeModel: GenerativeModel by lazy {
         val config = generationConfig {
             temperature = 0.7f
-            // Significant increase to accommodate the "thinking" process of Gemini 2.5 models,
-            // which can consume many tokens before providing the final response.
-            maxOutputTokens = 8192
+            // The expected output is a relatively small JSON object.
+            // A smaller token limit is safer and more efficient for this task.
+            maxOutputTokens = 2048
         }
         GenerativeModel(
-            // Using the requested 'gemini-2.5-flash' model.
-            modelName = "gemini-2.5-flash",
+            // Using the latest flash model for speed and cost-effectiveness.
+            modelName = "gemini-1.5-flash-latest",
             apiKey = API_KEY,
             generationConfig = config
         )

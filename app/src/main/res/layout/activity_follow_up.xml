@@ -205,6 +205,17 @@
         android:paddingBottom="8dp">
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnBulkDictate"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="🎤 Dictate"
+            app:cornerRadius="16dp"
+            android:backgroundTint="#FF9800"
+            android:textColor="@color/white" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBulkDelete"
             android:layout_width="0dp"
             android:layout_height="64dp"

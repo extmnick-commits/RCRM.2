@@ -83,8 +83,8 @@ dependencies {
     // Google Gemini AI
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
-    // ML Kit Text Recognition
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    // ML Kit Text Recognition (Bundled to avoid GoogleApiManager SecurityException)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
