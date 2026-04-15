@@ -15,8 +15,8 @@ object GeminiApiClient {
             maxOutputTokens = 2048
         }
         GenerativeModel(
-            // Using the latest flash model for speed and cost-effectiveness.
-            modelName = "gemini-1.5-flash-latest",
+            // Using the stable 2.5 flash model
+            modelName = "gemini-2.5-flash",
             apiKey = API_KEY,
             generationConfig = config
         )

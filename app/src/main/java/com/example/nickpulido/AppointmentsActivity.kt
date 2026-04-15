@@ -1,5 +1,7 @@
 package com.nickpulido.rcrm
 
+import com.nickpulido.rcrm.HotListAdapter
+import com.nickpulido.rcrm.R
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -35,7 +37,7 @@ class AppointmentsActivity : AppCompatActivity() {
         val listView = findViewById<ListView>(R.id.listViewAppointments)
         
         // We reuse HotListAdapter but spoof the currentTab so it thinks it is in tab #3 (Appointments)
-        adapter = HotListAdapter(this, appointmentsData) { docId ->
+        adapter = HotListAdapter(this, appointmentsData) { docId: String ->
             // In the Appointments Tab, the complete button is usually hidden and intercepted
             // However, we just define a no-op handler here just in case. 
         }
