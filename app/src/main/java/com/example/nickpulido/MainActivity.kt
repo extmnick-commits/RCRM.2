@@ -1336,8 +1336,6 @@ class MainActivity : AppCompatActivity() {
                 val cleanWord = word.replace(Regex("[^A-Za-z]"), "")
                 if (cleanWord.length == 2) word.uppercase() else word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
             }
-
-            val timestamp = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
             
             val tmList = mutableListOf<String>()
             if (cbTmMarried.isChecked) tmList.add("Married")
@@ -1355,7 +1353,7 @@ class MainActivity : AppCompatActivity() {
                 "jobTitle" to titleInput.text.toString().trim(),
                 "category" to cats.joinToString(", "),
                 "targetMarket" to tmList.joinToString(", "),
-                "notes" to "[$timestamp]: ${notesInput.text.ifEmpty { "Created lead" }}",
+                "notes" to NoteUtils.formatNewNote(notesInput.text.toString().ifEmpty { "Created lead" }),
                 "followUpDate" to (quickAddFollowUpDate?.let { Timestamp(it) } ?: Timestamp(Date(System.currentTimeMillis() + 86400000))),
                 "timestamp" to FieldValue.serverTimestamp(),
                 "ownerId" to auth.currentUser?.uid
@@ -1431,7 +1429,20 @@ class MainActivity : AppCompatActivity() {
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
                     hideLoadingDialog()
-                    parseBusinessCardText(visionText.text)
+                        val parsedCard = BusinessCardParser().parse(visionText.text)
+                        
+                        if (parsedCard.phone != null && quickAddPhoneRef?.text.isNullOrEmpty()) quickAddPhoneRef?.setText(parsedCard.phone)
+                        if (parsedCard.email != null && quickAddEmailRef?.text.isNullOrEmpty()) quickAddEmailRef?.setText(parsedCard.email)
+                        if (parsedCard.address != null && quickAddAddressRef?.text.isNullOrEmpty()) quickAddAddressRef?.setText(parsedCard.address)
+                        if (parsedCard.name != null && quickAddNameRef?.text.isNullOrEmpty()) quickAddNameRef?.setText(parsedCard.name)
+                        if (parsedCard.company != null && quickAddCompanyRef?.text.isNullOrEmpty()) quickAddCompanyRef?.setText(parsedCard.company)
+                        if (parsedCard.title != null && quickAddTitleRef?.text.isNullOrEmpty()) quickAddTitleRef?.setText(parsedCard.title)
+                        
+                        if (parsedCard.extraNotes != null) {
+                            val currentNotes = quickAddNotesRef?.text?.toString() ?: ""
+                            val newNotes = if (currentNotes.isEmpty()) parsedCard.extraNotes else "${currentNotes}\n\n${parsedCard.extraNotes}"
+                            quickAddNotesRef?.setText(newNotes.trim())
+                        }
                     deleteCurrentPhoto()
                 }
                 .addOnFailureListener { e ->
@@ -1444,177 +1455,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Error processing image", Toast.LENGTH_SHORT).show()
             deleteCurrentPhoto()
         }
-    }
-
-    private fun parseBusinessCardText(text: String) {
-        val lines = text.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-
-        // --- 1. Smart Phone Number Selection ---
-        val phoneRegex = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}")
-        var bestPhone: String? = null
-        var fallbackPhone: String? = null
-
-        for (line in lines) {
-            val match = phoneRegex.find(line)
-            if (match != null) {
-                val lowerLine = line.lowercase()
-                if (lowerLine.contains("f") || lowerLine.contains("fax")) continue // Skip fax numbers
-                if (fallbackPhone == null) fallbackPhone = match.value
-                
-                // Prioritize mobile/cell/direct over generic or office numbers
-                if (lowerLine.contains("m") || lowerLine.contains("c") || lowerLine.contains("cell") || lowerLine.contains("mobile") || lowerLine.contains("direct")) {
-                    bestPhone = match.value
-                }
-            }
-        }
-        val finalPhone = bestPhone ?: fallbackPhone
-        if (finalPhone != null && quickAddPhoneRef?.text.isNullOrEmpty()) {
-            quickAddPhoneRef?.setText(finalPhone)
-        }
-
-        // --- 2. Email Extraction ---
-        val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
-        val emailMatch = emailRegex.find(text)
-        val extractedEmail = emailMatch?.value
-
-        if (extractedEmail != null && quickAddEmailRef?.text.isNullOrEmpty()) {
-            quickAddEmailRef?.setText(extractedEmail)
-        }
-
-        // --- 3. Smart Company & Title Extraction ---
-        // Common keywords to identify job titles and company names
-        val titleKeywords = listOf("manager", "director", "president", "ceo", "engineer", "agent", "representative", "consultant", "founder", "owner", "specialist", "vp", "vice president", "associate", "broker", "realtor", "officer", "advisor")
-        val companyKeywords = listOf("llc", "inc", "corp", "ltd", "company", "group", "solutions", "enterprises", "partners", "agency")
-
-        var detectedTitle: String? = null
-        var detectedCompany: String? = null
-        var companyLineUsed: String? = null
-
-        // Heuristic: Use the email domain to confidently find the exact company name
-        val genericDomains = listOf("gmail", "yahoo", "hotmail", "outlook", "aol", "icloud", "msn", "me", "live")
-        if (extractedEmail != null) {
-            val domainPart = extractedEmail.substringAfter("@").substringBeforeLast(".")
-            if (domainPart.lowercase() !in genericDomains) {
-                // Look for a line containing the domain (e.g., domain "primerica" matches line "Primerica Financial Services")
-                val companyLine = lines.firstOrNull { 
-                    it.contains(domainPart, ignoreCase = true) && !it.contains("@") && !it.lowercase().contains("www.")
-                }
-                if (companyLine != null) {
-                    detectedCompany = companyLine
-                    companyLineUsed = companyLine
-                } else {
-                    // Fallback to capitalizing the domain itself
-                    detectedCompany = domainPart.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                }
-            }
-        }
-
-        // --- 4. Smart Name Extraction ---
-        // Heuristic: Tries to find a line without numbers, @ symbols, or title/company keywords containing 2-4 words
-        val possibleName = lines.firstOrNull { line ->
-            val lowerLine = line.lowercase()
-            !line.contains(Regex("\\d")) && 
-            !line.contains("@") && 
-            line.split(Regex("\\s+")).size in 2..4 &&
-            !titleKeywords.any { lowerLine.contains(it) } &&
-            !companyKeywords.any { lowerLine.contains(it) }
-        }
-        
-        for (line in lines) {
-            val lowerLine = line.lowercase()
-            if (line == possibleName || line.contains("@") || line.contains(Regex("\\d"))) continue
-            
-            if (detectedTitle == null && titleKeywords.any { lowerLine.contains(it) }) {
-                detectedTitle = line
-            } else if (detectedCompany == null && companyKeywords.any { lowerLine.contains(it) }) {
-                detectedCompany = line
-                companyLineUsed = line
-            }
-        }
-
-        // --- 5. Smart Address Extraction ---
-        var detectedAddress: String? = null
-        val addressKeywords = listOf(
-            "street", "st.", " st ", "avenue", "ave.", " ave ", "boulevard", "blvd", 
-            "road", "rd.", " rd ", "drive", "dr.", " dr ", "suite", "ste.", " ste ", "pkwy", "parkway", 
-            "lane", "ln.", "court", "ct.", "plaza", "way", "po box", "p.o. box", "floor", "fl.", "highway", "hwy",
-            "bldg", "building", "terrace", "circle", "cir", "trail", "trl", "square", "sq"
-        )
-        val zipRegex = Regex("\\b\\d{5}(?:-\\d{4})?\\b")
-        val stateZipRegex = Regex("\\b[A-Za-z]{2}[\\s,]+\\d{5}(?:-\\d{4})?\\b")
-        val addressParts = mutableListOf<String>()
-        
-        for (i in lines.indices) {
-            val line = lines[i]
-            val lowerLine = line.lowercase()
-            
-            val startsWithNumber = Regex("^\\s*\\d+.*").matches(line)
-            val isPoBox = lowerLine.contains("po box") || lowerLine.contains("p.o. box")
-            val hasKeyword = addressKeywords.any { lowerLine.contains(it) }
-            val hasZip = zipRegex.containsMatchIn(line)
-            val hasStateZip = stateZipRegex.containsMatchIn(line)
-            
-            if ((startsWithNumber && hasKeyword) || isPoBox || hasStateZip) {
-                detectedAddress = line
-                addressParts.add(line)
-                
-                if (!hasZip) {
-                    // Look ahead up to 3 lines to grab Suite/Floor, and City, State, Zip
-                    var lookahead = 1
-                    while (i + lookahead < lines.size && lookahead <= 3) {
-                        val nextLine = lines[i + lookahead]
-                        val lowerNext = nextLine.lowercase()
-                        
-                        // Stop early if we hit an email, website, or phone number
-                        val hasEmail = nextLine.contains("@")
-                        val hasWeb = lowerNext.contains("www.") || lowerNext.contains(".com")
-                        val hasPhone = Regex("(\\+?\\d{1,2}\\s?)?\\(?\\d{3}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}").containsMatchIn(nextLine)
-                        
-                        if (hasEmail || hasWeb || hasPhone) break
-                        
-                        detectedAddress += ", $nextLine"
-                        addressParts.add(nextLine)
-                        
-                        // If we found a 5 or 9 digit zip code, we're definitively at the end of the address
-                        if (zipRegex.containsMatchIn(nextLine)) {
-                            break
-                        }
-                        lookahead++
-                    }
-                }
-                break
-            }
-        }
-        if (detectedAddress != null && quickAddAddressRef?.text.isNullOrEmpty()) {
-            quickAddAddressRef?.setText(detectedAddress)
-        }
-        
-        if (possibleName != null && quickAddNameRef?.text.isNullOrEmpty()) {
-            quickAddNameRef?.setText(possibleName)
-        }
-        
-        val currentNotes = quickAddNotesRef?.text?.toString() ?: ""
-        
-        if (detectedCompany != null && quickAddCompanyRef?.text.isNullOrEmpty()) {
-            quickAddCompanyRef?.setText(detectedCompany)
-        }
-        if (detectedTitle != null && quickAddTitleRef?.text.isNullOrEmpty()) {
-            quickAddTitleRef?.setText(detectedTitle)
-        }
-        
-        val unusedLines = lines.toMutableList()
-        if (finalPhone != null) unusedLines.removeAll { it.contains(finalPhone) }
-        if (extractedEmail != null) unusedLines.removeAll { it.contains(extractedEmail) }
-        if (possibleName != null) unusedLines.remove(possibleName)
-        if (detectedTitle != null) unusedLines.remove(detectedTitle)
-        if (companyLineUsed != null) unusedLines.remove(companyLineUsed)
-        unusedLines.removeAll(addressParts)
-
-        val leftoverText = unusedLines.joinToString("\n").trim()
-        val parsedNotes = if (leftoverText.isNotEmpty()) "[Scanned Card Extra Info]:\n$leftoverText" else ""
-        
-        val newNotes = if (currentNotes.isEmpty()) parsedNotes else if (parsedNotes.isNotEmpty()) "$currentNotes\n\n$parsedNotes" else currentNotes
-        quickAddNotesRef?.setText(newNotes.trim())
     }
 
     private fun showLoadingDialog() {
@@ -1759,7 +1599,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
-                    quickAddNotesRef?.setText(if (originalNotes.isEmpty()) spokenText else "$originalNotes\n\n[Voice Log]: $spokenText")
+                    quickAddNotesRef?.setText(NoteUtils.wrapVoiceLog(originalNotes, spokenText))
                 }
             }
         }
@@ -1838,6 +1678,144 @@ class MainActivity : AppCompatActivity() {
             extractedNotes += " at ${quickAddApptLocation}"
         }
         
-        quickAddNotesRef?.setText(if (originalNotes.isEmpty()) extractedNotes else "$originalNotes\n\n[Voice Log]: $extractedNotes")
+        quickAddNotesRef?.setText(NoteUtils.wrapVoiceLog(originalNotes, extractedNotes))
     }
 }
+<<<<<<< HEAD
+=======
+
+class HotListAdapter(
+    private val context: Context, 
+    private val data: List<Map<String, Any>>,
+    private val onCompleteLead: (String) -> Unit
+) : BaseAdapter() {
+    var currentTab: Int = 0
+    
+    override fun getCount(): Int = data.size
+    override fun getItem(position: Int) = data[position]
+    override fun getItemId(position: Int) = position.toLong()
+
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+        val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.item_lead_card, parent, false)
+        val lead = data[position]
+        
+        val name = lead["name"] as? String ?: "Unknown"
+        val phone = lead["phone"] as? String ?: ""
+        val category = lead["category"] as? String ?: ""
+        val notes = lead["notes"] as? String ?: ""
+        val followUpDate = lead["followUpDate"] as? Timestamp
+        
+        view.findViewById<TextView>(R.id.tvLeadName).text = name
+        
+        val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
+        val dateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
+        
+        val tvCategoryLabel = view.findViewById<TextView>(R.id.tvCategoryLabel)
+        if (category.isNotEmpty()) {
+            tvCategoryLabel.visibility = View.VISIBLE
+            tvCategoryLabel.text = category
+            
+            val bgColor = when {
+                category.contains(context.getString(R.string.category_recruit), ignoreCase = true) -> 
+                    Color.parseColor("#4CAF50")
+                category.contains(context.getString(R.string.category_client), ignoreCase = true) -> 
+                    Color.parseColor("#9C27B0")
+                else -> Color.parseColor("#007BFF")
+            }
+            
+            val background = GradientDrawable()
+            background.setColor(bgColor)
+            background.cornerRadius = 16f
+            tvCategoryLabel.background = background
+            tvCategoryLabel.setTextColor(Color.WHITE)
+        } else {
+            tvCategoryLabel.visibility = View.GONE
+        }
+
+        val fallbackNote = NoteUtils.getDisplayNote(notes)
+        
+        val btnExportCalendar = view.findViewById<ImageView>(R.id.btnExportCalendar)
+        val appointmentDate = lead["appointmentDate"] as? Timestamp
+        val appointmentLocation = lead["appointmentLocation"] as? String ?: ""
+
+        if (currentTab == 3 && appointmentDate != null) {
+            val apptSdf = SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
+            val apptStr = apptSdf.format(appointmentDate.toDate())
+            val detailsText = android.text.SpannableStringBuilder("Appt: $apptStr\nLoc: $appointmentLocation\n$fallbackNote")
+            detailsText.setSpan(
+                android.text.style.ForegroundColorSpan(Color.parseColor("#4CAF50")),
+                0,
+                "Appt: $apptStr".length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
+            
+            if (btnExportCalendar != null) {
+                btnExportCalendar.visibility = View.VISIBLE
+                btnExportCalendar.setOnClickListener {
+                    val intent = Intent(Intent.ACTION_INSERT)
+                        .setData(android.provider.CalendarContract.Events.CONTENT_URI)
+                        .putExtra(android.provider.CalendarContract.Events.TITLE, "Meeting with $name")
+                        .putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, appointmentLocation)
+                        .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, appointmentDate.toDate().time)
+                        .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, appointmentDate.toDate().time + 3600000)
+                    context.startActivity(intent)
+                }
+            }
+            
+            val btnCompleteIcon = view.findViewById<ImageView>(R.id.btnCompleteIcon)
+            if (btnCompleteIcon != null) btnCompleteIcon.visibility = View.GONE
+            val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
+            llCompleteAction?.setOnClickListener(null)
+            
+        } else {
+            if (btnExportCalendar != null) btnExportCalendar.visibility = View.GONE
+
+            if (dateStr.isNotEmpty()) {
+                val detailsText = android.text.SpannableStringBuilder("Due: $dateStr\n$fallbackNote")
+                if (followUpDate != null && followUpDate.toDate().time < System.currentTimeMillis()) {
+                    detailsText.setSpan(
+                        android.text.style.ForegroundColorSpan(Color.parseColor("#FF5252")),
+                        0,
+                        "Due: $dateStr".length,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                view.findViewById<TextView>(R.id.tvLeadDetails).text = detailsText
+            } else {
+                view.findViewById<TextView>(R.id.tvLeadDetails).text = fallbackNote
+            }
+            
+            val llCompleteAction = view.findViewById<LinearLayout>(R.id.llCompleteAction)
+            llCompleteAction?.setOnClickListener {
+                val docId = lead["__docId"] as? String ?: return@setOnClickListener
+                onCompleteLead(docId)
+            }
+    
+            val btnCompleteIcon = view.findViewById<ImageView>(R.id.btnCompleteIcon)
+            if (btnCompleteIcon != null) {
+                if (followUpDate != null && followUpDate.toDate().time < System.currentTimeMillis()) {
+                    btnCompleteIcon.visibility = View.VISIBLE
+                    btnCompleteIcon.setOnClickListener {
+                        val docId = lead["__docId"] as? String ?: return@setOnClickListener
+                        onCompleteLead(docId)
+                    }
+                } else {
+                    btnCompleteIcon.visibility = View.GONE
+                }
+            }
+        }
+
+        val btnCallIcon = view.findViewById<ImageView>(R.id.btnCallIcon)
+        btnCallIcon.setOnClickListener {
+            if (phone.isNotEmpty()) {
+                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+            } else {
+                Toast.makeText(context, context.getString(R.string.msg_no_phone), Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        return view
+    }
+}
+>>>>>>> 10f49980ef87626cf8289fce954b01c759d3ea39
