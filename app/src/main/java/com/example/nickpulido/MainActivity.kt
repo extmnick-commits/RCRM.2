@@ -139,16 +139,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val speechRecognizerLauncherQuickAdd = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK) {
-            val data = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
-            val spokenText = data?.get(0) ?: ""
-            if (spokenText.isNotEmpty()) {
-                processVoiceLogQuickAddWithAI(spokenText)
-            }
-        }
-    }
-
     private companion object {
         const val PREFS_INTRO = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -1060,7 +1050,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        val perms = mutableListOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_CONTACTS, Manifest.permission.RECORD_AUDIO)
+        val perms = mutableListOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_CONTACTS)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -1284,32 +1274,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 .show()
-        }
-        
-        val scanCardParent = btnScanCard?.parent as? LinearLayout
-        if (scanCardParent != null) {
-            scanCardParent.orientation = LinearLayout.HORIZONTAL
-            btnScanCard.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 4 }
-            
-            val btnVoiceLog = Button(this).apply {
-                text = "🎤 Dictate"
-                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF9800"))
-                setTextColor(Color.WHITE)
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = 4 }
-            }
-            scanCardParent.addView(btnVoiceLog)
-            
-            btnVoiceLog.setOnClickListener {
-                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your lead details...")
-                try {
-                    speechRecognizerLauncherQuickAdd.launch(intent)
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show()
-                }
-            }
         }
 
         val btnQuickAddImport = dialogView.findViewById<Button>(R.id.btnQuickAddImport)
@@ -1559,125 +1523,5 @@ class MainActivity : AppCompatActivity() {
         }
         hotListData.addAll(filtered)
         adapter.notifyDataSetChanged()
-    }
-
-    private fun processVoiceLogQuickAddWithAI(spokenText: String) {
-        val originalNotes = quickAddNotesRef?.text.toString()
-        quickAddNotesRef?.setText("Processing voice log...")
-        
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val prompt = """
-                    You are a CRM assistant. Extract data from the following voice transcription.
-                    Return ONLY a strict JSON object with these exact keys:
-                    - "name" (string, null if none)
-                    - "phone" (string, extract phone number or null if none)
-                    - "email" (string, extract email address or null if none)
-                    - "notes" (string, summary of the interaction)
-                    - "category" (string, choose ONE from: "Recruit", "Prospect", "Client", or null)
-                    - "company" (string, null if none)
-                    - "jobTitle" (string, null if none)
-                    - "followUpDate" (string, format "yyyy-MM-dd HH:mm" or null if no date mentioned)
-                    - "appointmentDate" (string, format "yyyy-MM-dd HH:mm" or null if they mention booking/scheduling a meeting)
-                    - "appointmentLocation" (string, null if none mentioned)
-                    - "targetMarket" (array of strings, extract applicable traits from: "Married", "Age 25-55", "Children", "Homeowner", "Occupation" or empty array)
-                    
-                    Transcription: "$spokenText"
-                    
-                    Important: The output MUST be a valid JSON object. No markdown, no backticks.
-                """.trimIndent()
-                
-                val response = GeminiApiClient.generativeModel.generateContent(prompt)
-                val rawText = response.text ?: "{}"
-                val fenced = Regex("```(?:json)?\\s*([\\s\\S]+?)```", RegexOption.IGNORE_CASE).find(rawText)
-                val jsonString = (fenced?.groupValues?.get(1) ?: rawText).trim()
-                val json = org.json.JSONObject(jsonString)
-                
-                withContext(Dispatchers.Main) {
-                    applyQuickAddVoiceLogJson(json, spokenText, originalNotes)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
-                    quickAddNotesRef?.setText(NoteUtils.wrapVoiceLog(originalNotes, spokenText))
-                }
-            }
-        }
-    }
-
-    private fun applyQuickAddVoiceLogJson(json: org.json.JSONObject, spokenText: String, originalNotes: String) {
-        if (json.has("name") && !json.isNull("name")) {
-            quickAddNameRef?.setText(json.getString("name"))
-        }
-        if (json.has("phone") && !json.isNull("phone")) {
-            quickAddPhoneRef?.setText(json.getString("phone"))
-        }
-        if (json.has("email") && !json.isNull("email")) {
-            quickAddEmailRef?.setText(json.getString("email"))
-        }
-        if (json.has("company") && !json.isNull("company")) {
-            quickAddCompanyRef?.setText(json.getString("company"))
-        }
-        if (json.has("jobTitle") && !json.isNull("jobTitle")) {
-            quickAddTitleRef?.setText(json.getString("jobTitle"))
-        }
-        
-        if (json.has("category") && !json.isNull("category")) {
-            val cat = json.getString("category")
-            quickAddCbRecruitRef?.isChecked = cat.contains("Recruit", true)
-            quickAddCbProspectRef?.isChecked = cat.contains("Prospect", true)
-            quickAddCbClientRef?.isChecked = cat.contains("Client", true)
-        }
-        
-        if (json.has("targetMarket") && !json.isNull("targetMarket")) {
-            val tmArray = json.getJSONArray("targetMarket")
-            for (i in 0 until tmArray.length()) {
-                val trait = tmArray.getString(i)
-                if (trait.contains("Married", true)) quickAddCbTmMarriedRef?.isChecked = true
-                if (trait.contains("Age", true)) quickAddCbTmAgeRef?.isChecked = true
-                if (trait.contains("Children", true)) quickAddCbTmChildrenRef?.isChecked = true
-                if (trait.contains("Homeowner", true)) quickAddCbTmHomeownerRef?.isChecked = true
-                if (trait.contains("Occupation", true)) quickAddCbTmOccupationRef?.isChecked = true
-            }
-        }
-        
-        var extractedNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
-        
-        if (json.has("followUpDate") && !json.isNull("followUpDate")) {
-            val dateStr = json.getString("followUpDate")
-            try {
-                val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                val parsedDate = format.parse(dateStr)
-                if (parsedDate != null) {
-                    quickAddFollowUpDate = parsedDate
-                    extractedNotes += "\n[Reminder Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to parse followUpDate: $dateStr", e)
-            }
-        }
-        
-        if (json.has("appointmentDate") && !json.isNull("appointmentDate")) {
-            val dateStr = json.getString("appointmentDate")
-            try {
-                val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                val parsedDate = format.parse(dateStr)
-                if (parsedDate != null) {
-                    quickAddApptDate = parsedDate
-                    val summarySdf = SimpleDateFormat("MMM dd h:mm a", Locale.getDefault())
-                    extractedNotes += "\n[Appointment Set: ${summarySdf.format(parsedDate)}]"
-                    Toast.makeText(this, "Appointment captured!", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to parse appointmentDate: $dateStr", e)
-            }
-        }
-        
-        if (json.has("appointmentLocation") && !json.isNull("appointmentLocation")) {
-            quickAddApptLocation = json.getString("appointmentLocation")
-            extractedNotes += " at ${quickAddApptLocation}"
-        }
-        
-        quickAddNotesRef?.setText(NoteUtils.wrapVoiceLog(originalNotes, extractedNotes))
     }
 }
