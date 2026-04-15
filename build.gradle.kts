@@ -1,3 +1,4 @@
+
 // Top-level build file common to all modules.
 plugins {
     alias(libs.plugins.android.application) apply false

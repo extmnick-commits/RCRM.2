@@ -23,11 +23,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.nickpulido.rcrm.databinding.ActivityFollowUpBinding
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,13 +38,14 @@ class FollowUpActivity : AppCompatActivity() {
     private val allLeads = mutableListOf<Map<String, Any>>()
     private val leads = mutableListOf<Map<String, Any>>()
     private lateinit var adapter: FollowUpAdapter
-    private val selectedLeads = mutableSetOf<String>()
     private var statsListener: ListenerRegistration? = null
     private var currentSearchQuery = ""
     private var currentCategoryFilter = "All"
     private var showOnlySideKick = false
 
     private var applyVoiceLogToDialog: ((org.json.JSONObject, String) -> Unit)? = null
+
+    private var onVoiceLogComplete: (() -> Unit)? = null
 
     private val speechRecognizerLauncherDetails = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
@@ -89,8 +86,6 @@ class FollowUpActivity : AppCompatActivity() {
         binding.rvFollowUps.layoutManager = LinearLayoutManager(this)
         adapter = FollowUpAdapter(
             leads, 
-            selectedLeads, 
-            { updateUI() },
             { id, isPinned ->
                 db.collection("leads").document(id).update("isPinned", isPinned)
                     .addOnSuccessListener {
@@ -100,28 +95,10 @@ class FollowUpActivity : AppCompatActivity() {
                             applyFilters()
                         }
                     }
-            }
-        ) { lead -> showLeadDetailsDialog(lead) }
+            }, { lead -> showLeadDetailsDialog(lead) })
         binding.rvFollowUps.adapter = adapter
 
         binding.btnBack.setOnClickListener { finish() }
-        binding.btnBulkDelete.setOnClickListener { performBulkDelete() }
-        binding.btnCancelBulk.setOnClickListener { 
-            selectedLeads.clear()
-            adapter.notifyDataSetChanged()
-            updateUI()
-        }
-
-        binding.btnBulkDictate.setOnClickListener {
-            dictatingForLeadId = selectedLeads.firstOrNull()
-            if (dictatingForLeadId != null) {
-                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your updates for this lead...")
-                try { speechRecognizerLauncherList.launch(intent) } catch (e: Exception) { Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show() }
-            }
-        }
 
         binding.btnSideKickPage.setOnClickListener {
             showOnlySideKick = !showOnlySideKick
@@ -228,39 +205,17 @@ class FollowUpActivity : AppCompatActivity() {
 
     private fun updateUI() {
         binding.tvEmptyFollowUps.visibility = if (leads.isEmpty()) View.VISIBLE else View.GONE
-        binding.bulkActionBar.visibility = if (selectedLeads.isEmpty()) View.GONE else View.VISIBLE
-        binding.btnBulkDictate.visibility = if (selectedLeads.size == 1) View.VISIBLE else View.GONE
+        binding.bulkActionBar.visibility = View.GONE
     }
 
-    private fun performBulkDelete() {
-        AlertDialog.Builder(this)
-            .setTitle("Delete Leads")
-            .setMessage("Are you sure you want to delete the selected lead(s)? This action cannot be undone.")
-            .setPositiveButton("Delete") { _, _ ->
-                val batch = db.batch()
-                selectedLeads.forEach { id ->
-                    batch.delete(db.collection("leads").document(id))
-                }
-                batch.commit().addOnSuccessListener {
-                    Toast.makeText(this, "Leads deleted successfully.", Toast.LENGTH_SHORT).show()
-                    allLeads.removeAll { lead -> selectedLeads.contains(lead["id"]) }
-                    selectedLeads.clear()
-                    applyFilters()
-                }.addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to delete leads", e)
-                    Toast.makeText(this, "Failed to delete leads.", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
+    @SuppressLint("MissingInflatedId")
     private fun showLeadDetailsDialog(lead: Map<String, Any>) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_lead_details, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .create()
 
+        val docId = lead["id"] as String
         val editName = dialogView.findViewById<EditText>(R.id.editDetailName)
         val editPhone = dialogView.findViewById<EditText>(R.id.editDetailPhone)
         val editEmail = dialogView.findViewById<EditText>(R.id.editDetailEmail)
@@ -268,136 +223,148 @@ class FollowUpActivity : AppCompatActivity() {
         val editCompany = dialogView.findViewById<EditText>(R.id.editDetailCompany)
         val editJobTitle = dialogView.findViewById<EditText>(R.id.editDetailJobTitle)
         
-        val btnCallDetail = dialogView.findViewById<ImageButton>(R.id.btnCallDetail)
-        val btnSmsDetail = dialogView.findViewById<ImageButton>(R.id.btnSmsDetail)
-        val btnEmailDetail = dialogView.findViewById<ImageButton>(R.id.btnEmailDetail)
-        val btnMapDetail = dialogView.findViewById<ImageButton>(R.id.btnMapDetail)
+        val btnSmsDetail = dialogView.findViewById<View>(R.id.btnSmsDetail)
+        val btnCallDetail = dialogView.findViewById<View>(R.id.btnCallDetail)
+        val btnEmailDetail = dialogView.findViewById<View>(R.id.btnEmailDetail)
+        val btnMapDetail = dialogView.findViewById<View>(R.id.btnMapDetail)
 
-        val cbRecruit = dialogView.findViewById<CheckBox>(R.id.cbRecruitDetail)
-        val cbProspect = dialogView.findViewById<CheckBox>(R.id.cbProspectDetail)
-        val cbClient = dialogView.findViewById<CheckBox>(R.id.cbClientDetail)
-        val subCatLayout = dialogView.findViewById<LinearLayout>(R.id.clientSubCategoryLayoutDetail)
+        val cbRecruit = dialogView.findViewById<CheckBox>(R.id.cbRecruitDetail) ?: dialogView.findViewById<CheckBox>(R.id.cbRecruit)
+        val cbProspect = dialogView.findViewById<CheckBox>(R.id.cbProspectDetail) ?: dialogView.findViewById<CheckBox>(R.id.cbProspect)
+        val cbClient = dialogView.findViewById<CheckBox>(R.id.cbClientDetail) ?: dialogView.findViewById<CheckBox>(R.id.cbClient)
+        
         val cbInv = dialogView.findViewById<CheckBox>(R.id.cbInvestmentDetail)
         val cbLife = dialogView.findViewById<CheckBox>(R.id.cbLifeInsuranceDetail)
 
-        val headerTargetMarket = dialogView.findViewById<LinearLayout>(R.id.headerTargetMarket)
-        val containerTargetMarketCheckboxes = dialogView.findViewById<LinearLayout>(R.id.containerTargetMarketCheckboxes)
-        val tvToggleTargetMarket = dialogView.findViewById<TextView>(R.id.tvToggleTargetMarket)
-        
-        val cbTmMarried = dialogView.findViewById<CheckBox>(R.id.cbTmMarried)
-        val cbTmAge = dialogView.findViewById<CheckBox>(R.id.cbTmAge)
-        val cbTmChildren = dialogView.findViewById<CheckBox>(R.id.cbTmChildren)
-        val cbTmHomeowner = dialogView.findViewById<CheckBox>(R.id.cbTmHomeowner)
-        val cbTmOccupation = dialogView.findViewById<CheckBox>(R.id.cbTmOccupation)
-        val dialTargetMarket = dialogView.findViewById<com.google.android.material.progressindicator.CircularProgressIndicator>(R.id.dialTargetMarket)
-        val tvTargetMarketScore = dialogView.findViewById<TextView>(R.id.tvTargetMarketScore)
+        val llClientOptions = dialogView.findViewById<LinearLayout>(R.id.clientSubCategoryLayoutDetail)
 
-        val headerExtendedDetails = dialogView.findViewById<LinearLayout>(R.id.headerExtendedDetails)
-        val containerExtendedDetails = dialogView.findViewById<LinearLayout>(R.id.containerExtendedDetails)
-        val tvToggleExtended = dialogView.findViewById<TextView>(R.id.tvToggleExtended)
-
-        val notesContainer = dialogView.findViewById<LinearLayout>(R.id.notesContainer)
-        val btnAddDatedNote = dialogView.findViewById<View>(R.id.btnAddDatedNote)
-        
+        val tvReminderValue = dialogView.findViewById<TextView>(R.id.tvReminderValue)
         val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
+        val btnEditReminderIcon = dialogView.findViewById<View>(R.id.btnEditReminderIcon)
+        val btnDeleteReminderIcon = dialogView.findViewById<View>(R.id.btnDeleteReminderIcon)
         val btnAddCalendar = dialogView.findViewById<Button>(R.id.btnAddCalendar)
-        val btnMarkAppointmentDetail = dialogView.findViewById<Button>(R.id.btnMarkAppointmentDetail)
-        val btnSave = dialogView.findViewById<Button>(R.id.btnSaveChanges)
 
-        val sideKickSuggestionContainer = dialogView.findViewById<View>(R.id.sideKickSuggestionContainer)
-        val tvSideKickTip = dialogView.findViewById<TextView>(R.id.tvSideKickTip)
-        val btnThumbsUp = dialogView.findViewById<ImageButton>(R.id.btnThumbsUp)
-        val btnThumbsDown = dialogView.findViewById<ImageButton>(R.id.btnThumbsDown)
-        val btnDismissSideKick = dialogView.findViewById<Button>(R.id.btnDismissSideKick)
+        val btnSetAppt = dialogView.findViewById<Button>(R.id.btnSetAppt)
+        val tvApptValue = dialogView.findViewById<TextView>(R.id.tvApptValue)
+        val btnEditApptIcon = dialogView.findViewById<View>(R.id.btnEditApptIcon)
+        val btnDeleteApptIcon = dialogView.findViewById<View>(R.id.btnDeleteApptIcon)
 
-        val docId = lead["id"] as String
-        val sideKickTip = lead["sideKickSuggestion"] as? String
-
-        if (sideKickTip != null) {
-            sideKickSuggestionContainer.visibility = View.VISIBLE
-            tvSideKickTip.text = "💡 Side-Kick Tip: $sideKickTip"
-            
-            btnDismissSideKick.setOnClickListener {
-                db.collection("leads").document(docId).update("sideKickSuggestion", FieldValue.delete())
-                    .addOnSuccessListener {
-                        Toast.makeText(this, "Side-Kick tip dismissed.", Toast.LENGTH_SHORT).show()
-                        sideKickSuggestionContainer.visibility = View.GONE
-                    }
+        val headerReminders = dialogView.findViewById<View>(R.id.headerReminders)
+        val containerReminders = dialogView.findViewById<View>(R.id.containerReminders)
+        val tvToggleReminders = dialogView.findViewById<TextView>(R.id.tvToggleReminders)
+        if (lead["followUpDate"] != null || lead["appointmentDate"] != null) {
+            containerReminders?.visibility = View.VISIBLE
+            tvToggleReminders?.text = "Hide ▲"
+        }
+        headerReminders?.setOnClickListener {
+            if (containerReminders?.visibility == View.VISIBLE) {
+                containerReminders.visibility = View.GONE
+                tvToggleReminders?.text = "Show ▼"
+            } else {
+                containerReminders?.visibility = View.VISIBLE
+                tvToggleReminders?.text = "Hide ▲"
             }
-
-            btnThumbsUp.setOnClickListener {
-                db.collection("leads").document(docId).update("aiFeedback", "positive")
-                Toast.makeText(this, "Feedback recorded: Positive!", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            btnThumbsDown.setOnClickListener {
-                db.collection("leads").document(docId).update("aiFeedback", "negative")
-                Toast.makeText(this, "Feedback recorded: Negative.", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-        } else {
-            sideKickSuggestionContainer.visibility = View.GONE
         }
 
-        val containerSmsIntro = dialogView.findViewById<LinearLayout>(R.id.containerSmsIntro)
-        val tvToggleSms = dialogView.findViewById<TextView>(R.id.tvToggleSms)
-        val headerSmsIntro = dialogView.findViewById<LinearLayout>(R.id.headerSmsIntro)
+        val etQuickNote = dialogView.findViewById<EditText>(R.id.etQuickNote)
+        val btnSendNote = dialogView.findViewById<View>(R.id.btnSendNote)
+        val btnRecordVoiceNote = dialogView.findViewById<View>(R.id.btnRecordVoiceNote)
+        val notesContainer = dialogView.findViewById<LinearLayout>(R.id.notesContainer)
+        val tvTogglePreviousNotes = dialogView.findViewById<TextView>(R.id.tvTogglePreviousNotes)
+
+        // Notes Logic
+        val initialNotes = parseNotes(lead["notes"] as? String ?: "")
+        val originalNotesCount = initialNotes.size
+        val notesList = initialNotes.toMutableList()
+        var showAllNotes = false
+
+        fun refreshNotesUI() {
+            notesContainer?.removeAllViews()
+
+            if (notesList.size > 1) {
+                tvTogglePreviousNotes?.visibility = View.VISIBLE
+                tvTogglePreviousNotes?.text = if (showAllNotes) "Hide Previous ▲" else "Show Previous ▼"
+            } else {
+                tvTogglePreviousNotes?.visibility = View.GONE
+            }
+
+            notesList.forEachIndexed { index, note ->
+                if (!showAllNotes && index < notesList.size - 1) {
+                    return@forEachIndexed
+                }
+
+                val view = LayoutInflater.from(this).inflate(R.layout.item_dated_note, notesContainer, false)
+                view.findViewById<TextView>(R.id.tvNoteDate).text = note.date
+                view.findViewById<TextView>(R.id.tvNoteContent).text = note.content
+
+                view.findViewById<View>(R.id.btnEditNote)?.setOnClickListener {
+                    val editDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_edit_note, null)
+                    val input = editDialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etEditNoteContent)
+                    val tvDate = editDialogView.findViewById<TextView>(R.id.tvEditNoteDate)
+
+                    tvDate?.text = note.date
+                    input?.setText(note.content)
+
+                    AlertDialog.Builder(this)
+                        .setTitle("Edit Note")
+                        .setView(editDialogView)
+                        .setPositiveButton("Save") { _, _ ->
+                            notesList[index] = note.copy(content = input?.text.toString().trim())
+                            refreshNotesUI()
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+                view.findViewById<View>(R.id.btnDeleteNote)?.setOnClickListener {
+                    notesList.removeAt(index)
+                    refreshNotesUI()
+                }
+                notesContainer?.addView(view)
+            }
+        }
+
+        tvTogglePreviousNotes?.setOnClickListener {
+            showAllNotes = !showAllNotes
+            refreshNotesUI()
+        }
+
+        refreshNotesUI()
         
-        headerTargetMarket?.setOnClickListener {
-            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
-            if (containerTargetMarketCheckboxes?.visibility == View.GONE) {
-                containerTargetMarketCheckboxes.visibility = View.VISIBLE
-                tvToggleTargetMarket?.text = "Hide ▲"
-            } else {
-                containerTargetMarketCheckboxes?.visibility = View.GONE
-                tvToggleTargetMarket?.text = "Edit ▼"
-            }
-        }
-
-        headerExtendedDetails?.setOnClickListener {
-            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
-            if (containerExtendedDetails?.visibility == View.GONE) {
-                containerExtendedDetails.visibility = View.VISIBLE
-                tvToggleExtended?.text = "Hide ▲"
-            } else {
-                containerExtendedDetails?.visibility = View.GONE
-                tvToggleExtended?.text = "Show ▼"
-            }
-        }
-        
-        headerSmsIntro?.setOnClickListener {
-            android.transition.TransitionManager.beginDelayedTransition(dialogView as ViewGroup)
-            if (containerSmsIntro?.visibility == View.GONE) {
-                containerSmsIntro.visibility = View.VISIBLE
-                tvToggleSms?.text = "Hide ▲"
-            } else {
-                containerSmsIntro?.visibility = View.GONE
-                tvToggleSms?.text = "Show ▼"
-            }
-        }
-
-        val etIntroText = dialogView.findViewById<EditText>(R.id.etIntroText)
         val btnDefaultIntro = dialogView.findViewById<Button>(R.id.btnDefaultIntro)
-        val btnManagePresets = dialogView.findViewById<Button>(R.id.btnManagePresets)
+        val etIntroText = dialogView.findViewById<EditText>(R.id.etIntroText)
+        val btnManagePresets = dialogView.findViewById<View>(R.id.btnManagePresets)
         val btnSendIntroAction = dialogView.findViewById<Button>(R.id.btnSendIntroAction)
         val btnAIGenerate = dialogView.findViewById<Button>(R.id.btnAIGenerate)
+        
+        val headerSmsIntro = dialogView.findViewById<View>(R.id.headerSmsIntro)
+        val containerSmsIntro = dialogView.findViewById<View>(R.id.containerSmsIntro)
+        val tvToggleSms = dialogView.findViewById<TextView>(R.id.tvToggleSms)
 
-        btnAIGenerate.setOnClickListener {
-            val contactName = editName.text.toString()
-            val history = parseNotes(lead["notes"] as? String ?: "").take(5).joinToString("\n") { "- ${it.content}" }
+        headerSmsIntro?.setOnClickListener {
+            if (containerSmsIntro?.visibility == View.VISIBLE) {
+                containerSmsIntro.visibility = View.GONE
+                tvToggleSms?.text = "Show ▼"
+            } else {
+                containerSmsIntro?.visibility = View.VISIBLE
+                tvToggleSms?.text = "Hide ▲"
+            }
+        }
+
+        btnAIGenerate?.setOnClickListener {
+            val currentName = editName?.text.toString()
+            val currentNote = notesList.joinToString("\n") { it.content }
             
             btnAIGenerate.isEnabled = false
             btnAIGenerate.text = "Drafting..."
             
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val prompt = "You are an assistant for a Primerica agent. Draft a short, warm, and professional SMS message to $contactName. " +
-                                 "Use the following interaction history for context. Do not mention the notes directly. " +
-                                 "Keep it under 2 sentences and ready to send.\nHistory:\n$history"
+                    val prompt = "You are an assistant for a Primerica agent. Draft a short, warm, and professional SMS message to $currentName. " +
+                                 "Use the following notes for context. Do not mention the notes directly. " +
+                                 "Keep it under 2 sentences and ready to send.\nNotes:\n$currentNote"
                     val response = GeminiApiClient.generativeModel.generateContent(prompt)
                     
                     withContext(Dispatchers.Main) {
-                        etIntroText.setText(response.text?.trim() ?: "Could not generate message.")
+                        etIntroText?.setText(response.text?.trim() ?: "Could not generate message.")
                         btnAIGenerate.isEnabled = true
                         btnAIGenerate.text = "✨ AI Draft"
                     }
@@ -412,352 +379,265 @@ class FollowUpActivity : AppCompatActivity() {
             }
         }
 
-        val tvReminderValue = dialogView.findViewById<TextView>(R.id.tvReminderValue)
-        val btnEditReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnEditReminderIcon)
-        val btnDeleteReminderIcon = dialogView.findViewById<ImageButton>(R.id.btnDeleteReminderIcon)
+        val btnSave = dialogView.findViewById<Button>(R.id.btnSaveChanges)
 
-        editPhone.addTextChangedListener(android.telephony.PhoneNumberFormattingTextWatcher())
-
-        editName.setText(lead["name"] as? String ?: "")
-        editPhone.setText(lead["phone"] as? String ?: "")
-        editEmail.setText(lead["email"] as? String ?: "")
-        editAddress.setText(lead["address"] as? String ?: "")
-        editCompany.setText(lead["company"] as? String ?: "")
-        editJobTitle.setText(lead["jobTitle"] as? String ?: "")
-        
-        btnCallDetail.setOnClickListener {
-            val phone = editPhone.text.toString().trim()
-            if (phone.isNotEmpty()) {
-                val intent = Intent(Intent.ACTION_DIAL, "tel:$phone".toUri())
-                startActivity(intent)
-            } else {
-                Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        btnSmsDetail?.setOnClickListener {
-            val phone = editPhone.text.toString().trim()
-            if (phone.isNotEmpty()) {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone"))
-                startActivity(intent)
-            } else {
-                Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        btnEmailDetail?.setOnClickListener {
-            val email = editEmail.text.toString().trim()
-            if (email.isNotEmpty()) {
-                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
-                try {
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Toast.makeText(this, "No email app found", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Toast.makeText(this, "No email address", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        btnMapDetail?.setOnClickListener {
-            val address = editAddress.text.toString().trim()
-            if (address.isNotEmpty()) {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}"))
-                startActivity(intent)
-            } else {
-                Toast.makeText(this, "No address", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        val currentCat = lead["category"] as? String ?: ""
-        cbRecruit.isChecked = currentCat.contains(getString(R.string.category_recruit))
-        cbProspect.isChecked = currentCat.contains(getString(R.string.category_prospect))
-        cbClient.isChecked = currentCat.contains(getString(R.string.category_client))
-        cbInv.isChecked = currentCat.contains("Investment")
-        cbLife.isChecked = currentCat.contains("Life Insurance")
-        subCatLayout.visibility = if (cbClient.isChecked) View.VISIBLE else View.GONE
-
-        cbClient.setOnCheckedChangeListener { _, isChecked ->
-            subCatLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
-        }
-
-        val targetMarketRaw = lead["targetMarket"]
-        if (targetMarketRaw is String) {
-            cbTmMarried.isChecked = targetMarketRaw.contains("Married")
-            cbTmAge.isChecked = targetMarketRaw.contains("Age 25-55")
-            cbTmChildren.isChecked = targetMarketRaw.contains("Children")
-            cbTmHomeowner.isChecked = targetMarketRaw.contains("Homeowner")
-            cbTmOccupation.isChecked = targetMarketRaw.contains("Occupation")
-        } else if (targetMarketRaw is Map<*, *>) {
-            cbTmMarried.isChecked = targetMarketRaw["married"] as? Boolean ?: false
-            cbTmAge.isChecked = targetMarketRaw["ageRange"] as? Boolean ?: false
-            cbTmChildren.isChecked = targetMarketRaw["children"] as? Boolean ?: false
-            cbTmHomeowner.isChecked = targetMarketRaw["homeowner"] as? Boolean ?: false
-            cbTmOccupation.isChecked = targetMarketRaw["occupation"] as? Boolean ?: false
-        } else {
-            cbTmMarried.isChecked = false
-            cbTmAge.isChecked = false
-            cbTmChildren.isChecked = false
-            cbTmHomeowner.isChecked = false
-            cbTmOccupation.isChecked = false
-        }
+        // Target Market UI
+        val cbTmMarried = dialogView.findViewById<CheckBox>(R.id.cbTmMarried)
+        val cbTmAge = dialogView.findViewById<CheckBox>(R.id.cbTmAge)
+        val cbTmChildren = dialogView.findViewById<CheckBox>(R.id.cbTmChildren)
+        val cbTmHomeowner = dialogView.findViewById<CheckBox>(R.id.cbTmHomeowner)
+        val cbTmOccupation = dialogView.findViewById<CheckBox>(R.id.cbTmOccupation)
+        val tvScore = dialogView.findViewById<TextView>(R.id.tvTargetMarketScore)
+        val dial = dialogView.findViewById<com.google.android.material.progressindicator.CircularProgressIndicator>(R.id.dialTargetMarket)
 
         fun updateTargetMarketScore() {
-            var points = 0
-            if (cbTmMarried.isChecked) points++
-            if (cbTmAge.isChecked) points++
-            if (cbTmChildren.isChecked) points++
-            if (cbTmHomeowner.isChecked) points++
-            if (cbTmOccupation.isChecked) points++
-
-            val percentage = when (points) {
-                1 -> 2
-                2 -> 9
-                3 -> 19
-                4 -> 42
-                5 -> 95
-                else -> 0
-            }
-
-            dialTargetMarket.setProgressCompat(percentage, true)
-            tvTargetMarketScore.text = "$percentage%"
-
-            val color = when {
-                percentage >= 80 -> Color.parseColor("#4CAF50")
-                percentage >= 40 -> Color.parseColor("#FF9800")
-                else -> Color.parseColor("#F44336")
-            }
-            dialTargetMarket.setIndicatorColor(color)
-            tvTargetMarketScore.setTextColor(color)
+            var score = 0
+            if (cbTmMarried?.isChecked == true) score += 20
+            if (cbTmAge?.isChecked == true) score += 20
+            if (cbTmChildren?.isChecked == true) score += 20
+            if (cbTmHomeowner?.isChecked == true) score += 20
+            if (cbTmOccupation?.isChecked == true) score += 20
+            tvScore?.text = "$score%"
+            dial?.progress = score
         }
+
+        listOf(cbTmMarried, cbTmAge, cbTmChildren, cbTmHomeowner, cbTmOccupation).forEach {
+            it?.setOnCheckedChangeListener { _, _ -> updateTargetMarketScore() }
+        }
+
+        // Pre-fill data
+        editName?.setText(lead["name"] as? String)
+        editPhone?.setText(lead["phone"] as? String)
+        editEmail?.setText(lead["email"] as? String)
+        editAddress?.setText(lead["address"] as? String)
+        editCompany?.setText(lead["company"] as? String)
+        editJobTitle?.setText(lead["jobTitle"] as? String)
+
+        val category = lead["category"] as? String ?: ""
+        cbRecruit?.isChecked = category.contains(getString(R.string.category_recruit))
+        cbProspect?.isChecked = category.contains(getString(R.string.category_prospect))
+        cbClient?.isChecked = category.contains(getString(R.string.category_client))
+        cbInv?.isChecked = category.contains("Investment")
+        cbLife?.isChecked = category.contains("Life Insurance")
+        llClientOptions?.visibility = if (cbClient?.isChecked == true) View.VISIBLE else View.GONE
+        cbClient?.setOnCheckedChangeListener { _, isChecked ->
+            llClientOptions?.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        val tmString = lead["targetMarket"] as? String ?: ""
+        cbTmMarried?.isChecked = tmString.contains("Married")
+        cbTmAge?.isChecked = tmString.contains("Age 25-55")
+        cbTmChildren?.isChecked = tmString.contains("Children")
+        cbTmHomeowner?.isChecked = tmString.contains("Homeowner")
+        cbTmOccupation?.isChecked = tmString.contains("Occupation")
         updateTargetMarketScore()
 
-        cbTmMarried.setOnCheckedChangeListener { _, _ -> updateTargetMarketScore() }
-        cbTmAge.setOnCheckedChangeListener { _, _ -> updateTargetMarketScore() }
-        cbTmChildren.setOnCheckedChangeListener { _, _ -> updateTargetMarketScore() }
-        cbTmHomeowner.setOnCheckedChangeListener { _, _ -> updateTargetMarketScore() }
-        cbTmOccupation.setOnCheckedChangeListener { _, _ -> updateTargetMarketScore() }
+        // Handle Side-Kick Suggestion Visibility
+        val sideKickContainer = dialogView.findViewById<View>(R.id.sideKickSuggestionContainer)
+        val tvSideKickTip = dialogView.findViewById<TextView>(R.id.tvSideKickTip)
+        val suggestion = lead["sideKickSuggestion"] as? String
+        if (suggestion != null) {
+            sideKickContainer?.visibility = View.VISIBLE
+            tvSideKickTip?.text = "💡 Side-Kick Tip: $suggestion"
+        }
 
-        val birthdayStamp = lead["birthday"] as? Timestamp
-        val tvBirthdayDisplay = dialogView.findViewById<TextView>(R.id.tvBirthdayDisplay)
-        val btnSetBirthday = dialogView.findViewById<Button>(R.id.btnSetBirthday)
-        var selectedBirthday: Date? = birthdayStamp?.toDate()
+        dialogView.findViewById<View>(R.id.btnDismissSideKick)?.setOnClickListener {
+            db.collection("leads").document(docId).update("sideKickSuggestion", FieldValue.delete())
+            sideKickContainer?.visibility = View.GONE
+        }
 
-        fun updateBirthdayUI() {
-            if (selectedBirthday != null) {
-                val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                tvBirthdayDisplay.text = "Birthday: ${sdf.format(selectedBirthday!!)}"
-                btnSetBirthday.text = "📅 Change"
+        // Collapsible sections
+        val headerTM = dialogView.findViewById<View>(R.id.headerTargetMarket)
+        val containerTM = dialogView.findViewById<View>(R.id.containerTargetMarketCheckboxes)
+        val tvToggleTM = dialogView.findViewById<TextView>(R.id.tvToggleTargetMarket)
+        headerTM?.setOnClickListener {
+            if (containerTM?.visibility == View.VISIBLE) {
+                containerTM.visibility = View.GONE
+                tvToggleTM?.text = "Edit ▼"
             } else {
-                tvBirthdayDisplay.text = "Birthday: None"
-                btnSetBirthday.text = "📅 Add Birthday"
+                containerTM?.visibility = View.VISIBLE
+                tvToggleTM?.text = "Hide ▲"
             }
         }
-        updateBirthdayUI()
 
-        btnSetBirthday.setOnClickListener {
-            val cal = Calendar.getInstance()
-            selectedBirthday?.let { cal.time = it }
-            DatePickerDialog(this, { _, y, m, d ->
-                cal.set(y, m, d)
-                selectedBirthday = cal.time
-                updateBirthdayUI()
-            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        val headerExt = dialogView.findViewById<View>(R.id.headerExtendedDetails)
+        val containerExt = dialogView.findViewById<View>(R.id.containerExtendedDetails)
+        val tvToggleExt = dialogView.findViewById<TextView>(R.id.tvToggleExtended)
+        headerExt?.setOnClickListener {
+            if (containerExt?.visibility == View.VISIBLE) {
+                containerExt.visibility = View.GONE
+                tvToggleExt?.text = "Show ▼"
+            } else {
+                containerExt?.visibility = View.VISIBLE
+                tvToggleExt?.text = "Hide ▲"
+            }
         }
 
-        val initialNotes = parseNotes(lead["notes"] as? String ?: "")
-        val originalNotesCount = initialNotes.size
-        val notesList = initialNotes.toMutableList()
-        fun refreshNotesUI() {
-            notesContainer.removeAllViews()
-            notesList.forEachIndexed { index, note ->
-                val view = LayoutInflater.from(this).inflate(R.layout.item_dated_note, notesContainer, false)
-                view.findViewById<TextView>(R.id.tvNoteDate).text = note.date
-                view.findViewById<TextView>(R.id.tvNoteContent).text = note.content
+        // Contact Buttons
+        btnSmsDetail?.setOnClickListener {
+            val phone = editPhone?.text.toString()
+            if (phone.isNotEmpty()) startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")))
+        }
+        btnCallDetail?.setOnClickListener {
+            val phone = editPhone?.text.toString()
+            if (phone.isNotEmpty()) startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+        }
+        btnEmailDetail?.setOnClickListener {
+            val email = editEmail?.text.toString()
+            if (email.isNotEmpty()) {
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:")
+                    putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+                }
+                startActivity(intent)
+            }
+        }
+        btnMapDetail?.setOnClickListener {
+            val addr = editAddress?.text.toString()
+            if (addr.isNotEmpty()) startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(addr)}")))
+        }
+
+        btnRecordVoiceNote?.setOnClickListener {
+            btnRecordVoiceNote.isEnabled = false
+            onVoiceLogComplete = { btnRecordVoiceNote.isEnabled = true }
+            val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+            intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your updates...")
+            try {
+                speechRecognizerLauncherDetails.launch(intent)
+            } catch (e: Exception) {
+                btnRecordVoiceNote.isEnabled = true
+                onVoiceLogComplete = null
+                Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnSendNote?.setOnClickListener {
+            val text = etQuickNote?.text.toString().trim()
+            if (text.isNotEmpty()) {
+                val date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
                 
-                view.findViewById<ImageButton>(R.id.btnEditNote).setOnClickListener {
-                    val input = EditText(this).apply { setText(note.content) }
-                    AlertDialog.Builder(this).setTitle("Edit Note").setView(input)
-                        .setPositiveButton("Save") { _, _ ->
-                            notesList[index] = note.copy(content = input.text.toString())
-                            refreshNotesUI()
-                        }.show()
-                }
-                view.findViewById<ImageButton>(R.id.btnDeleteNote).setOnClickListener {
-                    notesList.removeAt(index)
-                    refreshNotesUI()
-                }
-                notesContainer.addView(view)
+                // Append to end for chat-style interface
+                notesList.add(DatedNote(date, text))
+                refreshNotesUI()
+                
+                etQuickNote?.text?.clear()
             }
-        }
-        refreshNotesUI()
-
-
-        val notesParent = btnAddDatedNote.parent as? ViewGroup
-        if (notesParent != null) {
-            val index = notesParent.indexOfChild(btnAddDatedNote)
-            notesParent.removeView(btnAddDatedNote)
-            
-            val wrapper = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = btnAddDatedNote.layoutParams
-            }
-            
-            btnAddDatedNote.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 8 }
-            
-            val btnVoiceLog = Button(this).apply {
-                text = "🎤 Dictate Log"
-                backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#FF9800"))
-                setTextColor(Color.WHITE)
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = 8 }
-            }
-            
-            wrapper.addView(btnAddDatedNote)
-            wrapper.addView(btnVoiceLog)
-            notesParent.addView(wrapper, index)
-            
-            btnVoiceLog.setOnClickListener {
-                btnVoiceLog.isEnabled = false
-                // Re-enable button as soon as AI processing completes (not just on dialog close)
-                onVoiceLogComplete = { btnVoiceLog.isEnabled = true }
-                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                intent.putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak your updates...")
-                try {
-                    speechRecognizerLauncherDetails.launch(intent)
-                } catch (e: Exception) {
-                    btnVoiceLog.isEnabled = true
-                    onVoiceLogComplete = null
-                    Toast.makeText(this, "Speech recognition not available", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-
-        btnAddDatedNote.setOnClickListener {
-            val input = EditText(this).apply { hint = "Add a new note..." }
-            AlertDialog.Builder(this).setTitle("Add Dated Note").setView(input)
-                .setPositiveButton("Add") { _, _ ->
-                    val content = input.text.toString().trim()
-                    if (content.isNotEmpty()) {
-                        val date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
-                        notesList.add(0, DatedNote(date, content))
-                        refreshNotesUI()
-                    }
-                }.show()
         }
 
         var selectedFollowUpDate: Date? = (lead["followUpDate"] as? Timestamp)?.toDate()
         fun updateReminderUI() {
             if (selectedFollowUpDate != null) {
                 val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
-                tvReminderValue.text = sdf.format(selectedFollowUpDate!!)
-                btnSetReminder.text = getString(R.string.btn_change_reminder)
-                btnEditReminderIcon.visibility = View.VISIBLE
-                btnDeleteReminderIcon.visibility = View.VISIBLE
+                tvReminderValue?.text = sdf.format(selectedFollowUpDate!!)
+                btnSetReminder?.text = getString(R.string.btn_change_reminder)
+                btnEditReminderIcon?.visibility = View.VISIBLE
+                btnDeleteReminderIcon?.visibility = View.VISIBLE
             } else {
-                tvReminderValue.text = getString(R.string.reminder_none)
-                btnSetReminder.text = getString(R.string.btn_set_reminder)
-                btnEditReminderIcon.visibility = View.GONE
-                btnDeleteReminderIcon.visibility = View.GONE
+                tvReminderValue?.text = getString(R.string.reminder_none)
+                btnSetReminder?.text = getString(R.string.btn_set_reminder)
+                btnEditReminderIcon?.visibility = View.GONE
+                btnDeleteReminderIcon?.visibility = View.GONE
             }
         }
         updateReminderUI()
 
-        val reminderAction = View.OnClickListener {
+        val reminderAction = {
             val cal = Calendar.getInstance()
             selectedFollowUpDate?.let { cal.time = it }
-            DatePickerDialog(this, { _, y, m, d ->
-                cal.set(y, m, d)
-                TimePickerDialog(this, { _, hh, mm ->
-                    cal.set(Calendar.HOUR_OF_DAY, hh)
-                    cal.set(Calendar.MINUTE, mm)
-                    selectedFollowUpDate = cal.time
+            DatePickerDialog(this, { _, year, month, day ->
+                TimePickerDialog(this, { _, hour, minute ->
+                    val newCal = Calendar.getInstance()
+                    newCal.set(year, month, day, hour, minute)
+                    selectedFollowUpDate = newCal.time
                     updateReminderUI()
                 }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
-        btnSetReminder.setOnClickListener(reminderAction)
-        btnEditReminderIcon.setOnClickListener(reminderAction)
 
-        btnDeleteReminderIcon.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle(getString(R.string.dialog_delete_reminder_title))
-                .setMessage(getString(R.string.dialog_delete_reminder_msg))
-                .setPositiveButton("Delete") { _, _ ->
-                    selectedFollowUpDate = null
-                    updateReminderUI()
-                }.setNegativeButton("Cancel", null).show()
+        btnSetReminder?.setOnClickListener { reminderAction() }
+        btnEditReminderIcon?.setOnClickListener { reminderAction() }
+        btnDeleteReminderIcon?.setOnClickListener {
+            selectedFollowUpDate = null
+            updateReminderUI()
         }
 
         var appointmentDate: Date? = (lead["appointmentDate"] as? Timestamp)?.toDate()
         var appointmentLocation: String? = lead["appointmentLocation"] as? String
+        val prefs = getSharedPreferences("user_settings", Context.MODE_PRIVATE)
+        var defaultOfficeAddress = prefs.getString("default_office_address", "") ?: ""
 
         fun updateAppointmentButtonUI() {
             if (appointmentDate != null) {
-                val summarySdf = SimpleDateFormat("MMM dd h:mm a", Locale.getDefault())
-                btnMarkAppointmentDetail?.text = "Appt: ${summarySdf.format(appointmentDate!!)}"
+                val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
+                tvApptValue?.text = "${sdf.format(appointmentDate!!)}\n@ ${appointmentLocation ?: "No location"}"
+                btnSetAppt?.text = "Change Appointment"
+                btnEditApptIcon?.visibility = View.VISIBLE
+                btnDeleteApptIcon?.visibility = View.VISIBLE
             } else {
-                btnMarkAppointmentDetail?.text = "Schedule Appointment"
+                tvApptValue?.text = "No appointment scheduled"
+                btnSetAppt?.text = "Set Appointment"
+                btnEditApptIcon?.visibility = View.GONE
+                btnDeleteApptIcon?.visibility = View.GONE
             }
         }
         updateAppointmentButtonUI()
 
-        btnMarkAppointmentDetail?.setOnClickListener {
-            val apptDialogView = layoutInflater.inflate(R.layout.dialog_appointment, null)
-            val apptDialog = AlertDialog.Builder(this@FollowUpActivity).setView(apptDialogView).create()
-            apptDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        btnDeleteApptIcon?.setOnClickListener {
+            appointmentDate = null
+            appointmentLocation = null
+            updateAppointmentButtonUI()
+        }
+
+        val apptClickAction = View.OnClickListener {
+            val apptDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_set_appointment, null)
+            val apptDialog = AlertDialog.Builder(this).setView(apptDialogView).create()
 
             val btnApptDate = apptDialogView.findViewById<Button>(R.id.btnApptDate)
             val btnApptTime = apptDialogView.findViewById<Button>(R.id.btnApptTime)
-            val tvSelectedDateTime = apptDialogView.findViewById<TextView>(R.id.tvSelectedDateTime)
-            
-            val rgApptLocation = apptDialogView.findViewById<RadioGroup>(R.id.rgApptLocation)
-            val rbOffice = apptDialogView.findViewById<RadioButton>(R.id.rbOffice)
-            val rbCustom = apptDialogView.findViewById<RadioButton>(R.id.rbCustom)
-            
+            val tvApptDateTime = apptDialogView.findViewById<TextView>(R.id.tvApptDateTime)
+            val rbOffice = apptDialogView.findViewById<RadioButton>(R.id.rbOfficeAddress)
+            val rbCustom = apptDialogView.findViewById<RadioButton>(R.id.rbCustomAddress)
             val llOfficeAddressConfig = apptDialogView.findViewById<LinearLayout>(R.id.llOfficeAddressConfig)
-            val tvCurrentOffice = apptDialogView.findViewById<TextView>(R.id.tvCurrentOffice)
-            val btnEditOffice = apptDialogView.findViewById<Button>(R.id.btnEditOffice)
-            
+            val tvOfficeAddress = apptDialogView.findViewById<TextView>(R.id.tvOfficeAddressDisplay)
+            val btnEditOffice = apptDialogView.findViewById<View>(R.id.btnEditOfficeAddress)
             val tilCustomAddress = apptDialogView.findViewById<View>(R.id.tilCustomAddress)
             val etCustomAddress = apptDialogView.findViewById<EditText>(R.id.etCustomAddress)
-            
-            val btnCancelAppt = apptDialogView.findViewById<Button>(R.id.btnCancelAppt)
             val btnSaveAppt = apptDialogView.findViewById<Button>(R.id.btnSaveAppt)
-            
-            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-            var defaultOfficeAddress = prefs.getString("default_office_address", "") ?: ""
-            
-            var tempCal: Calendar? = if (appointmentDate != null) Calendar.getInstance().apply { time = appointmentDate!! } else null
-            
-            val sdfDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-            val sdfTime = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val btnCancelAppt = apptDialogView.findViewById<Button>(R.id.btnCancelAppt)
+
+            var tempCal: Calendar? = appointmentDate?.let { Calendar.getInstance().apply { time = it } }
 
             fun updateDateTimeUI() {
                 if (tempCal != null) {
-                    tvSelectedDateTime?.text = "${sdfDate.format(tempCal!!.time)} at ${sdfTime.format(tempCal!!.time)}"
+                    val sdf = SimpleDateFormat("EEE, MMM dd, yyyy @ hh:mm a", Locale.getDefault())
+                    tvApptDateTime?.text = sdf.format(tempCal!!.time)
                 } else {
-                    tvSelectedDateTime?.text = "No date/time selected"
+                    tvApptDateTime?.text = "Not selected"
                 }
             }
-            
-            fun updateOfficeUI() {
-                if (defaultOfficeAddress.isNotEmpty()) {
-                    tvCurrentOffice?.text = defaultOfficeAddress
-                } else {
-                    tvCurrentOffice?.text = "No address set"
-                }
-            }
-            
             updateDateTimeUI()
+
+            fun updateOfficeUI() {
+                if (defaultOfficeAddress.isEmpty()) {
+                    tvOfficeAddress?.text = "No address set"
+                    tvOfficeAddress?.setTextColor(Color.RED)
+                } else {
+                    tvOfficeAddress?.text = defaultOfficeAddress
+                    tvOfficeAddress?.setTextColor(Color.BLACK)
+                }
+            }
             updateOfficeUI()
 
-            rgApptLocation?.setOnCheckedChangeListener { _, checkedId ->
-                if (checkedId == R.id.rbOffice) {
+            rbOffice?.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
                     llOfficeAddressConfig?.visibility = View.VISIBLE
                     tilCustomAddress?.visibility = View.GONE
-                } else {
+                }
+            }
+            rbCustom?.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
                     llOfficeAddressConfig?.visibility = View.GONE
                     tilCustomAddress?.visibility = View.VISIBLE
                 }
@@ -848,31 +728,33 @@ class FollowUpActivity : AppCompatActivity() {
 
             apptDialog.show()
         }
+        btnSetAppt?.setOnClickListener(apptClickAction)
+        btnEditApptIcon?.setOnClickListener(apptClickAction)
 
         // Assign lambda AFTER all local dialog variables are declared so the closure
         // can correctly reference selectedFollowUpDate, appointmentDate, notesList, etc.
         applyVoiceLogToDialog = { json, spokenText ->
             if (json.has("phone") && !json.isNull("phone")) {
-                editPhone.setText(json.getString("phone"))
+                editPhone?.setText(json.getString("phone"))
             }
             if (json.has("email") && !json.isNull("email")) {
-                editEmail.setText(json.getString("email"))
+                editEmail?.setText(json.getString("email"))
             }
             if (json.has("category") && !json.isNull("category")) {
                 val cat = json.getString("category")
-                cbRecruit.isChecked = cat.contains("Recruit", true)
-                cbProspect.isChecked = cat.contains("Prospect", true)
-                cbClient.isChecked = cat.contains("Client", true)
+                cbRecruit?.isChecked = cat.contains("Recruit", true)
+                cbProspect?.isChecked = cat.contains("Prospect", true)
+                cbClient?.isChecked = cat.contains("Client", true)
             }
             if (json.has("targetMarket") && !json.isNull("targetMarket")) {
                 val tmArray = json.getJSONArray("targetMarket")
                 for (i in 0 until tmArray.length()) {
                     val trait = tmArray.getString(i)
-                    if (trait.contains("Married", true)) cbTmMarried.isChecked = true
-                    if (trait.contains("Age", true)) cbTmAge.isChecked = true
-                    if (trait.contains("Children", true)) cbTmChildren.isChecked = true
-                    if (trait.contains("Homeowner", true)) cbTmHomeowner.isChecked = true
-                    if (trait.contains("Occupation", true)) cbTmOccupation.isChecked = true
+                    if (trait.contains("Married", true)) cbTmMarried?.isChecked = true
+                    if (trait.contains("Age", true)) cbTmAge?.isChecked = true
+                    if (trait.contains("Children", true)) cbTmChildren?.isChecked = true
+                    if (trait.contains("Homeowner", true)) cbTmHomeowner?.isChecked = true
+                    if (trait.contains("Occupation", true)) cbTmOccupation?.isChecked = true
                 }
                 updateTargetMarketScore()
             }
@@ -904,7 +786,7 @@ class FollowUpActivity : AppCompatActivity() {
                 extractedNotes += " at $appointmentLocation"
             }
             updateAppointmentButtonUI()
-            notesList.add(0, DatedNote(SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date()), "[Voice Log]: $extractedNotes"))
+            notesList.add(DatedNote(SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date()), "[Voice Log]: $extractedNotes"))
             refreshNotesUI()
         }
 
@@ -915,69 +797,56 @@ class FollowUpActivity : AppCompatActivity() {
             onVoiceLogComplete = null
         }
 
-        btnMarkAppointmentDetail?.setOnLongClickListener {
-            if (appointmentDate != null) {
-                AlertDialog.Builder(this@FollowUpActivity)
-                    .setTitle("Remove Appointment?")
-                    .setMessage("Do you want to clear this scheduled appointment?")
-                    .setPositiveButton("Remove") { _, _ ->
-                        appointmentDate = null
-                        appointmentLocation = null
-                        updateAppointmentButtonUI()
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }
-            true
-        }
-
-        btnDefaultIntro.setOnClickListener {
-            val firstName = editName.text.toString().split(" ").firstOrNull() ?: ""
+        btnDefaultIntro?.setOnClickListener {
+            val firstName = editName?.text.toString().split(" ").firstOrNull() ?: ""
             val defaultMsg = getSharedPreferences("settings", Context.MODE_PRIVATE).getString("default_intro_sms", null)
                 ?: "Hi $NAME_TOKEN, just following up! Looking forward to connecting."
-            etIntroText.setText(defaultMsg.replace(NAME_TOKEN, firstName))
+            etIntroText?.setText(defaultMsg.replace(NAME_TOKEN, firstName))
         }
 
-        btnManagePresets.setOnClickListener { showPresetsDialog(etIntroText, editName) }
+        btnManagePresets?.setOnClickListener { 
+            if(etIntroText != null && editName != null) {
+               showPresetsDialog(etIntroText, editName) 
+            }
+        }
 
-        btnSendIntroAction.setOnClickListener {
-            val msg = etIntroText.text.toString()
-            val phone = editPhone.text.toString()
+        btnSendIntroAction?.setOnClickListener {
+            val msg = etIntroText?.text.toString()
+            val phone = editPhone?.text.toString()
             if (msg.isNotEmpty() && phone.isNotEmpty()) {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")).apply { putExtra("sms_body", msg) })
             }
         }
 
-        btnSave.setOnClickListener {
+        btnSave?.setOnClickListener {
             val updatedCats = mutableListOf<String>()
-            if (cbRecruit.isChecked) updatedCats.add(getString(R.string.category_recruit))
-            if (cbProspect.isChecked) updatedCats.add(getString(R.string.category_prospect))
-            if (cbClient.isChecked) {
+            if (cbRecruit?.isChecked == true) updatedCats.add(getString(R.string.category_recruit))
+            if (cbProspect?.isChecked == true) updatedCats.add(getString(R.string.category_prospect))
+            if (cbClient?.isChecked == true) {
                 updatedCats.add(getString(R.string.category_client))
-                if (cbInv.isChecked) updatedCats.add("Investment")
-                if (cbLife.isChecked) updatedCats.add("Life Insurance")
+                if (cbInv?.isChecked == true) updatedCats.add("Investment")
+                if (cbLife?.isChecked == true) updatedCats.add("Life Insurance")
             }
             
             val updatedNotes = notesList.joinToString("\n\n") { "[${it.date}]: ${it.content}" }
             val tmList = mutableListOf<String>()
-            if (cbTmMarried.isChecked) tmList.add("Married")
-            if (cbTmAge.isChecked) tmList.add("Age 25-55")
-            if (cbTmChildren.isChecked) tmList.add("Children")
-            if (cbTmHomeowner.isChecked) tmList.add("Homeowner")
-            if (cbTmOccupation.isChecked) tmList.add("Occupation")
+            if (cbTmMarried?.isChecked == true) tmList.add("Married")
+            if (cbTmAge?.isChecked == true) tmList.add("Age 25-55")
+            if (cbTmChildren?.isChecked == true) tmList.add("Children")
+            if (cbTmHomeowner?.isChecked == true) tmList.add("Homeowner")
+            if (cbTmOccupation?.isChecked == true) tmList.add("Occupation")
 
             val updates: Map<String, Any?> = hashMapOf(
-                "name" to editName.text.toString(),
-                "phone" to editPhone.text.toString(),
-                "email" to editEmail.text.toString(),
-                "address" to editAddress.text.toString(),
-                "company" to editCompany.text.toString(),
-                "jobTitle" to editJobTitle.text.toString(),
+                "name" to editName?.text.toString(),
+                "phone" to editPhone?.text.toString(),
+                "email" to editEmail?.text.toString(),
+                "address" to editAddress?.text.toString(),
+                "company" to editCompany?.text.toString(),
+                "jobTitle" to editJobTitle?.text.toString(),
                 "category" to updatedCats.joinToString(", "),
                 "notes" to updatedNotes,
                 "targetMarket" to tmList.joinToString(", "),
                 "followUpDate" to selectedFollowUpDate?.let { Timestamp(it) },
-                "birthday" to selectedBirthday?.let { Timestamp(it) },
                 "appointmentDate" to appointmentDate?.let { Timestamp(it) },
                 "appointmentLocation" to appointmentLocation
             )
@@ -993,12 +862,13 @@ class FollowUpActivity : AppCompatActivity() {
                     incrementDailyStat("followup_count")
                 }
                 
-                val phoneToNotify = editPhone.text.toString()
-                if (appointmentDate != null && phoneToNotify.isNotEmpty()) {
-                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: ${editName.text}", appointmentDate!!.time)
-                } else if (selectedFollowUpDate != null && phoneToNotify.isNotEmpty()) {
-                    ReminderReceiver.scheduleReminder(this, phoneToNotify, editName.text.toString(), selectedFollowUpDate!!.time)
-                } else if (phoneToNotify.isNotEmpty()) {
+                val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
+                
+                if (appointmentDate != null) {
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: ${editName?.text}", appointmentDate!!.time)
+                } else if (selectedFollowUpDate != null) {
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, editName?.text.toString(), selectedFollowUpDate!!.time)
+                } else {
                     ReminderReceiver.cancelReminder(this, phoneToNotify)
                 }
                 
@@ -1006,10 +876,10 @@ class FollowUpActivity : AppCompatActivity() {
                 dialog.dismiss()
             }
         }
-        
-        btnAddCalendar.setOnClickListener {
-            val phone = editPhone.text.toString()
-            val name = editName.text.toString()
+
+        btnAddCalendar?.setOnClickListener {
+            val phone = editPhone?.text.toString()
+            val name = editName?.text.toString()
             val notes = notesList.firstOrNull()?.content ?: ""
             val intent = Intent(Intent.ACTION_INSERT)
                 .setData(android.provider.CalendarContract.Events.CONTENT_URI)
@@ -1031,243 +901,150 @@ class FollowUpActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.msg_no_presets), Toast.LENGTH_SHORT).show()
             return
         }
-        AlertDialog.Builder(this).setTitle(getString(R.string.btn_presets_dropdown))
-            .setItems(presets.toTypedArray()) { _, which ->
+
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, presets)
+        AlertDialog.Builder(this)
+            .setTitle("Select Preset")
+            .setAdapter(adapter) { _, which ->
                 val firstName = nameSource.text.toString().split(" ").firstOrNull() ?: ""
                 target.setText(presets[which].replace(NAME_TOKEN, firstName))
-            }.show()
-    }
-
-    private data class DatedNote(val date: String, val content: String)
-
-    private fun parseNotes(raw: String): List<DatedNote> {
-        if (raw.isBlank()) return emptyList()
-        val regex = Regex("\\[(.*?)\\]: (.*?)(?=\\s*\\[|\$)", RegexOption.DOT_MATCHES_ALL)
-        return regex.findAll(raw).map { DatedNote(it.groupValues[1], it.groupValues[2].trim()) }.toList()
-    }
-
-    private fun incrementDailyStat(field: String) {
-        val userId = auth.currentUser?.uid ?: return
-        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-        
-        val statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
-        val currentLocalCount = statsPrefs.getInt("${dateStr}_$field", 0)
-        val newCount = currentLocalCount + 1
-        statsPrefs.edit { putInt("${dateStr}_$field", newCount) }
-
-        if (field == "followup_count") {
-            val currentGoal = statsPrefs.getInt("${dateStr}_followup_goal", 5)
-            updateFollowUpProgressUI(newCount, currentGoal)
-        }
-
-        db.collection("user_settings").document(userId)
-            .collection("daily_stats").document(dateStr)
-            .set(hashMapOf(field to FieldValue.increment(1)), SetOptions.merge())
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Failed to sync stat to Firestore", e)
             }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
     }
 
     private fun loadLocalStats() {
-        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-        val statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
-        val currentFollowUpCount = statsPrefs.getInt("${dateStr}_followup_count", 0)
-        val currentFollowUpGoal = statsPrefs.getInt("${dateStr}_followup_goal", 5)
-        updateFollowUpProgressUI(currentFollowUpCount, currentFollowUpGoal)
-    }
-
-    private fun updateFollowUpProgressUI(count: Int, goal: Int) {
-        binding.progressFollowUps.max = if (goal > 0) goal else 1
-        binding.progressFollowUps.progress = count
-        binding.tvFollowUpCountDisplay.text = count.toString()
-        binding.tvFollowUpGoalDisplay.text = "Goal: $goal"
+        val prefs = getSharedPreferences("daily_stats", Context.MODE_PRIVATE)
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val lastDate = prefs.getString("last_date", "")
+        if (lastDate != today) {
+            prefs.edit {
+                putString("last_date", today)
+                putInt("followup_count", 0)
+                putInt("recruit_count", 0)
+                putInt("prospect_count", 0)
+                putInt("client_count", 0)
+            }
+        }
     }
 
     private fun listenToStats() {
         val userId = auth.currentUser?.uid ?: return
-        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-        statsListener = db.collection("user_settings").document(userId)
-            .collection("daily_stats").document(dateStr)
-            .addSnapshotListener { doc, e ->
-                if (e != null) return@addSnapshotListener
-                if (doc != null && doc.exists()) {
-                    val count = doc.getLong("followup_count")?.toInt() ?: 0
-                    val goal = doc.getLong("followup_goal")?.toInt() ?: 5
-                    
-                    val statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
-                    statsPrefs.edit {
-                        putInt("${dateStr}_followup_count", count)
-                        putInt("${dateStr}_followup_goal", goal)
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        statsListener = db.collection("users").document(userId).collection("daily_stats").document(today)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null && snapshot.exists()) {
+                    val prefs = getSharedPreferences("daily_stats", Context.MODE_PRIVATE)
+                    prefs.edit {
+                        putInt("followup_count", (snapshot.getLong("followup_count") ?: 0).toInt())
+                        putInt("recruit_count", (snapshot.getLong("recruit_count") ?: 0).toInt())
+                        putInt("prospect_count", (snapshot.getLong("prospect_count") ?: 0).toInt())
+                        putInt("client_count", (snapshot.getLong("client_count") ?: 0).toInt())
                     }
-                    updateFollowUpProgressUI(count, goal)
                 }
             }
     }
 
-    private var onVoiceLogComplete: (() -> Unit)? = null
+    private fun incrementDailyStat(field: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        db.collection("users").document(userId).collection("daily_stats").document(today)
+            .update(field, FieldValue.increment(1))
+            .addOnFailureListener {
+                db.collection("users").document(userId).collection("daily_stats").document(today)
+                    .set(mapOf(field to 1), SetOptions.merge())
+            }
+    }
 
-    private fun processVoiceLogDetailsWithAI(spokenText: String) {
-        Toast.makeText(this, "Processing Voice Log...", Toast.LENGTH_SHORT).show()
+    private fun processVoiceLogListWithAI(leadId: String, spokenText: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Truncate very long transcriptions to avoid exceeding API token limits,
-                // which can happen with long dictations.
-                val maxChars = 15000
-                val truncatedText = if (spokenText.length > maxChars) {
-                    spokenText.substring(0, maxChars) + "\n...[TRUNCATED]"
-                } else {
-                    spokenText
-                }
-                val prompt = """
-                    You are a CRM assistant. Extract data from the following voice transcription.
-                    Return ONLY a strict JSON object with these exact keys:
-                    - "notes" (string, summary of the interaction)
-                    - "phone" (string, extract phone number or null if none)
-                    - "email" (string, extract email address or null if none)
-                    - "category" (string, choose ONE from: "Recruit", "Prospect", "Client", or null)
-                    - "followUpDate" (string, format "yyyy-MM-dd HH:mm" or null if no date mentioned)
-                    - "appointmentDate" (string, format "yyyy-MM-dd HH:mm" or null if they mention booking/scheduling a meeting)
-                    - "appointmentLocation" (string, null if none mentioned)
-                    - "targetMarket" (array of strings, extract applicable traits from: "Married", "Age 25-55", "Children", "Homeowner", "Occupation" or empty array)
-                    
-                    Transcription: "$truncatedText"
-                    
-                    Important: The output MUST be a valid JSON object. No markdown, no backticks.
-                """.trimIndent()
-                
+                val prompt = "You are an assistant for a Primerica agent. Extract structured updates from the following voice log. " +
+                             "The lead ID is $leadId. " +
+                             "Look for: phone, email, category (Recruit, Prospect, Client), targetMarket (list: Married, Age 25-55, Children, Homeowner, Occupation), " +
+                             "followUpDate (yyyy-MM-dd HH:mm), appointmentDate (yyyy-MM-dd HH:mm), appointmentLocation, and notes. " +
+                             "Return ONLY valid JSON.\nVoice Log: $spokenText"
                 val response = GeminiApiClient.generativeModel.generateContent(prompt)
-                val rawText = response.text ?: "{}"
-                val fenced = Regex("```(?:json)?\\s*([\\s\\S]+?)```", RegexOption.IGNORE_CASE).find(rawText)
-                val jsonString = (fenced?.groupValues?.get(1) ?: rawText).trim()
-                val json = org.json.JSONObject(jsonString)
-                
+                val jsonStr = response.text?.replace("```json", "")?.replace("```", "")?.trim() ?: "{}"
+                val json = org.json.JSONObject(jsonStr)
+
+                withContext(Dispatchers.Main) {
+                    val updates = mutableMapOf<String, Any?>()
+                    if (json.has("phone") && !json.isNull("phone")) updates["phone"] = json.getString("phone")
+                    if (json.has("email") && !json.isNull("email")) updates["email"] = json.getString("email")
+                    if (json.has("category") && !json.isNull("category")) updates["category"] = json.getString("category")
+                    
+                    var newNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
+                    
+                    if (json.has("followUpDate") && !json.isNull("followUpDate")) {
+                        val dateStr = json.getString("followUpDate")
+                        try {
+                            val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
+                            if (parsedDate != null) {
+                                updates["followUpDate"] = Timestamp(parsedDate)
+                                newNotes += "\n[Reminder Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
+                            }
+                        } catch (e: Exception) {}
+                    }
+                    if (json.has("appointmentDate") && !json.isNull("appointmentDate")) {
+                        val dateStr = json.getString("appointmentDate")
+                        try {
+                            val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
+                            if (parsedDate != null) {
+                                updates["appointmentDate"] = Timestamp(parsedDate)
+                                newNotes += "\n[Appointment Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
+                            }
+                        } catch (e: Exception) {}
+                    }
+                    if (json.has("appointmentLocation") && !json.isNull("appointmentLocation")) {
+                        updates["appointmentLocation"] = json.getString("appointmentLocation")
+                    }
+
+                    db.collection("leads").document(leadId).get().addOnSuccessListener { doc ->
+                        val oldNotes = doc.getString("notes") ?: ""
+                        val dateTag = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
+                        val combinedNotes = if (oldNotes.isEmpty()) "[$dateTag]: [Voice Log]: $newNotes" else "$oldNotes\n\n[$dateTag]: [Voice Log]: $newNotes"
+                        updates["notes"] = combinedNotes
+                        
+                        db.collection("leads").document(leadId).update(updates).addOnSuccessListener {
+                            Toast.makeText(this@FollowUpActivity, "Lead updated via Voice!", Toast.LENGTH_SHORT).show()
+                            incrementDailyStat("followup_count")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Voice AI Error", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun processVoiceLogDetailsWithAI(spokenText: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val prompt = "You are an assistant for a Primerica agent. Extract structured updates from the following voice log. " +
+                             "Look for: phone, email, category (Recruit, Prospect, Client), targetMarket (list: Married, Age 25-55, Children, Homeowner, Occupation), " +
+                             "followUpDate (yyyy-MM-dd HH:mm), appointmentDate (yyyy-MM-dd HH:mm), appointmentLocation, and notes. " +
+                             "Return ONLY valid JSON.\nVoice Log: $spokenText"
+                val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                val jsonStr = response.text?.replace("```json", "")?.replace("```", "")?.trim() ?: "{}"
+                val json = org.json.JSONObject(jsonStr)
+
                 withContext(Dispatchers.Main) {
                     applyVoiceLogToDialog?.invoke(json, spokenText)
                     onVoiceLogComplete?.invoke()
                     onVoiceLogComplete = null
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Voice AI Error", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
-                    val fallbackJson = org.json.JSONObject().apply { put("notes", spokenText) }
-                    applyVoiceLogToDialog?.invoke(fallbackJson, spokenText)
+                    Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_SHORT).show()
                     onVoiceLogComplete?.invoke()
                     onVoiceLogComplete = null
                 }
             }
-        }
-    }
-
-    private fun processVoiceLogListWithAI(leadId: String, spokenText: String) {
-        Toast.makeText(this, "Processing Voice Log...", Toast.LENGTH_SHORT).show()
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                // Truncate very long transcriptions to avoid exceeding API token limits,
-                // which can happen with long dictations.
-                val maxChars = 15000
-                val truncatedText = if (spokenText.length > maxChars) {
-                    spokenText.substring(0, maxChars) + "\n...[TRUNCATED]"
-                } else {
-                    spokenText
-                }
-                val prompt = """
-                    You are a CRM assistant. Extract data from the following voice transcription.
-                    Return ONLY a strict JSON object with these exact keys:
-                    - "notes" (string, summary of the interaction)
-                    - "phone" (string, extract phone number or null if none)
-                    - "email" (string, extract email address or null if none)
-                    - "category" (string, choose ONE from: "Recruit", "Prospect", "Client", or null)
-                    - "followUpDate" (string, format "yyyy-MM-dd HH:mm" or null if no date mentioned)
-                    - "appointmentDate" (string, format "yyyy-MM-dd HH:mm" or null if they mention booking/scheduling a meeting)
-                    - "appointmentLocation" (string, null if none mentioned)
-                    - "targetMarket" (array of strings, extract applicable traits from: "Married", "Age 25-55", "Children", "Homeowner", "Occupation" or empty array)
-                    
-                    Transcription: "$truncatedText"
-                    
-                    Important: The output MUST be a valid JSON object. No markdown, no backticks.
-                """.trimIndent()
-                
-                val response = GeminiApiClient.generativeModel.generateContent(prompt)
-                val rawText = response.text ?: "{}"
-                val fenced = Regex("```(?:json)?\\s*([\\s\\S]+?)```", RegexOption.IGNORE_CASE).find(rawText)
-                val jsonString = (fenced?.groupValues?.get(1) ?: rawText).trim()
-                val json = org.json.JSONObject(jsonString)
-                
-                withContext(Dispatchers.Main) {
-                    applyVoiceLogToListLead(leadId, json, spokenText)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@FollowUpActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
-                    val fallbackJson = org.json.JSONObject().apply { put("notes", spokenText) }
-                    applyVoiceLogToListLead(leadId, fallbackJson, spokenText)
-                }
-            }
-        }
-    }
-
-    private fun applyVoiceLogToListLead(leadId: String, json: org.json.JSONObject, spokenText: String) {
-        val lead = allLeads.find { it["id"] == leadId } as? MutableMap<String, Any?> ?: return
-        val updates = mutableMapOf<String, Any?>()
-
-        if (json.has("phone") && !json.isNull("phone")) updates["phone"] = json.getString("phone")
-        if (json.has("email") && !json.isNull("email")) updates["email"] = json.getString("email")
-        if (json.has("category") && !json.isNull("category")) updates["category"] = json.getString("category")
-
-        var extractedNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
-        
-        if (json.has("followUpDate") && !json.isNull("followUpDate")) {
-            val dateStr = json.getString("followUpDate")
-            try {
-                val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
-                if (parsedDate != null) {
-                    updates["followUpDate"] = Timestamp(parsedDate)
-                    extractedNotes += "\n[Reminder Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
-                }
-            } catch (e: Exception) { Log.e(TAG, "Failed to parse followUpDate: $dateStr", e) }
-        }
-
-        if (json.has("appointmentDate") && !json.isNull("appointmentDate")) {
-            val dateStr = json.getString("appointmentDate")
-            try {
-                val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
-                if (parsedDate != null) {
-                    updates["appointmentDate"] = Timestamp(parsedDate)
-                    extractedNotes += "\n[Appointment Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
-                }
-            } catch (e: Exception) { Log.e(TAG, "Failed to parse appointmentDate: $dateStr", e) }
-        }
-        if (json.has("appointmentLocation") && !json.isNull("appointmentLocation")) {
-            val loc = json.getString("appointmentLocation")
-            updates["appointmentLocation"] = loc
-            extractedNotes += " at $loc"
-        }
-
-        if (json.has("targetMarket") && !json.isNull("targetMarket")) {
-            val tmArray = json.getJSONArray("targetMarket")
-            val newTmList = mutableListOf<String>()
-            for (i in 0 until tmArray.length()) newTmList.add(tmArray.getString(i))
-            
-            val existingTmStr = lead["targetMarket"] as? String ?: ""
-            val existingTm = existingTmStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
-            existingTm.addAll(newTmList)
-            updates["targetMarket"] = existingTm.joinToString(", ")
-        }
-
-        val timestampStr = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
-        val formattedNote = "[$timestampStr]: [Voice Log]: $extractedNotes"
-        val existingNotes = lead["notes"] as? String ?: ""
-        updates["notes"] = if (existingNotes.isEmpty()) formattedNote else "$formattedNote\n\n$existingNotes"
-
-        db.collection("leads").document(leadId).update(updates).addOnSuccessListener {
-            // Instantly update local memory for snappy UI reload
-            lead.putAll(updates)
-            Toast.makeText(this, "Log added to lead!", Toast.LENGTH_SHORT).show()
-            selectedLeads.clear()
-            applyFilters()
-            incrementDailyStat("followup_count")
-        }.addOnFailureListener {
-            Toast.makeText(this, "Failed to apply voice log.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1275,69 +1052,32 @@ class FollowUpActivity : AppCompatActivity() {
         super.onDestroy()
         statsListener?.remove()
     }
-}
 
-class FollowUpAdapter(private val items: List<Map<String, Any>>, private val selected: MutableSet<String>, private val onSelectionChanged: () -> Unit, private val onPinClick: (String, Boolean) -> Unit, private val onClick: (Map<String, Any>) -> Unit) : RecyclerView.Adapter<FollowUpAdapter.VH>() {
-    class VH(v: View) : RecyclerView.ViewHolder(v) {
-        val name: TextView = v.findViewById(R.id.tvLeadName)
-        val details: TextView = v.findViewById(R.id.tvLeadDetails)
-        val pin: ImageButton = v.findViewById(R.id.btnPinLead)
-        val call: ImageButton = v.findViewById(R.id.btnCallLead)
-        val container: View = v.findViewById(R.id.leadItemContainer)
-    }
+    private data class DatedNote(val date: String, val content: String)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_follow_up, parent, false))
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val item = items[position]
-        val id = item["id"] as String
-        val name = item["name"] as? String ?: "Unknown"
-        val phone = item["phone"] as? String ?: ""
-        val category = item["category"] as? String ?: ""
-        val dateStamp = item["followUpDate"] as? Timestamp
-        val dateStr = if (dateStamp != null) SimpleDateFormat("MMM dd", Locale.getDefault()).format(dateStamp.toDate()) else "No Date"
-
-        holder.name.text = name
-        holder.details.text = "$category | Due: $dateStr"
-        holder.container.setBackgroundColor(if (selected.contains(id)) Color.parseColor("#E3F2FD") else Color.TRANSPARENT)
-
-        val isPinned = item["isPinned"] as? Boolean ?: false
-        holder.pin.setImageResource(if (isPinned) android.R.drawable.star_on else android.R.drawable.star_off)
-        holder.pin.setColorFilter(if (isPinned) android.graphics.Color.parseColor("#FFC107") else android.graphics.Color.LTGRAY)
-        holder.pin.setOnClickListener {
-            onPinClick(id, !isPinned)
-        }
-
-        holder.container.setOnClickListener {
-            val currentPos = holder.adapterPosition
-            if (currentPos != RecyclerView.NO_POSITION) {
-                val currentItem = items[currentPos]
-                if (selected.isNotEmpty()) {
-                    toggleSelection(currentItem["id"] as String)
-                } else {
-                    onClick(currentItem)
-                }
+    private fun parseNotes(raw: String): List<DatedNote> {
+        if (raw.isEmpty()) return emptyList()
+        val list = mutableListOf<DatedNote>()
+        // Split by double newline which separates entries
+        val blocks = raw.split("\n\n")
+        for (block in blocks) {
+            if (block.isBlank()) continue
+            // Format is "[MMM dd, yyyy hh:mm a]: Content"
+            val endBracket = block.indexOf("]: ")
+            if (endBracket != -1) {
+                val date = block.substring(1, endBracket)
+                val content = block.substring(endBracket + 3)
+                list.add(DatedNote(date, content))
+            } else {
+                list.add(DatedNote("Unknown Date", block))
             }
         }
-        holder.container.setOnLongClickListener {
-            val currentPos = holder.adapterPosition
-            if (currentPos != RecyclerView.NO_POSITION) {
-                toggleSelection(items[currentPos]["id"] as String)
-            }
-            true
-        }
-        holder.call.setOnClickListener {
-            if (phone.isNotEmpty()) {
-                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-                holder.itemView.context.startActivity(intent)
-            }
-        }
+        return list
     }
 
-    private fun toggleSelection(id: String) {
-        if (selected.contains(id)) selected.remove(id) else selected.add(id)
-        notifyDataSetChanged()
-        onSelectionChanged()
+    private fun incrementDailyStatLocalOnly(field: String) {
+         val prefs = getSharedPreferences("daily_stats", Context.MODE_PRIVATE)
+         val current = prefs.getInt(field, 0)
+         prefs.edit { putInt(field, current + 1) }
     }
-
-    override fun getItemCount(): Int = items.size
 }

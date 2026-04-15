@@ -1,6 +1,7 @@
 package com.nickpulido.rcrm
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.content.Context
@@ -1059,6 +1060,18 @@ class MainActivity : AppCompatActivity() {
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
         }
+
+        // Request Exact Alarms permission for Android 12+ (API 31+) so Reminders fire on time
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+                Toast.makeText(this, "Please allow Exact Alarms for Reminders to work", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1332,14 +1345,14 @@ class MainActivity : AppCompatActivity() {
 
             db.collection("leads").add(leadData).addOnSuccessListener {
                 incrementDailyStat("total_count")
-                val phoneToNotify = phoneInput.text.toString()
-                if (phoneToNotify.isNotEmpty()) {
+                val phoneToNotify = phoneInput.text.toString().trim().ifEmpty { name }
                 if (quickAddApptDate != null) {
                     ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $name", quickAddApptDate!!.time)
+                } else if (quickAddFollowUpDate != null) {
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, name, quickAddFollowUpDate!!.time)
                 } else {
                     val timeInMillis = System.currentTimeMillis() + 86400000
                     ReminderReceiver.scheduleReminder(this, phoneToNotify, name, timeInMillis)
-                }
                 }
                 Toast.makeText(this, "Lead added!", Toast.LENGTH_SHORT).show()
                 loadHotList()

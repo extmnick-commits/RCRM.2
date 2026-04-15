@@ -438,45 +438,33 @@
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/dividerColor" android:layout_marginVertical="16dp" />
 
-        <!-- Internal Notes Section -->
+        <!-- Activity & Notes Chat Section -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
-
+            
             <TextView
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Internal Notes"
+                android:layout_height="wrap_content"
+                android:text="Activity &amp; Notes"
                 android:textColor="@color/textColorPrimary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
-
+                
             <TextView
-                android:id="@+id/tvToggleNotes"
+                android:id="@+id/tvTogglePreviousNotes"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="View All ▼"
+                android:text="Show Previous ▼"
                 android:textColor="@color/colorPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:padding="8dp"
                 android:visibility="gone"
-                android:background="?attr/selectableItemBackgroundBorderless" />
-
-            <TextView
-                android:id="@+id/btnAddDatedNote"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:text="📝"
-                android:textSize="24sp"
-                android:gravity="center"
-                android:includeFontPadding="false"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackgroundBorderless" />
+                android:background="?attr/selectableItemBackground" />
         </LinearLayout>
 
         <!-- Container for notes list -->
@@ -486,111 +474,239 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="8dp" />
 
-        <!-- Active Reminder Section -->
-        <TextView
-            android:id="@+id/tvReminderLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Next Follow-up Reminder"
-            android:textStyle="bold"
-            android:textColor="@color/textColorPrimary"
-            android:textSize="16sp" />
-
+        <!-- Chat Input Bar -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardActiveReminder"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="12dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/dividerColor"
-            app:strokeWidth="1dp">
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="2dp">
+            
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="4dp">
+                
+                <ImageButton
+                    android:id="@+id/btnRecordVoiceNote"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_btn_speak_now"
+                    app:tint="@color/colorPrimary" />
+                    
+                <EditText
+                    android:id="@+id/etQuickNote"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Message or log activity..."
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="12dp"
+                    android:inputType="textMultiLine"
+                    android:maxLines="4"
+                    android:textSize="15sp" />
+                    
+                <ImageButton
+                    android:id="@+id/btnSendNote"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_send"
+                    app:tint="@color/colorPrimary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Reminders & Appointments Toggle Header -->
+        <LinearLayout
+            android:id="@+id/headerReminders"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingVertical="12dp"
+            android:background="?attr/selectableItemBackground">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Reminders &amp; Appointments"
+                android:textColor="@color/textColorPrimary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tvToggleReminders"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Show ▼"
+                android:textColor="@color/colorPrimary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:padding="8dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/containerReminders"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Active Reminder Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardActiveReminder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="8dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/dividerColor"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/ic_lock_idle_alarm"
+                        app:tint="@color/colorPrimary" />
+
+                    <TextView
+                        android:id="@+id/tvReminderValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
+                        android:text="No reminder set"
+                        android:textColor="@color/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <ImageButton
+                        android:id="@+id/btnEditReminderIcon"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@android:drawable/ic_menu_edit"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        app:tint="@color/textColorSecondary"
+                        android:visibility="gone"
+                        android:contentDescription="Edit Reminder" />
+
+                    <ImageButton
+                        android:id="@+id/btnDeleteReminderIcon"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@android:drawable/ic_menu_delete"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        app:tint="@color/colorDanger"
+                        android:visibility="gone"
+                        android:contentDescription="Delete Reminder" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="16dp"
-                android:gravity="center_vertical">
+                android:weightSum="2">
 
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@android:drawable/ic_lock_idle_alarm"
-                    app:tint="@color/colorPrimary" />
-
-                <TextView
-                    android:id="@+id/tvReminderValue"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSetReminder"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="16dp"
-                    android:text="No reminder set"
-                    android:textColor="@color/textColorPrimary"
-                    android:textSize="15sp" />
+                    android:layout_marginEnd="8dp"
+                    android:text="@string/btn_set_reminder"
+                    android:textColor="?attr/colorOnSurface"
+                    app:cornerRadius="8dp" />
 
-                <ImageButton
-                    android:id="@+id/btnEditReminderIcon"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:src="@android:drawable/ic_menu_edit"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    app:tint="@color/textColorSecondary"
-                    android:visibility="gone"
-                    android:contentDescription="Edit Reminder" />
-
-                <ImageButton
-                    android:id="@+id/btnDeleteReminderIcon"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:src="@android:drawable/ic_menu_delete"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    app:tint="@color/colorDanger"
-                    android:visibility="gone"
-                    android:contentDescription="Delete Reminder" />
-
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddCalendar"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/btn_add_calendar"
+                    android:textColor="?attr/colorOnSurface"
+                    app:cornerRadius="8dp" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:weightSum="2">
+            <!-- Active Appointment Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardActiveAppointment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/dividerColor"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/ic_menu_my_calendar"
+                        app:tint="@color/colorPrimary" />
+
+                    <TextView
+                        android:id="@+id/tvApptValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
+                        android:text="No appointment scheduled"
+                        android:textColor="@color/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <ImageButton
+                        android:id="@+id/btnEditApptIcon"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@android:drawable/ic_menu_edit"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        app:tint="@color/textColorSecondary"
+                        android:visibility="gone"
+                        android:contentDescription="Edit Appointment" />
+
+                    <ImageButton
+                        android:id="@+id/btnDeleteApptIcon"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:src="@android:drawable/ic_menu_delete"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        app:tint="@color/colorDanger"
+                        android:visibility="gone"
+                        android:contentDescription="Delete Appointment" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSetReminder"
+                android:id="@+id/btnSetAppt"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="@string/btn_set_reminder"
-                android:textColor="?attr/colorOnSurface"
-                app:cornerRadius="8dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAddCalendar"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/btn_add_calendar"
+                android:text="Schedule Appointment"
                 android:textColor="?attr/colorOnSurface"
                 app:cornerRadius="8dp" />
         </LinearLayout>
-        
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnMarkAppointmentDetail"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Schedule Appointment"
-            android:textColor="?attr/colorOnSurface"
-            app:cornerRadius="8dp" />
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/dividerColor" android:layout_marginVertical="16dp" />
 

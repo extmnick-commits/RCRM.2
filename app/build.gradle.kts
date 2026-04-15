@@ -14,6 +14,7 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
+
 android {
     namespace = "com.nickpulido.rcrm"
     compileSdk = 35
@@ -49,12 +50,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     
     buildFeatures {
@@ -64,6 +65,10 @@ android {
     buildFeatures {
         viewBinding = true
     }
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {

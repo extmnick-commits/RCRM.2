@@ -1,7 +1,5 @@
 package com.nickpulido.rcrm
 
-import com.nickpulido.rcrm.HotListAdapter
-import com.nickpulido.rcrm.R
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle

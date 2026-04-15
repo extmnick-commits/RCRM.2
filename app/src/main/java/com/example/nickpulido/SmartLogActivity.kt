@@ -1052,10 +1052,11 @@ class SmartLogActivity : AppCompatActivity() {
                     db.collection("leads").add(data)
                         .addOnSuccessListener { 
                             incrementDailyStat("total_count")
-                        if (appointmentDate != null && phoneNumber.isNotEmpty()) {
-                            ReminderReceiver.scheduleReminder(this, phoneNumber, "Appointment: $contactName", appointmentDate!!.time)
-                        } else if (followUpDate != null && phoneNumber.isNotEmpty()) {
-                                ReminderReceiver.scheduleReminder(this, phoneNumber, contactName, followUpDate!!.time)
+                            val phoneToNotify = phoneNumber.ifEmpty { contactName }
+                            if (appointmentDate != null) {
+                                ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $contactName", appointmentDate!!.time)
+                            } else if (followUpDate != null) {
+                                ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
                             }
                             onSuccess() 
                         }
@@ -1092,12 +1093,13 @@ class SmartLogActivity : AppCompatActivity() {
                             if (noteText.isNotEmpty()) {
                                 incrementDailyStat("followup_count")
                             }
-                        if (appointmentDate != null && phoneNumber.isNotEmpty()) {
-                            ReminderReceiver.scheduleReminder(this, phoneNumber, "Appointment: $contactName", appointmentDate!!.time)
-                        } else if (followUpDate != null && phoneNumber.isNotEmpty()) {
-                                ReminderReceiver.scheduleReminder(this, phoneNumber, contactName, followUpDate!!.time)
-                            } else if (phoneNumber.isNotEmpty()) {
-                                ReminderReceiver.cancelReminder(this, phoneNumber)
+                            val phoneToNotify = phoneNumber.ifEmpty { contactName }
+                            if (appointmentDate != null) {
+                                ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $contactName", appointmentDate!!.time)
+                            } else if (followUpDate != null) {
+                                ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
+                            } else {
+                                ReminderReceiver.cancelReminder(this, phoneToNotify)
                             }
                             onSuccess() 
                         }

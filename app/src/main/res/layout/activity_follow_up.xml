@@ -1,36 +1,161 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:paddingTop="32dp"
-    android:paddingHorizontal="24dp"
+    android:padding="20dp"
     android:background="@color/backgroundColor">
 
-    <!-- Search & Filter/Settings Header -->
     <LinearLayout
+        android:id="@+id/headerContainer"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="24dp">
+        android:gravity="center_vertical">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:src="@android:drawable/ic_menu_revert"
+            app:tint="@color/textColorPrimary" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvFollowUpHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/follow_up_header"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/textColorPrimary" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSideKickPage"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="💡 Side-Kick"
+            android:textAllCaps="false"
+            android:textColor="@color/colorPrimary" />
+    </LinearLayout>
+
+    <!-- Follow-up Progress Dial -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardFollowUpProgress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/headerContainer"
+        android:layout_marginTop="16dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="2dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <FrameLayout
+                android:layout_width="80dp"
+                android:layout_height="80dp">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/progressFollowUps"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    app:indicatorSize="80dp"
+                    app:trackThickness="8dp"
+                    app:indicatorColor="@color/colorSuccess"
+                    app:trackColor="@color/dividerColor"
+                    app:trackCornerRadius="4dp"
+                    android:max="100"
+                    android:progress="0" />
+
+                <TextView
+                    android:id="@+id/tvFollowUpCountDisplay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="0"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Follow-Ups Today"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/textColorPrimary" />
+
+                <TextView
+                    android:id="@+id/tvFollowUpGoalDisplay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Goal: 0"
+                    android:textSize="14sp"
+                    android:textColor="@color/textColorSecondary" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_edit"
+                android:contentDescription="Edit Goal"
+                app:tint="@color/textColorSecondary" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout
+        android:id="@+id/searchFilterContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/cardFollowUpProgress"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardBackgroundColor="@color/white"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp">
-            
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="@color/dividerColor"
+            app:cardBackgroundColor="@color/backgroundColor">
+
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="48dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="16dp">
+                android:paddingHorizontal="12dp">
 
                 <ImageView
                     android:layout_width="20dp"
@@ -47,138 +172,28 @@
                     android:importantForAutofill="no"
                     android:inputType="textPersonName"
                     android:paddingHorizontal="10dp"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     android:textColor="@color/textColorPrimary"
                     android:textColorHint="@color/textColorSecondary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSideKickPage"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="💡 Side-Kick"
-            android:textAllCaps="false"
-            android:textColor="@color/colorPrimary" />
-
         <ImageButton
             android:id="@+id/btnFilterCategory"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginStart="4dp"
+            android:layout_marginStart="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_sort_by_size"
             android:contentDescription="Filter Category"
             app:tint="@color/colorPrimary" />
     </LinearLayout>
 
-    <!-- App Title / Header -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="24dp">
-
-        <ImageButton
-            android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="12dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Back"
-            android:src="@android:drawable/ic_menu_revert"
-            app:tint="@color/textColorPrimary" />
-
-        <TextView
-            android:id="@+id/tvFollowUpHeader"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/follow_up_header"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:letterSpacing="-0.02"
-            android:textColor="@color/textColorPrimary" />
-    </LinearLayout>
-
-    <!-- Follow-up Progress Dial -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardFollowUpProgress"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="2dp"
-        app:strokeWidth="0dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingVertical="24dp"
-            android:paddingHorizontal="16dp"
-            android:gravity="center">
-
-            <FrameLayout
-                android:layout_width="110dp"
-                android:layout_height="110dp">
-
-                <com.google.android.material.progressindicator.CircularProgressIndicator
-                    android:id="@+id/progressFollowUps"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    app:indicatorSize="100dp"
-                    app:trackThickness="8dp"
-                    app:indicatorColor="@color/colorSuccess"
-                    app:trackColor="@color/dividerColor"
-                    app:trackCornerRadius="4dp"
-                    android:max="100"
-                    android:progress="0" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:id="@+id/tvFollowUpCountDisplay"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="26sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/textColorPrimary" />
-                    <TextView
-                        android:id="@+id/tvFollowUpGoalDisplay"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="-2dp"
-                        android:text="Goal: 0"
-                        android:textSize="12sp"
-                        android:textColor="@color/textColorSecondary" />
-                </LinearLayout>
-            </FrameLayout>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Follow-Ups Today"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@color/textColorSecondary" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
     <TextView
         android:id="@+id/tvEmptyFollowUps"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_below="@id/searchFilterContainer"
         android:text="No leads found."
         android:gravity="center"
         android:padding="24dp"
@@ -186,23 +201,26 @@
         android:textColor="@color/textColorSecondary"
         android:visibility="gone" />
 
-<androidx.recyclerview.widget.RecyclerView
-    android:id="@+id/rvFollowUps"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvFollowUps"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="match_parent"
+        android:layout_below="@id/searchFilterContainer"
+        android:layout_above="@+id/bulkActionBar"
+        android:layout_marginTop="12dp"
         android:clipToPadding="false"
         android:paddingBottom="24dp"
-    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
     <LinearLayout
         android:id="@+id/bulkActionBar"
+        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
         android:orientation="horizontal"
         android:visibility="gone"
-        android:paddingTop="16dp"
-        android:paddingBottom="8dp">
+        android:paddingTop="16dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBulkDictate"
@@ -237,4 +255,5 @@
             app:strokeColor="@color/dividerColor"
             android:textColor="@color/textColorSecondary" />
     </LinearLayout>
-</LinearLayout>
+
+</RelativeLayout>
