@@ -1053,10 +1053,11 @@ class SmartLogActivity : AppCompatActivity() {
                         .addOnSuccessListener { 
                             incrementDailyStat("total_count")
                             val phoneToNotify = phoneNumber.ifEmpty { contactName }
-                            if (appointmentDate != null) {
-                                ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $contactName", appointmentDate!!.time)
-                            } else if (followUpDate != null) {
+                            if (followUpDate != null) {
                                 ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
+                            }
+                            if (appointmentDate != null) {
+                                ReminderReceiver.scheduleReminder(this, "appt_$phoneToNotify", "Appointment: $contactName", appointmentDate!!.time)
                             }
                             onSuccess() 
                         }

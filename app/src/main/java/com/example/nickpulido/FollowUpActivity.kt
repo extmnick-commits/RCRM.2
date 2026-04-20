@@ -126,6 +126,15 @@ class FollowUpActivity : AppCompatActivity() {
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
 
+        binding.cardFollowUpProgress.setOnClickListener {
+            showGoalDialog()
+        }
+        
+        binding.cardFollowUpProgress.setOnLongClickListener {
+            showAdjustCountDialog()
+            true
+        }
+
         loadFollowUps()
         loadLocalStats()
         listenToStats()
@@ -476,15 +485,22 @@ class FollowUpActivity : AppCompatActivity() {
         // Contact Buttons
         btnSmsDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
-            if (phone.isNotEmpty()) startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")))
+            if (phone.isNotEmpty()) {
+                incrementDailyStat("followup_count")
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")))
+            }
         }
         btnCallDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
-            if (phone.isNotEmpty()) startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+            if (phone.isNotEmpty()) {
+                incrementDailyStat("followup_count")
+                startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+            }
         }
         btnEmailDetail?.setOnClickListener {
             val email = editEmail?.text.toString()
             if (email.isNotEmpty()) {
+                incrementDailyStat("followup_count")
                 val intent = Intent(Intent.ACTION_SENDTO).apply {
                     data = Uri.parse("mailto:")
                     putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
@@ -591,17 +607,18 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         val apptClickAction = View.OnClickListener {
-            val apptDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_set_appointment, null)
+            val apptDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_appointment, null)
             val apptDialog = AlertDialog.Builder(this).setView(apptDialogView).create()
+            apptDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
             val btnApptDate = apptDialogView.findViewById<Button>(R.id.btnApptDate)
             val btnApptTime = apptDialogView.findViewById<Button>(R.id.btnApptTime)
-            val tvApptDateTime = apptDialogView.findViewById<TextView>(R.id.tvApptDateTime)
-            val rbOffice = apptDialogView.findViewById<RadioButton>(R.id.rbOfficeAddress)
-            val rbCustom = apptDialogView.findViewById<RadioButton>(R.id.rbCustomAddress)
+            val tvApptDateTime = apptDialogView.findViewById<TextView>(R.id.tvSelectedDateTime)
+            val rbOffice = apptDialogView.findViewById<RadioButton>(R.id.rbOffice)
+            val rbCustom = apptDialogView.findViewById<RadioButton>(R.id.rbCustom)
             val llOfficeAddressConfig = apptDialogView.findViewById<LinearLayout>(R.id.llOfficeAddressConfig)
-            val tvOfficeAddress = apptDialogView.findViewById<TextView>(R.id.tvOfficeAddressDisplay)
-            val btnEditOffice = apptDialogView.findViewById<View>(R.id.btnEditOfficeAddress)
+            val tvOfficeAddress = apptDialogView.findViewById<TextView>(R.id.tvCurrentOffice)
+            val btnEditOffice = apptDialogView.findViewById<View>(R.id.btnEditOffice)
             val tilCustomAddress = apptDialogView.findViewById<View>(R.id.tilCustomAddress)
             val etCustomAddress = apptDialogView.findViewById<EditText>(R.id.etCustomAddress)
             val btnSaveAppt = apptDialogView.findViewById<Button>(R.id.btnSaveAppt)
@@ -614,7 +631,7 @@ class FollowUpActivity : AppCompatActivity() {
                     val sdf = SimpleDateFormat("EEE, MMM dd, yyyy @ hh:mm a", Locale.getDefault())
                     tvApptDateTime?.text = sdf.format(tempCal!!.time)
                 } else {
-                    tvApptDateTime?.text = "Not selected"
+                    tvApptDateTime?.text = "No date/time selected"
                 }
             }
             updateDateTimeUI()
@@ -814,11 +831,21 @@ class FollowUpActivity : AppCompatActivity() {
             val msg = etIntroText?.text.toString()
             val phone = editPhone?.text.toString()
             if (msg.isNotEmpty() && phone.isNotEmpty()) {
+                incrementDailyStat("followup_count")
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")).apply { putExtra("sms_body", msg) })
             }
         }
 
         btnSave?.setOnClickListener {
+            // Capture any unsent text from the Quick Note input before saving
+            val pendingNoteText = etQuickNote?.text.toString().trim()
+            if (pendingNoteText.isNotEmpty()) {
+                val date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
+                notesList.add(DatedNote(date, pendingNoteText))
+                etQuickNote?.text?.clear()
+                refreshNotesUI()
+            }
+
             val updatedCats = mutableListOf<String>()
             if (cbRecruit?.isChecked == true) updatedCats.add(getString(R.string.category_recruit))
             if (cbProspect?.isChecked == true) updatedCats.add(getString(R.string.category_prospect))
@@ -864,12 +891,16 @@ class FollowUpActivity : AppCompatActivity() {
                 
                 val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
                 
-                if (appointmentDate != null) {
-                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: ${editName?.text}", appointmentDate!!.time)
-                } else if (selectedFollowUpDate != null) {
+                if (selectedFollowUpDate != null) {
                     ReminderReceiver.scheduleReminder(this, phoneToNotify, editName?.text.toString(), selectedFollowUpDate!!.time)
                 } else {
                     ReminderReceiver.cancelReminder(this, phoneToNotify)
+                }
+                
+                if (appointmentDate != null) {
+                    ReminderReceiver.scheduleReminder(this, "appt_$phoneToNotify", "Appointment: ${editName?.text}", appointmentDate!!.time)
+                } else {
+                    ReminderReceiver.cancelReminder(this, "appt_$phoneToNotify")
                 }
                 
                 Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
@@ -914,46 +945,116 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun loadLocalStats() {
-        val prefs = getSharedPreferences("daily_stats", Context.MODE_PRIVATE)
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val prefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
+        val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
         val lastDate = prefs.getString("last_date", "")
         if (lastDate != today) {
             prefs.edit {
                 putString("last_date", today)
-                putInt("followup_count", 0)
-                putInt("recruit_count", 0)
-                putInt("prospect_count", 0)
-                putInt("client_count", 0)
             }
         }
+        updateDialUI()
     }
 
     private fun listenToStats() {
         val userId = auth.currentUser?.uid ?: return
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        statsListener = db.collection("users").document(userId).collection("daily_stats").document(today)
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        statsListener = db.collection("user_settings").document(userId).collection("daily_stats").document(dateStr)
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null && snapshot.exists()) {
-                    val prefs = getSharedPreferences("daily_stats", Context.MODE_PRIVATE)
+                    val prefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
                     prefs.edit {
-                        putInt("followup_count", (snapshot.getLong("followup_count") ?: 0).toInt())
-                        putInt("recruit_count", (snapshot.getLong("recruit_count") ?: 0).toInt())
-                        putInt("prospect_count", (snapshot.getLong("prospect_count") ?: 0).toInt())
-                        putInt("client_count", (snapshot.getLong("client_count") ?: 0).toInt())
+                        putInt("${dateStr}_followup_count", (snapshot.getLong("followup_count") ?: 0).toInt())
+                        putInt("${dateStr}_total_count", (snapshot.getLong("total_count") ?: 0).toInt())
+                        val goal = snapshot.getLong("followup_goal")?.toInt()
+                        if (goal != null) putInt("${dateStr}_followup_goal", goal)
                     }
+                    updateDialUI()
                 }
             }
     }
 
     private fun incrementDailyStat(field: String) {
         val userId = auth.currentUser?.uid ?: return
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        db.collection("users").document(userId).collection("daily_stats").document(today)
-            .update(field, FieldValue.increment(1))
-            .addOnFailureListener {
-                db.collection("users").document(userId).collection("daily_stats").document(today)
-                    .set(mapOf(field to 1), SetOptions.merge())
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        
+        // Update local stats for immediate UI sync in MainActivity
+        val statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
+        val currentLocalCount = statsPrefs.getInt("${dateStr}_$field", 0)
+        statsPrefs.edit { putInt("${dateStr}_$field", currentLocalCount + 1) }
+
+        if (field == "followup_count") {
+            updateDialUI()
+        }
+
+        db.collection("user_settings").document(userId)
+            .collection("daily_stats").document(dateStr)
+            .set(mapOf(field to FieldValue.increment(1)), SetOptions.merge())
+    }
+
+    private fun updateDialUI() {
+        val prefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        val count = prefs.getInt("${dateStr}_followup_count", 0)
+        val goal = prefs.getInt("${dateStr}_followup_goal", 5)
+
+        binding.progressFollowUps.max = if (goal > 0) goal else 1
+        binding.progressFollowUps.progress = count
+        binding.tvFollowUpCountDisplay.text = count.toString()
+        binding.tvFollowUpGoalDisplay.text = "Goal: $goal"
+    }
+
+    private fun showGoalDialog() {
+        val prefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        val currentGoal = prefs.getInt("${dateStr}_followup_goal", 5)
+
+        val input = EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        input.setText(currentGoal.toString())
+
+        AlertDialog.Builder(this)
+            .setTitle("Daily Follow-up Goal")
+            .setMessage("Set your target goal:")
+            .setView(input)
+            .setPositiveButton("Set") { _, _ ->
+                val goal = input.text.toString().toIntOrNull() ?: currentGoal
+                prefs.edit { putInt("${dateStr}_followup_goal", goal) }
+                
+                auth.currentUser?.uid?.let { userId ->
+                    db.collection("user_settings").document(userId).set(mapOf("followup_goal" to goal), SetOptions.merge())
+                    db.collection("user_settings").document(userId).collection("daily_stats").document(dateStr).set(mapOf("followup_goal" to goal), SetOptions.merge())
+                }
+                updateDialUI()
             }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAdjustCountDialog() {
+        val prefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
+        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+        val currentCount = prefs.getInt("${dateStr}_followup_count", 0)
+
+        val input = EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        input.setText(currentCount.toString())
+
+        AlertDialog.Builder(this)
+            .setTitle("Manual Follow-Ups Adjustment")
+            .setMessage("Manually adjust today's count:")
+            .setView(input)
+            .setPositiveButton("Update") { _, _ ->
+                val newVal = input.text.toString().toIntOrNull() ?: currentCount
+                prefs.edit { putInt("${dateStr}_followup_count", newVal) }
+                
+                auth.currentUser?.uid?.let { userId ->
+                    db.collection("user_settings").document(userId).collection("daily_stats").document(dateStr).set(mapOf("followup_count" to newVal), SetOptions.merge())
+                }
+                updateDialUI()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun processVoiceLogListWithAI(leadId: String, spokenText: String) {
@@ -1073,11 +1174,5 @@ class FollowUpActivity : AppCompatActivity() {
             }
         }
         return list
-    }
-
-    private fun incrementDailyStatLocalOnly(field: String) {
-         val prefs = getSharedPreferences("daily_stats", Context.MODE_PRIVATE)
-         val current = prefs.getInt(field, 0)
-         prefs.edit { putInt(field, current + 1) }
     }
 }
