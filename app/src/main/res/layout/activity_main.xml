@@ -20,7 +20,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardBackgroundColor="@color/white"
+            app:cardBackgroundColor="?attr/colorSurface"
             app:cardCornerRadius="24dp"
             app:cardElevation="2dp"
             app:strokeWidth="0dp">
@@ -37,7 +37,9 @@
                 android:drawablePadding="12dp"
                 android:paddingHorizontal="16dp"
                 android:textSize="15sp"
-                android:inputType="text" />
+                android:inputType="text"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/textColorHint" />
         </com.google.android.material.card.MaterialCardView>
 
         <ImageButton
