@@ -23,21 +23,20 @@ android {
         applicationId = "com.nickpulido.rcrm"
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Make the API key available in BuildConfig
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY")?.trim('"') ?: ""}\"")
     }
-
     buildTypes {
         getByName("debug") {
             firebaseAppDistribution {
                 artifactType = "APK"
                 groups = "qa-testers"
-                releaseNotes = "Bug fixes and improvements."
+                releaseNotes = "General updates and performance enhancements."
             }
         }
         release {
