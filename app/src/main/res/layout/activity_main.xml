@@ -39,7 +39,7 @@
                 android:textSize="15sp"
                 android:inputType="text"
                 android:textColor="?attr/colorOnSurface"
-                android:textColorHint="?attr/textColorHint" />
+                android:textColorHint="?android:attr/textColorHint" />
         </com.google.android.material.card.MaterialCardView>
 
         <ImageButton

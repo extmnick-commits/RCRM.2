@@ -13,5 +13,6 @@
         <item name="colorOnSurface">@color/textColorPrimary</item>
         <item name="colorOnSurfaceVariant">@color/textColorSecondary</item>
         <item name="colorOutline">@color/dividerColor</item>
+        <item name="android:textColorHint">@color/textColorSecondary</item>
     </style>
 </resources>
