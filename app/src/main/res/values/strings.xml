@@ -125,6 +125,24 @@
     <string name="side_kick_description">Automatically analyzes follow-up frequency and note activity to suggest who to contact next.</string>
     <string name="side_kick_notification_title">Side-Kick</string>
     <string name="side_kick_notification_message">You haven\'t checked in with %1$s lately. You used to add %2$d notes a week for them!</string>
+    <string name="side_kick_briefing_time">Briefing Time: %1$s</string>
+
+    <!-- Daily follow-up digest -->
+    <string name="daily_digest_title">Daily Follow-Up Reminder</string>
+    <string name="daily_digest_description">Get a notification at your chosen time listing today\'s follow-ups and appointments.</string>
+    <string name="daily_digest_notification_time">Notification Time: %1$s</string>
+    <string name="daily_digest_test">Preview Today\'s Digest</string>
+    <string name="daily_digest_test_complete">Daily digest preview sent (if you have items due today).</string>
+    <string name="daily_digest_channel_name">Daily follow-ups</string>
+    <string name="daily_digest_channel_description">Daily summary of follow-ups and appointments due today</string>
+    <string name="daily_digest_notification_title">Today\'s schedule (%1$d)</string>
+    <string name="daily_digest_notification_summary">Tap to open follow-ups</string>
+    <string name="daily_digest_section_follow_ups">— Follow-ups —</string>
+    <string name="daily_digest_section_appointments">— Appointments —</string>
+    <string name="daily_digest_content_follow_ups">%1$d follow-up(s) due today</string>
+    <string name="daily_digest_content_appointments">%1$d appointment(s) today</string>
+    <string name="daily_digest_content_both">%1$d follow-up(s) and %2$d appointment(s) today</string>
+    <string name="daily_digest_and_more">…and %1$d more</string>
 
     <string name="category_investment">Investment</string>
     <string name="category_life_insurance">Life Insurance</string>

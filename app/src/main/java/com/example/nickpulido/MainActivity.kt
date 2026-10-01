@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -256,6 +257,9 @@ class MainActivity : AppCompatActivity() {
         
         if (prefs.getBoolean("side_kick_enabled", false)) {
             scheduleSideKickWorker()
+        }
+        if (prefs.getBoolean(DailyFollowUpWorker.KEY_ENABLED, DailyFollowUpWorker.DEFAULT_ENABLED)) {
+            scheduleDailyDigestWorker()
         }
     }
 
@@ -569,10 +573,27 @@ class MainActivity : AppCompatActivity() {
     private fun showSettingsDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_settings, null)
         val switchSideKick = view.findViewById<MaterialSwitch>(R.id.switchSideKick)
+        val switchDailyDigest = view.findViewById<MaterialSwitch>(R.id.switchDailyDigest)
+        val btnSetSideKickTime = view.findViewById<Button>(R.id.btnSetSideKickTime)
+        val btnSetDailyDigestTime = view.findViewById<Button>(R.id.btnSetDailyDigestTime)
+        val btnTestDailyDigest = view.findViewById<Button>(R.id.btnTestDailyDigest)
+        val progressDailyDigest = view.findViewById<ProgressBar>(R.id.progressDailyDigest)
         val switchFollowSystem = view.findViewById<MaterialSwitch>(R.id.switchFollowSystemTheme)
         val switchDarkMode = view.findViewById<MaterialSwitch>(R.id.switchDarkMode)
         val btnForceRunSideKick = view.findViewById<Button>(R.id.btnForceRunSideKick)
         val progressSideKick = view.findViewById<ProgressBar>(R.id.progressSideKick)
+
+        var sideKickHour = prefs.getInt("side_kick_briefing_hour", 8)
+        var sideKickMinute = prefs.getInt("side_kick_briefing_minute", 0)
+        var digestHour = prefs.getInt(DailyFollowUpWorker.KEY_HOUR, 8)
+        var digestMinute = prefs.getInt(DailyFollowUpWorker.KEY_MINUTE, 0)
+
+        fun refreshSideKickTimeLabel() {
+            btnSetSideKickTime?.text = getString(R.string.side_kick_briefing_time, formatTime12Hour(sideKickHour, sideKickMinute))
+        }
+        fun refreshDigestTimeLabel() {
+            btnSetDailyDigestTime?.text = getString(R.string.daily_digest_notification_time, formatTime12Hour(digestHour, digestMinute))
+        }
         
         val etNewPreset = view.findViewById<EditText>(R.id.etNewPreset)
         val btnInsertName = view.findViewById<Button>(R.id.btnInsertNameTagDialog)
@@ -587,10 +608,47 @@ class MainActivity : AppCompatActivity() {
         val btnBackupData = view.findViewById<Button>(R.id.btnBackupData)
         val btnRestoreData = view.findViewById<Button>(R.id.btnRestoreData)
         val containerIgnoredContacts = view.findViewById<LinearLayout>(R.id.containerIgnoredContacts)
+        val headerIgnoredContacts = view.findViewById<LinearLayout>(R.id.headerIgnoredContacts)
+        val cardIgnoredContacts = view.findViewById<View>(R.id.cardIgnoredContacts)
+        val ivToggleIgnoredContacts = view.findViewById<View>(R.id.ivToggleIgnoredContacts)
         
         switchSideKick.isChecked = prefs.getBoolean("side_kick_enabled", false)
+        switchDailyDigest.isChecked = prefs.getBoolean(DailyFollowUpWorker.KEY_ENABLED, DailyFollowUpWorker.DEFAULT_ENABLED)
         switchFollowSystem.isChecked = prefs.getBoolean("follow_system_theme", true)
         switchDarkMode.isChecked = prefs.getBoolean("dark_mode", false)
+
+        refreshSideKickTimeLabel()
+        refreshDigestTimeLabel()
+
+        btnSetSideKickTime?.setOnClickListener {
+            showTimePicker(sideKickHour, sideKickMinute) { hour, minute ->
+                sideKickHour = hour
+                sideKickMinute = minute
+                refreshSideKickTimeLabel()
+            }
+        }
+
+        btnSetDailyDigestTime?.setOnClickListener {
+            showTimePicker(digestHour, digestMinute) { hour, minute ->
+                digestHour = hour
+                digestMinute = minute
+                refreshDigestTimeLabel()
+            }
+        }
+
+        btnTestDailyDigest?.setOnClickListener {
+            btnTestDailyDigest.isEnabled = false
+            progressDailyDigest?.visibility = View.VISIBLE
+            val request = OneTimeWorkRequestBuilder<DailyFollowUpWorker>().build()
+            WorkManager.getInstance(this).enqueue(request)
+            WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.id).observe(this) { workInfo ->
+                if (workInfo != null && workInfo.state.isFinished) {
+                    btnTestDailyDigest.isEnabled = true
+                    progressDailyDigest?.visibility = View.GONE
+                    Toast.makeText(this, R.string.daily_digest_test_complete, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         
         switchDarkMode.isEnabled = !switchFollowSystem.isChecked
 
@@ -617,14 +675,29 @@ class MainActivity : AppCompatActivity() {
         // --- Ignored Contacts Logic ---
         val ignoredContacts = (prefs.getStringSet(PREFS_IGNORED, emptySet()) ?: emptySet()).toMutableList()
         
+        headerIgnoredContacts?.setOnClickListener {
+            if (cardIgnoredContacts?.visibility == View.VISIBLE) {
+                cardIgnoredContacts.visibility = View.GONE
+                ivToggleIgnoredContacts?.animate()?.rotation(0f)?.setDuration(200)?.start()
+            } else {
+                cardIgnoredContacts?.visibility = View.VISIBLE
+                ivToggleIgnoredContacts?.animate()?.rotation(180f)?.setDuration(200)?.start()
+            }
+        }
+
         fun refreshIgnoredContacts() {
             containerIgnoredContacts.removeAllViews()
+            
+            val textColorPrimary = ContextCompat.getColor(this, R.color.textColorPrimary)
+            val textColorSecondary = ContextCompat.getColor(this, R.color.textColorSecondary)
+            val dividerColor = ContextCompat.getColor(this, R.color.dividerColor)
+            
             if (ignoredContacts.isEmpty()) {
                 val tv = TextView(this).apply {
                     text = getString(R.string.msg_no_ignored_contacts)
                     gravity = android.view.Gravity.CENTER
                     setPadding(16, 16, 16, 16)
-                    setTextColor(Color.parseColor("#666666"))
+                    setTextColor(textColorSecondary)
                 }
                 containerIgnoredContacts.addView(tv)
             } else {
@@ -638,7 +711,7 @@ class MainActivity : AppCompatActivity() {
                     val tvNumber = TextView(this).apply {
                         text = number
                         textSize = 14f
-                        setTextColor(Color.parseColor("#2A2A2A"))
+                        setTextColor(textColorPrimary)
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     }
                     val btnRemove = ImageButton(this).apply {
@@ -660,7 +733,7 @@ class MainActivity : AppCompatActivity() {
                     
                     val divider = View(this).apply {
                         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
-                        setBackgroundColor(Color.parseColor("#DDDDDD"))
+                        setBackgroundColor(dividerColor)
                     }
                     
                     containerIgnoredContacts.addView(row)
@@ -760,6 +833,7 @@ class MainActivity : AppCompatActivity() {
             .setView(view)
             .setPositiveButton("Save") { _, _ ->
                 val sideKickEnabled = switchSideKick.isChecked
+                val dailyDigestEnabled = switchDailyDigest.isChecked
                 val followSystem = switchFollowSystem.isChecked
                 val darkMode = switchDarkMode.isChecked
                 
@@ -768,11 +842,17 @@ class MainActivity : AppCompatActivity() {
 
                 prefs.edit { 
                     putBoolean("side_kick_enabled", sideKickEnabled)
+                    putBoolean(DailyFollowUpWorker.KEY_ENABLED, dailyDigestEnabled)
+                    putInt("side_kick_briefing_hour", sideKickHour)
+                    putInt("side_kick_briefing_minute", sideKickMinute)
+                    putInt(DailyFollowUpWorker.KEY_HOUR, digestHour)
+                    putInt(DailyFollowUpWorker.KEY_MINUTE, digestMinute)
                     putBoolean("follow_system_theme", followSystem)
                     putBoolean("dark_mode", darkMode)
                 }
                 
                 if (sideKickEnabled) scheduleSideKickWorker() else WorkManager.getInstance(this).cancelUniqueWork("SideKickWorker")
+                if (dailyDigestEnabled) scheduleDailyDigestWorker() else cancelDailyDigestWorker()
                 
                 if (followSystem != oldFollowSystem || darkMode != oldDarkMode) {
                     applyAppTheme()
@@ -1048,6 +1128,58 @@ class MainActivity : AppCompatActivity() {
             .build()
         // Use REPLACE to ensure the latest schedule is always used
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("SideKickWorker", ExistingPeriodicWorkPolicy.REPLACE, request)
+    }
+
+    private fun scheduleDailyDigestWorker() {
+        val digestHour = prefs.getInt(DailyFollowUpWorker.KEY_HOUR, 8)
+        val digestMinute = prefs.getInt(DailyFollowUpWorker.KEY_MINUTE, 0)
+
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, digestHour)
+            set(Calendar.MINUTE, digestMinute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (before(Calendar.getInstance())) {
+                add(Calendar.DATE, 1)
+            }
+        }
+        val initialDelay = (calendar.timeInMillis - System.currentTimeMillis()).coerceAtLeast(0)
+
+        val request = PeriodicWorkRequestBuilder<DailyFollowUpWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            DailyFollowUpWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.REPLACE,
+            request
+        )
+    }
+
+    private fun cancelDailyDigestWorker() {
+        WorkManager.getInstance(this).cancelUniqueWork(DailyFollowUpWorker.WORK_NAME)
+    }
+
+    private fun formatTime12Hour(hour: Int, minute: Int): String {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+        }
+        return SimpleDateFormat("h:mm a", Locale.getDefault()).format(cal.time)
+    }
+
+    private fun showTimePicker(
+        initialHour: Int,
+        initialMinute: Int,
+        onTimeSelected: (hour: Int, minute: Int) -> Unit
+    ) {
+        TimePickerDialog(
+            this,
+            { _, hour, minute -> onTimeSelected(hour, minute) },
+            initialHour,
+            initialMinute,
+            false
+        ).show()
     }
 
     private fun checkPermissions() {
