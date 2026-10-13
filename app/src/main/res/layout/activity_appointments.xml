@@ -14,7 +14,7 @@
         android:orientation="horizontal"
         android:padding="16dp"
         android:gravity="center_vertical"
-        android:background="?attr/colorSurface">
+        android:background="@color/backgroundColor">
         
         <ImageButton
             android:id="@+id/btnBackAppointments"

@@ -7,11 +7,11 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="4dp"
     android:layout_marginVertical="6dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="2dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
     app:strokeWidth="1dp"
     app:strokeColor="@color/dividerColor"
-    app:cardBackgroundColor="?attr/colorSurface">
+    app:cardBackgroundColor="@color/surfaceColor">
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -562,8 +562,9 @@ class FollowUpActivity : AppCompatActivity() {
         val reminderAction = {
             val cal = Calendar.getInstance()
             selectedFollowUpDate?.let { cal.time = it }
-            DatePickerDialog(this, { _, year, month, day ->
-                TimePickerDialog(this, { _, hour, minute ->
+            val pickerTheme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+            DatePickerDialog(this, pickerTheme, { _, year, month, day ->
+                TimePickerDialog(this, pickerTheme, { _, hour, minute ->
                     val newCal = Calendar.getInstance()
                     newCal.set(year, month, day, hour, minute)
                     selectedFollowUpDate = newCal.time
@@ -699,7 +700,7 @@ class FollowUpActivity : AppCompatActivity() {
 
             btnApptDate?.setOnClickListener {
                 val cal = tempCal ?: Calendar.getInstance()
-                DatePickerDialog(this@FollowUpActivity, { _, year, month, day ->
+                DatePickerDialog(this@FollowUpActivity, android.R.style.Theme_DeviceDefault_Dialog_Alert, { _, year, month, day ->
                     if (tempCal == null) tempCal = Calendar.getInstance()
                     tempCal!!.set(year, month, day)
                     updateDateTimeUI()
@@ -708,7 +709,7 @@ class FollowUpActivity : AppCompatActivity() {
 
             btnApptTime?.setOnClickListener {
                 val cal = tempCal ?: Calendar.getInstance()
-                TimePickerDialog(this@FollowUpActivity, { _, hour, minute ->
+                TimePickerDialog(this@FollowUpActivity, android.R.style.Theme_DeviceDefault_Dialog_Alert, { _, hour, minute ->
                     if (tempCal == null) tempCal = Calendar.getInstance()
                     tempCal!!.set(Calendar.HOUR_OF_DAY, hour)
                     tempCal!!.set(Calendar.MINUTE, minute)

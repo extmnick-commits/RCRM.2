@@ -3,17 +3,19 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <color name="colorPrimary">#3F91FF</color> <!-- A slightly brighter blue for dark theme -->
-    <color name="colorSecondary">#8A939B</color>
-    <color name="colorSuccess">#48D66A</color>
-    <color name="colorInfo">#38D8F0</color>
-    <color name="colorDanger">#FF5B69</color>
-    <color name="textColorPrimary">#FFFFFF</color>
-    <color name="textColorSecondary">#CCCCCC</color>
-    <color name="dividerColor">#444444</color>
-    <color name="backgroundColor">#121212</color>
+    <color name="colorPrimary">#FF4C8DFF</color>
+    <color name="colorSecondary">#FF9AA6BD</color>
+    <color name="colorSuccess">#FF3DFF9A</color>
+    <color name="colorInfo">#FF2EE7FF</color>
+    <color name="colorDanger">#FFFF5B7A</color>
+    <color name="textColorPrimary">#FFF4F7FF</color>
+    <color name="textColorSecondary">#FF9AA6BD</color>
+    <color name="dividerColor">#33FFFFFF</color>
+    <color name="backgroundColor">#FF070B14</color>
+    <color name="surfaceColor">#FF121A2C</color>
+    <color name="surfaceGlass">#CC101828</color>
 
-    <color name="category_recruit_bg">#388E3C</color> <!-- Darker Green -->
-    <color name="category_client_bg">#7B1FA2</color> <!-- Darker Purple -->
-    <color name="category_default_bg">#0277BD</color> <!-- Darker Blue -->
+    <color name="category_recruit_bg">#FF1E6B45</color>
+    <color name="category_client_bg">#FF6A2E8C</color>
+    <color name="category_default_bg">#FF1E4FA8</color>
 </resources>

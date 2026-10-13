@@ -29,7 +29,7 @@
                 android:layout_height="40dp"
                 android:src="@android:drawable/ic_menu_myplaces"
                 app:tint="@color/colorPrimary"
-                android:background="#1A007BFF" 
+                android:background="#334C8DFF" 
                 android:padding="8dp"/>
 
             <LinearLayout

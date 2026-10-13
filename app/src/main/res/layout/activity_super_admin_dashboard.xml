@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
-    android:background="?android:attr/windowBackground">
+    android:background="@color/backgroundColor">
 
     <TextView
         android:id="@+id/tvSuperAdminTitle"
@@ -12,6 +12,7 @@
         android:text="Super Admin Management Panel"
         android:textSize="22sp"
         android:textStyle="bold"
+        android:textColor="@color/textColorPrimary"
         android:layout_marginBottom="16dp"
         android:layout_centerHorizontal="true" />
 
@@ -28,7 +29,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/btnMyAdminDashboard"
-        android:divider="@android:color/darker_gray"
+        android:divider="@color/dividerColor"
         android:dividerHeight="1dp" />
 
 </RelativeLayout>

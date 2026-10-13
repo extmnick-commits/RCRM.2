@@ -96,83 +96,11 @@
     </RelativeLayout>
 
     <!-- Quick Actions (2x2 Grid) -->
-    <LinearLayout
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/composeQuickActions"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginBottom="24dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnQuickAdd"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="64dp"
-                android:layout_marginEnd="6dp"
-                android:text="Quick Add / Import"
-                app:cornerRadius="16dp"
-                android:backgroundTint="@color/colorPrimary"
-                android:textColor="@color/white"
-                app:icon="@android:drawable/ic_input_add"
-                app:iconGravity="textStart"
-                app:iconTint="@color/white"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAppointments"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="64dp"
-                android:layout_marginStart="6dp"
-                android:text="Appointments"
-                app:cornerRadius="16dp"
-                android:backgroundTint="#4CAF50"
-                android:textColor="@color/white"
-                app:icon="@android:drawable/ic_menu_my_calendar"
-                app:iconGravity="textStart"
-                app:iconTint="@color/white"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnFollowUpList"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="64dp"
-                android:layout_marginEnd="6dp"
-                android:text="@string/btn_follow_ups"
-                app:cornerRadius="16dp"
-                app:strokeColor="@color/colorPrimary"
-                android:textColor="@color/colorPrimary"
-                app:icon="@android:drawable/ic_menu_my_calendar"
-                app:iconGravity="textStart"
-                app:iconTint="@color/colorPrimary"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_view_contacts"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="64dp"
-                android:layout_marginStart="6dp"
-                android:text="@string/btn_contacts"
-                app:cornerRadius="16dp"
-                app:strokeColor="@color/dividerColor"
-                android:textColor="@color/textColorSecondary"
-                app:icon="@android:drawable/ic_menu_sort_by_size"
-                app:iconGravity="textStart"
-                app:iconTint="@color/textColorSecondary"/>
-        </LinearLayout>
-    </LinearLayout>
+        android:layout_marginBottom="24dp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAdminDashboard"
@@ -193,143 +121,19 @@
         android:baselineAligned="false"
         android:layout_marginBottom="24dp">
 
-        <!-- Contacts Dial -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardTotalLeads"
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/composeTotalLeads"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"
-            android:clickable="true"
-            android:focusable="true">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingVertical="24dp"
-                android:paddingHorizontal="16dp"
-                android:gravity="center">
-                <FrameLayout
-                    android:layout_width="110dp"
-                    android:layout_height="110dp">
-                    <com.google.android.material.progressindicator.CircularProgressIndicator
-                        android:id="@+id/progressTotalLeads"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        app:indicatorSize="100dp"
-                        app:trackThickness="8dp"
-                        app:indicatorColor="@color/colorPrimary"
-                        app:trackColor="@color/dividerColor"
-                        app:trackCornerRadius="4dp"
-                        android:max="100"
-                        android:progress="0" />
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:orientation="vertical"
-                        android:gravity="center">
-                        <TextView
-                            android:id="@+id/tvTotalLeads"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="0"
-                            android:textSize="26sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/textColorPrimary" />
-                        <TextView
-                            android:id="@+id/tvTotalLeadsGoal"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="-2dp"
-                            android:text="Goal: 0"
-                            android:textSize="12sp"
-                            android:textColor="@color/textColorSecondary" />
-                    </LinearLayout>
-                </FrameLayout>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Contacts"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/textColorSecondary" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            android:layout_marginEnd="8dp" />
 
-        <!-- Follow-ups Dial -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardFollowUpProgress"
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/composeFollowUps"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"
-            android:clickable="true"
-            android:focusable="true">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingVertical="24dp"
-                android:paddingHorizontal="16dp"
-                android:gravity="center">
-                <FrameLayout
-                    android:layout_width="110dp"
-                    android:layout_height="110dp">
-                    <com.google.android.material.progressindicator.CircularProgressIndicator
-                        android:id="@+id/progressFollowUps"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        app:indicatorSize="100dp"
-                        app:trackThickness="8dp"
-                        app:indicatorColor="@color/colorSuccess"
-                        app:trackColor="@color/dividerColor"
-                        app:trackCornerRadius="4dp"
-                        android:max="100"
-                        android:progress="0" />
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:orientation="vertical"
-                        android:gravity="center">
-                        <TextView
-                            android:id="@+id/tvFollowUpCountDisplay"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="0"
-                            android:textSize="26sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/textColorPrimary" />
-                        <TextView
-                            android:id="@+id/tvFollowUpGoalDisplay"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="-2dp"
-                            android:text="Goal: 0"
-                            android:textSize="12sp"
-                            android:textColor="@color/textColorSecondary" />
-                    </LinearLayout>
-                </FrameLayout>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Follow-Ups"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/textColorSecondary" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <com.google.android.material.tabs.TabLayout

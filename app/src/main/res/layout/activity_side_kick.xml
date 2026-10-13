@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
+    android:background="@color/backgroundColor"
     tools:context=".SideKickActivity">
 
     <TextView
@@ -13,6 +14,7 @@
         android:text="💡 Side-Kick Daily Briefing"
         android:textSize="24sp"
         android:textStyle="bold"
+        android:textColor="@color/textColorPrimary"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="16dp"/>

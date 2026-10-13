@@ -1,18 +1,48 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.RCRM" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
+    <style name="Base.Theme.RCRM" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorSecondary">@color/colorSecondary</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">#FF1A2A4A</item>
+        <item name="colorOnPrimaryContainer">@color/textColorPrimary</item>
+        <item name="colorSecondary">@color/colorInfo</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorSecondaryContainer">#FF10242A</item>
+        <item name="colorOnSecondaryContainer">@color/textColorPrimary</item>
+        <item name="colorTertiary">@color/colorSuccess</item>
+        <item name="colorError">@color/colorDanger</item>
+        <item name="colorOnError">@color/white</item>
 
-        <item name="android:windowBackground">@color/backgroundColor</item>
-        <item name="android:textColorPrimary">@color/textColorPrimary</item>
-        <item name="android:textColorSecondary">@color/textColorSecondary</item>
-
-        <item name="colorSurface">@color/backgroundColor</item>
+        <item name="android:colorBackground">@color/backgroundColor</item>
+        <item name="colorSurface">@color/surfaceColor</item>
+        <item name="colorSurfaceVariant">@color/surfaceGlass</item>
         <item name="colorOnSurface">@color/textColorPrimary</item>
         <item name="colorOnSurfaceVariant">@color/textColorSecondary</item>
         <item name="colorOutline">@color/dividerColor</item>
+        <item name="colorOutlineVariant">#22FFFFFF</item>
+
+        <item name="android:windowBackground">@color/backgroundColor</item>
+        <item name="android:statusBarColor">@color/backgroundColor</item>
+        <item name="android:navigationBarColor">@color/backgroundColor</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
         <item name="android:textColorHint">@color/textColorSecondary</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
+
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="colorAccent">@color/colorPrimary</item>
+
+        <item name="materialButtonStyle">@style/Widget.RCRM.Button</item>
+        <item name="borderlessButtonStyle">@style/Widget.RCRM.Button.Text</item>
+        <item name="materialCardViewStyle">@style/Widget.RCRM.Card</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
+        <item name="popupMenuStyle">@style/Widget.RCRM.PopupMenu</item>
+        <item name="android:popupMenuStyle">@style/Widget.RCRM.PopupMenu</item>
+        <item name="listPopupWindowStyle">@style/Widget.RCRM.PopupMenu.List</item>
+        <item name="tabStyle">@style/Widget.RCRM.TabLayout</item>
     </style>
 </resources>

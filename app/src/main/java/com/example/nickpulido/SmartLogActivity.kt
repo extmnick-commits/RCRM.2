@@ -301,8 +301,7 @@ class SmartLogActivity : AppCompatActivity() {
         }
 
         btn7pmToday.setOnLongClickListener {
-            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
             
             TimePickerDialog(this, theme, { _, hour, minute ->
                 todayPresetHour = hour
@@ -337,8 +336,7 @@ class SmartLogActivity : AppCompatActivity() {
         }
 
         btn7pmTomorrow.setOnLongClickListener {
-            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
             
             TimePickerDialog(this, theme, { _, hour, minute ->
                 tomorrowPresetHour = hour
@@ -820,7 +818,7 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnApptDate.setOnClickListener {
             val cal = tempCal ?: Calendar.getInstance()
-            DatePickerDialog(this, { _, year, month, day ->
+            DatePickerDialog(this, android.R.style.Theme_DeviceDefault_Dialog_Alert, { _, year, month, day ->
                 if (tempCal == null) tempCal = Calendar.getInstance()
                 tempCal!!.set(year, month, day)
                 updateDateTimeUI()
@@ -829,7 +827,7 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnApptTime.setOnClickListener {
             val cal = tempCal ?: Calendar.getInstance()
-            TimePickerDialog(this, { _, hour, minute ->
+            TimePickerDialog(this, android.R.style.Theme_DeviceDefault_Dialog_Alert, { _, hour, minute ->
                 if (tempCal == null) tempCal = Calendar.getInstance()
                 tempCal!!.set(Calendar.HOUR_OF_DAY, hour)
                 tempCal!!.set(Calendar.MINUTE, minute)
@@ -869,8 +867,7 @@ class SmartLogActivity : AppCompatActivity() {
     }
 
     private fun showDateTimePicker(initialCal: Calendar) {
-        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+        val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
         
         DatePickerDialog(this, theme, { _, year, month, day ->
             initialCal.set(year, month, day)

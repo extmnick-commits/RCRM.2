@@ -3,17 +3,19 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <color name="colorPrimary">#007BFF</color>
-    <color name="colorSecondary">#6c757d</color>
-    <color name="colorSuccess">#28A745</color>
-    <color name="colorInfo">#17A2B8</color>
-    <color name="colorDanger">#DC3545</color>
-    <color name="textColorPrimary">#2A2A2A</color>
-    <color name="textColorSecondary">#666666</color>
-    <color name="dividerColor">#DDDDDD</color>
-    <color name="backgroundColor">#F8F9FA</color>
+    <color name="colorPrimary">#FF4C8DFF</color>
+    <color name="colorSecondary">#FF9AA6BD</color>
+    <color name="colorSuccess">#FF3DFF9A</color>
+    <color name="colorInfo">#FF2EE7FF</color>
+    <color name="colorDanger">#FFFF5B7A</color>
+    <color name="textColorPrimary">#FFF4F7FF</color>
+    <color name="textColorSecondary">#FF9AA6BD</color>
+    <color name="dividerColor">#33FFFFFF</color>
+    <color name="backgroundColor">#FF070B14</color>
+    <color name="surfaceColor">#FF121A2C</color>
+    <color name="surfaceGlass">#CC101828</color>
 
-    <color name="category_recruit_bg">#4CAF50</color>
-    <color name="category_client_bg">#9C27B0</color>
-    <color name="category_default_bg">#007BFF</color>
+    <color name="category_recruit_bg">#FF1E6B45</color>
+    <color name="category_client_bg">#FF6A2E8C</color>
+    <color name="category_default_bg">#FF1E4FA8</color>
 </resources>

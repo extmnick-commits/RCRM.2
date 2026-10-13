@@ -259,8 +259,7 @@ class ContactsActivity : AppCompatActivity() {
                 }
             }
 
-            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
 
             DatePickerDialog(this, theme, { _, year, month, day ->
                 val monthStr = (month + 1).toString().padStart(2, '0')

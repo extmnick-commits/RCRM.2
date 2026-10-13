@@ -825,7 +825,7 @@
                     android:layout_weight="1"
                     android:layout_marginEnd="8dp"
                     android:text="✨ AI Draft"
-                    app:backgroundTint="#673AB7"
+                    app:backgroundTint="#FFB14CFF"
                     app:cornerRadius="8dp" />
 
                 <com.google.android.material.button.MaterialButton

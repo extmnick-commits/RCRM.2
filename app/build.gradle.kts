@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.gms.google.services)
     alias(libs.plugins.firebase.appdistribution)
+    alias(libs.plugins.kotlin.compose)
 }
 
 import java.util.Properties
@@ -59,10 +60,8 @@ android {
     
     buildFeatures {
         buildConfig = true // Enable BuildConfig generation
-    }
-
-    buildFeatures {
         viewBinding = true
+        compose = true
     }
 }
 
@@ -76,6 +75,18 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+
+    // Compose
+    val composeBom = platform(libs.compose.bom)
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.core)
+    implementation(libs.androidx.activity.compose)
+    debugImplementation(libs.androidx.ui.tooling)
 
     // Firebase
     implementation(libs.firebase.firestore)

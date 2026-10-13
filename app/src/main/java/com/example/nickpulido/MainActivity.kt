@@ -2,7 +2,7 @@ package com.nickpulido.rcrm
 
 import android.Manifest
 import android.app.AlarmManager
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -14,8 +14,6 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -32,9 +30,16 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.work.*
 import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.tabs.TabLayout
+import com.nickpulido.rcrm.ui.components.DashboardLead
+import com.nickpulido.rcrm.ui.components.DashboardScreen
+import com.nickpulido.rcrm.ui.theme.RCRMTheme
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -54,17 +59,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
     private lateinit var statsPrefs: SharedPreferences
 
-    private lateinit var tvTotalLeads: TextView
-    private lateinit var tvTotalLeadsGoal: TextView
-    private lateinit var progressTotalLeads: com.google.android.material.progressindicator.CircularProgressIndicator
+    // Removed meter views for Compose migration
 
-    private lateinit var progressFollowUps: com.google.android.material.progressindicator.CircularProgressIndicator
-    private lateinit var tvFollowUpCountDisplay: TextView
-    private lateinit var tvFollowUpGoalDisplay: TextView
-
-    private lateinit var adapter: HotListAdapter
     private val hotListData = mutableListOf<Map<String, Any>>()
     private val allLeadsData = mutableListOf<Map<String, Any>>()
+    private var dashboardLeads by mutableStateOf<List<DashboardLead>>(emptyList())
+    private var searchQuery by mutableStateOf("")
+    private var dateLabel by mutableStateOf("Today")
+    private var adminLabel by mutableStateOf<String?>(null)
+    private var adminRole by mutableStateOf("agent")
     
     private var selectedDate = Date()
     private val dateKeyFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
@@ -73,15 +76,15 @@ class MainActivity : AppCompatActivity() {
     private var defaultTotalGoal = 10
     private var defaultFollowUpGoal = 5
 
-    private var currentTotalCount = 0
-    private var currentTotalGoal = 10
-    private var currentFollowUpCount = 0
-    private var currentFollowUpGoal = 5
+    private var currentTotalCount by androidx.compose.runtime.mutableIntStateOf(0)
+    private var currentTotalGoal by androidx.compose.runtime.mutableIntStateOf(10)
+    private var currentFollowUpCount by androidx.compose.runtime.mutableIntStateOf(0)
+    private var currentFollowUpGoal by androidx.compose.runtime.mutableIntStateOf(5)
 
     private var hasPulsedTotalGoal = false
     private var hasPulsedFollowUpGoal = false
 
-    private var currentTabPosition = 0
+    private var currentTabPosition by mutableIntStateOf(0)
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { writeBackupToFile(it) }
@@ -156,7 +159,7 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
         applyAppTheme()
         
-        setContentView(R.layout.activity_main)
+        window.decorView.setBackgroundColor(Color.parseColor("#070B14"))
 
         if (auth.currentUser == null) {
             startActivity(Intent(this, LoginActivity::class.java))
@@ -166,88 +169,66 @@ class MainActivity : AppCompatActivity() {
 
         statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
 
-        tvTotalLeads = findViewById(R.id.tvTotalLeads)
-        tvTotalLeadsGoal = findViewById(R.id.tvTotalLeadsGoal)
-        progressTotalLeads = findViewById(R.id.progressTotalLeads)
-
-        progressFollowUps = findViewById(R.id.progressFollowUps)
-        tvFollowUpCountDisplay = findViewById(R.id.tvFollowUpCountDisplay)
-        tvFollowUpGoalDisplay = findViewById(R.id.tvFollowUpGoalDisplay)
-
-        val listView = findViewById<ListView>(R.id.follow_up_list_view)
-        adapter = HotListAdapter(this, hotListData) { docId ->
-            db.collection("leads").document(docId)
-                .update("followUpDate", null)
-                .addOnSuccessListener {
-                    val lead = hotListData.find { it["__docId"] == docId }
-                    val phone = lead?.get("phone") as? String
-                    if (!phone.isNullOrEmpty()) {
-                        ReminderReceiver.cancelReminder(this, phone)
-                    }
-                    Toast.makeText(this, "Follow-up marked complete", Toast.LENGTH_SHORT).show()
-                    loadHotList()
-                }
-        }
-        listView.adapter = adapter
-
-        val tabLayout = findViewById<TabLayout>(R.id.tabLayoutFollowUps)
-        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab) {
-                currentTabPosition = tab.position
-                (adapter as? HotListAdapter)?.currentTab = currentTabPosition
-                filterHotList(findViewById<EditText>(R.id.search_bar).text.toString())
+        setContent {
+            RCRMTheme {
+                DashboardScreen(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { query ->
+                        searchQuery = query
+                        filterHotList(query)
+                    },
+                    dateLabel = dateLabel,
+                    onHistoryClick = { showDatePicker() },
+                    onSettingsClick = { showSettingsDialog() },
+                    onQuickAdd = { showQuickAddDialog() },
+                    onAppointments = {
+                        startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
+                    },
+                    onFollowUps = {
+                        startActivity(Intent(this@MainActivity, FollowUpActivity::class.java))
+                    },
+                    onContacts = {
+                        startActivity(Intent(this@MainActivity, ContactsActivity::class.java))
+                    },
+                    adminLabel = adminLabel,
+                    onAdminClick = {
+                        when (adminRole) {
+                            "super_admin" -> startActivity(
+                                Intent(this@MainActivity, SuperAdminDashboardActivity::class.java)
+                            )
+                            "admin" -> startActivity(
+                                Intent(this@MainActivity, AdminDashboardActivity::class.java)
+                            )
+                        }
+                    },
+                    totalCount = currentTotalCount,
+                    totalGoal = currentTotalGoal,
+                    followUpCount = currentFollowUpCount,
+                    followUpGoal = currentFollowUpGoal,
+                    onTotalGoalClick = {
+                        showGoalDialog("total_goal", "Set Daily Contacts Goal", currentTotalGoal)
+                    },
+                    onFollowUpGoalClick = {
+                        showGoalDialog("follow_up_goal", "Set Daily Follow-ups Goal", currentFollowUpGoal)
+                    },
+                    onTotalCountLongClick = {
+                        showAdjustCountDialog("total_count", "Manual Contacts Adjustment", currentTotalCount)
+                    },
+                    onFollowUpCountLongClick = {
+                        showAdjustCountDialog("follow_up_count", "Manual Follow-ups Adjustment", currentFollowUpCount)
+                    },
+                    selectedTab = currentTabPosition,
+                    onTabSelected = { tab ->
+                        currentTabPosition = tab
+                        filterHotList(searchQuery)
+                    },
+                    leads = dashboardLeads,
+                    onLeadClick = { openLead(it) },
+                    onCallLead = { dialLead(it) },
+                    onCompleteLead = { completeFollowUp(it) }
+                )
             }
-            override fun onTabUnselected(tab: TabLayout.Tab) {}
-            override fun onTabReselected(tab: TabLayout.Tab) {}
-        })
-
-        listView.setOnItemClickListener { _, _, position, _ ->
-            val lead = hotListData[position]
-            val intent = Intent(this, FollowUpActivity::class.java)
-            intent.putExtra("targetLeadId", lead["id"] as? String)
-            intent.putExtra("targetPhone", lead["phone"] as? String)
-            startActivity(intent)
         }
-
-        findViewById<ImageButton>(R.id.btnSettings).setOnClickListener { showSettingsDialog() }
-        findViewById<Button>(R.id.btnQuickAdd).setOnClickListener { showQuickAddDialog() }
-        findViewById<Button>(R.id.btnAppointments).setOnClickListener { 
-            startActivity(Intent(this, AppointmentsActivity::class.java)) 
-        }
-        findViewById<Button>(R.id.btnFollowUpList).setOnClickListener { 
-            startActivity(Intent(this, FollowUpActivity::class.java)) 
-        }
-        findViewById<Button>(R.id.btn_view_contacts).setOnClickListener {
-            startActivity(Intent(this, ContactsActivity::class.java))
-        }
-
-        findViewById<Button>(R.id.btnPickDate).setOnClickListener { showDatePicker() }
-
-        // --- Manual Adjustments (Long Press) ---
-        findViewById<View>(R.id.cardTotalLeads).setOnLongClickListener {
-            showAdjustCountDialog("total_count", "Manual Contacts Adjustment", currentTotalCount)
-            true
-        }
-        findViewById<View>(R.id.cardTotalLeads).setOnClickListener {
-            showGoalDialog("total_goal", "Daily New Leads Goal", currentTotalGoal)
-        }
-
-        findViewById<View>(R.id.cardFollowUpProgress).setOnLongClickListener {
-            showAdjustCountDialog("followup_count", "Manual Follow-Ups Adjustment", currentFollowUpCount)
-            true
-        }
-        findViewById<View>(R.id.cardFollowUpProgress).setOnClickListener {
-            showGoalDialog("followup_goal", "Daily Follow-up Goal", currentFollowUpGoal)
-        }
-        // ----------------------------------------
-
-        findViewById<EditText>(R.id.search_bar).addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterHotList(s.toString())
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
 
         checkPermissions()
         loadLocalStats()
@@ -294,7 +275,7 @@ class MainActivity : AppCompatActivity() {
         
         // Update date display
         val displayFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-        findViewById<TextView>(R.id.tvSelectedDateDisplay).text = if (dateKeyFormat.format(Date()) == dateStr) "Today" else displayFormat.format(selectedDate)
+        dateLabel = if (dateKeyFormat.format(Date()) == dateStr) "Today" else displayFormat.format(selectedDate)
     }
 
     private fun saveLocalStat(key: String, value: Int) {
@@ -356,19 +337,11 @@ class MainActivity : AppCompatActivity() {
                 
                 // Check User Role (Defaults to regular "agent" if not found)
                 val role = snapshot.getString("role") ?: "agent"
-                val btnAdmin = findViewById<Button>(R.id.btnAdminDashboard)
-                if (role == "admin" || role == "super_admin") {
-                    btnAdmin?.visibility = View.VISIBLE
-                    btnAdmin?.text = if (role == "super_admin") "Super Admin Panel" else "Admin Dashboard"
-                    btnAdmin?.setOnClickListener {
-                        if (role == "super_admin") {
-                            startActivity(Intent(this@MainActivity, SuperAdminDashboardActivity::class.java))
-                        } else {
-                            startActivity(Intent(this@MainActivity, AdminDashboardActivity::class.java))
-                        }
-                    }
-                } else {
-                    btnAdmin?.visibility = View.GONE
+                adminRole = role
+                adminLabel = when (role) {
+                    "super_admin" -> "Super Admin Panel"
+                    "admin" -> "Admin Dashboard"
+                    else -> null
                 }
             }
         }
@@ -396,26 +369,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshProgressUI() {
-        progressTotalLeads.max = if (currentTotalGoal > 0) currentTotalGoal else 1
-        progressTotalLeads.progress = currentTotalCount
-        tvTotalLeads.text = currentTotalCount.toString()
-        tvTotalLeadsGoal.text = "Goal: $currentTotalGoal"
-
+        // Meter state is now reactive via Compose MutableState.
+        // We just need to check pulsing logic.
         if (currentTotalCount >= currentTotalGoal && currentTotalGoal > 0 && !hasPulsedTotalGoal) {
             hasPulsedTotalGoal = true
-            pulseView(progressTotalLeads)
         } else if (currentTotalCount < currentTotalGoal) {
             hasPulsedTotalGoal = false
         }
 
-        progressFollowUps.max = if (currentFollowUpGoal > 0) currentFollowUpGoal else 1
-        progressFollowUps.progress = currentFollowUpCount
-        tvFollowUpCountDisplay.text = currentFollowUpCount.toString()
-        tvFollowUpGoalDisplay.text = "Goal: $currentFollowUpGoal"
-
         if (currentFollowUpCount >= currentFollowUpGoal && currentFollowUpGoal > 0 && !hasPulsedFollowUpGoal) {
             hasPulsedFollowUpGoal = true
-            pulseView(progressFollowUps)
         } else if (currentFollowUpCount < currentFollowUpGoal) {
             hasPulsedFollowUpGoal = false
         }
@@ -558,8 +521,7 @@ class MainActivity : AppCompatActivity() {
         val cal = Calendar.getInstance()
         cal.time = selectedDate
         
-        val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+        val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
         
         DatePickerDialog(this, theme, { _, year, month, day ->
             cal.set(year, month, day)
@@ -1175,6 +1137,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         TimePickerDialog(
             this,
+            android.R.style.Theme_DeviceDefault_Dialog_Alert,
             { _, hour, minute -> onTimeSelected(hour, minute) },
             initialHour,
             initialMinute,
@@ -1392,8 +1355,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
-            val theme = if (isDark) android.R.style.Theme_DeviceDefault_Dialog_Alert else android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
 
             DatePickerDialog(this, theme, { _, year, month, day ->
                 val monthStr = (month + 1).toString().padStart(2, '0')
@@ -1632,7 +1594,7 @@ class MainActivity : AppCompatActivity() {
                     data["__docId"] = doc.id
                     allLeadsData.add(data)
                 }
-                filterHotList(findViewById<EditText>(R.id.search_bar).text.toString())
+                filterHotList(searchQuery)
             }
     }
 
@@ -1667,6 +1629,59 @@ class MainActivity : AppCompatActivity() {
             }
         }
         hotListData.addAll(filtered)
-        adapter.notifyDataSetChanged()
+        val detailFormat = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
+        dashboardLeads = filtered.map { it.toDashboardLead(detailFormat) }
+    }
+
+    private fun Map<String, Any>.toDashboardLead(detailFormat: SimpleDateFormat): DashboardLead {
+        val name = this["name"] as? String ?: "Unknown Lead"
+        val phone = this["phone"] as? String ?: ""
+        val docId = this["__docId"] as? String ?: ""
+        val appointment = this["appointmentDate"] as? Timestamp
+        val followUp = this["followUpDate"] as? Timestamp
+        val details = mutableListOf<String>()
+        if (appointment != null) {
+            details.add("Appt: ${detailFormat.format(appointment.toDate())}")
+        } else if (followUp != null) {
+            details.add("Due: ${detailFormat.format(followUp.toDate())}")
+        }
+        details.add(phone.ifEmpty { "No Phone" })
+        return DashboardLead(
+            docId = docId,
+            name = name,
+            details = details.joinToString(" | "),
+            phone = phone
+        )
+    }
+
+    private fun openLead(docId: String) {
+        val lead = hotListData.find { it["__docId"] == docId } ?: return
+        startActivity(Intent(this, FollowUpActivity::class.java).apply {
+            putExtra("targetLeadId", lead["id"] as? String)
+            putExtra("targetPhone", lead["phone"] as? String)
+        })
+    }
+
+    private fun dialLead(phone: String) {
+        if (phone.isNotEmpty()) {
+            startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+        } else {
+            Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun completeFollowUp(docId: String) {
+        if (docId.isEmpty()) return
+        db.collection("leads").document(docId)
+            .update("followUpDate", null)
+            .addOnSuccessListener {
+                val lead = hotListData.find { it["__docId"] == docId }
+                val phone = lead?.get("phone") as? String
+                if (!phone.isNullOrEmpty()) {
+                    ReminderReceiver.cancelReminder(this, phone)
+                }
+                Toast.makeText(this, "Follow-up marked complete", Toast.LENGTH_SHORT).show()
+                loadHotList()
+            }
     }
 }
