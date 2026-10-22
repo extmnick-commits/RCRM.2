@@ -424,9 +424,9 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:layout_marginTop="8dp">
-                <Button android:id="@+id/btnPlus1Week" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_1_week" style="?android:attr/buttonStyleSmall"/>
-                <Button android:id="@+id/btnPlus2Weeks" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_2_weeks" style="?android:attr/buttonStyleSmall"/>
-                <Button android:id="@+id/btnPlus1Month" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/btn_1_month" style="?android:attr/buttonStyleSmall"/>
+                <Button android:id="@+id/btnPlus1Week" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="@string/btn_1_week" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null"/>
+                <Button android:id="@+id/btnPlus2Weeks" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="@string/btn_2_weeks" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null" android:layout_marginHorizontal="4dp"/>
+                <Button android:id="@+id/btnPlus1Month" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="@string/btn_1_month" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null"/>
             </LinearLayout>
 
             <LinearLayout
@@ -438,35 +438,35 @@
                     android:id="@+id/btn7pmToday"
                     android:layout_width="0dp"
                     android:layout_weight="1"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
                     android:text="@string/btn_7pm_today"
-                    android:backgroundTint="?attr/colorSurface"
-                    android:textColor="@color/textColorPrimary"
-                    android:textAllCaps="false"
-                    style="?android:attr/buttonStyleSmall"/>
+                    android:background="@drawable/bg_neon_cyan_button"
+                    app:backgroundTint="@null"
+                    android:textColor="#2EE7FF"
+                    android:textAllCaps="false"/>
                 <Button
                     android:id="@+id/btn7pmTomorrow"
                     android:layout_width="0dp"
                     android:layout_weight="1"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
                     android:layout_marginStart="4dp"
                     android:text="@string/btn_7pm_tomorrow"
-                    android:backgroundTint="?attr/colorSurface"
-                    android:textColor="@color/textColorPrimary"
-                    android:textAllCaps="false"
-                    style="?android:attr/buttonStyleSmall"/>
+                    android:background="@drawable/bg_neon_cyan_button"
+                    app:backgroundTint="@null"
+                    android:textColor="#2EE7FF"
+                    android:textAllCaps="false"/>
             </LinearLayout>
 
             <Button
                 android:id="@+id/btnScheduleCustom"
-                style="?android:attr/buttonStyleSmall"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_marginTop="4dp"
-                android:backgroundTint="?attr/colorSurface"
+                android:background="@drawable/bg_neon_cyan_button"
+                app:backgroundTint="@null"
                 android:text="Schedule"
                 android:textAllCaps="false"
-                android:textColor="@color/textColorPrimary" />
+                android:textColor="#2EE7FF" />
                 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnMarkAppointment"
@@ -474,11 +474,9 @@
                 android:layout_height="60dp"
                 android:layout_marginTop="16dp"
                 android:text="🗓️ Mark Appointment"
-                app:cornerRadius="12dp"
-                android:backgroundTint="?attr/colorSurface"
-                android:textColor="@color/colorPrimary"
-                app:strokeColor="@color/colorPrimary"
-                app:strokeWidth="1dp" />
+                android:background="@drawable/bg_neon_green_button"
+                app:backgroundTint="@null"
+                android:textColor="#C8FFE4" />
 
             <View
                 android:layout_width="match_parent"
@@ -590,22 +588,23 @@
 
                 <Button
                     android:id="@+id/btnAIGenerate"
-                    style="@style/Widget.MaterialComponents.Button"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="54dp"
                     android:layout_marginTop="12dp"
                     android:text="✨ AI Draft"
-                    app:backgroundTint="#FFB14CFF"
-                    app:cornerRadius="8dp" />
+                    android:textColor="#FFB3D0"
+                    android:background="@drawable/bg_neon_purple_button"
+                    app:backgroundTint="@null" />
 
                 <Button
                     android:id="@+id/btnSendIntroAction"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="54dp"
                     android:layout_marginTop="8dp"
-                    android:backgroundTint="?attr/colorSurface"
+                    android:background="@drawable/bg_neon_cyan_button"
+                    app:backgroundTint="@null"
                     android:text="@string/btn_send_intro"
-                    android:textColor="@color/colorPrimary"
+                    android:textColor="#2EE7FF"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -619,8 +618,9 @@
                 <Button
                     android:id="@+id/btnSaveLeadAction"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:backgroundTint="@color/colorPrimary"
+                    android:layout_height="54dp"
+                    android:background="@drawable/bg_primary_gradient_button"
+                    app:backgroundTint="@null"
                     android:text="@string/btn_save_lead"
                     android:textColor="@color/white"
                     android:textSize="16sp"

@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -110,25 +111,46 @@ fun PipelinesScreen(
             
             // Search Bar (simplified for space)
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    placeholder = { Text("Search pipelines...", color = TextMuted) },
-                    leadingIcon = { Icon(Icons.Filled.Search, tint = TextMuted, contentDescription = null) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(26.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if(pipelineType == PipelineType.SALES) NeonCyan else NeonPurple,
-                        unfocusedBorderColor = GlassFrost,
-                        focusedContainerColor = GlassFill,
-                        unfocusedContainerColor = GlassFill,
-                        cursorColor = TextPrimary,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    )
-                )
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    onClick = {}
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_menu_search),
+                            contentDescription = "Search",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = searchQuery,
+                            onValueChange = onSearchQueryChange,
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                color = TextPrimary,
+                                fontSize = 15.sp
+                            ),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Search pipelines...",
+                                        color = TextSecondary,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))

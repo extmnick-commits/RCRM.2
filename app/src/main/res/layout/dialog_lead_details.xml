@@ -4,16 +4,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:cardCornerRadius="16dp"
-    app:cardBackgroundColor="#0B111E"
+    app:cardCornerRadius="24dp"
+    app:cardBackgroundColor="@android:color/transparent"
     app:cardElevation="0dp"
-    app:strokeColor="#1F2A44"
-    app:strokeWidth="1dp">
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:background="@drawable/bg_dialog_space_glass">
 
         <!-- Pinned Top Header -->
         <LinearLayout
@@ -36,8 +36,8 @@
                     android:layout_weight="1"
                     android:hint="@string/hint_prospect_name"
                     android:textColorHint="#8E99B0"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textColor="#F4F7FF"
+                    android:textSize="22sp"
                     android:textStyle="bold"
                     android:background="@null"
                     android:inputType="textPersonName"
@@ -49,44 +49,44 @@
                     android:orientation="horizontal">
                     <ImageButton
                         android:id="@+id/btnCallDetail"
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
                         android:layout_marginEnd="8dp"
                         android:src="@android:drawable/ic_menu_call"
-                        android:background="@drawable/bg_edittext_outline"
+                        android:background="@drawable/bg_icon_circle_green"
                         app:tint="#3DFF9A"
                         android:scaleType="centerInside"
                         android:padding="8dp"
                         android:contentDescription="@string/call_icon_description" />
                     <ImageButton
                         android:id="@+id/btnSmsDetail"
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
                         android:layout_marginEnd="8dp"
                         android:src="@android:drawable/sym_action_chat"
-                        android:background="@drawable/bg_edittext_outline"
+                        android:background="@drawable/bg_icon_circle_cyan"
                         app:tint="#2EE7FF"
                         android:scaleType="centerInside"
                         android:padding="8dp"
                         android:contentDescription="Send SMS" />
                     <ImageButton
                         android:id="@+id/btnEmailDetail"
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
                         android:layout_marginEnd="8dp"
                         android:src="@android:drawable/ic_dialog_email"
-                        android:background="@drawable/bg_edittext_outline"
-                        app:tint="#E8D5FF"
+                        android:background="@drawable/bg_icon_circle_blue"
+                        app:tint="#D5E6FF"
                         android:scaleType="centerInside"
                         android:padding="8dp"
                         android:contentDescription="Send Email" />
                     <ImageButton
                         android:id="@+id/btnMapDetail"
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
                         android:src="@android:drawable/ic_dialog_map"
-                        android:background="@drawable/bg_edittext_outline"
-                        app:tint="#FFB14CFF"
+                        android:background="@drawable/bg_icon_circle_purple"
+                        app:tint="#B14CFF"
                         android:scaleType="centerInside"
                         android:padding="8dp"
                         android:contentDescription="Open in Maps" />
@@ -96,10 +96,10 @@
             <!-- Second row: 3-Tab Segmented Switcher -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="46dp"
                 android:orientation="horizontal"
                 android:layout_marginTop="16dp"
-                android:background="#141E33"
+                android:background="@drawable/bg_tab_container_pill"
                 android:padding="4dp">
 
                 <TextView
@@ -163,10 +163,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="16dp"
-                        app:cardBackgroundColor="#1E1433"
-                        app:strokeColor="#FFB14CFF"
-                        app:strokeWidth="1dp"
-                        app:cardCornerRadius="12dp"
+                        app:cardBackgroundColor="#24143F"
+                        app:strokeColor="#B14CFF"
+                        app:strokeWidth="1.25dp"
+                        app:cardCornerRadius="18dp"
                         app:cardElevation="0dp"
                         android:visibility="gone"
                         tools:visibility="visible">
@@ -182,7 +182,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="💡 Side-Kick Tip: Suggestion text goes here."
-                                android:textColor="#E8D5FF"
+                                android:textColor="#F4F7FF"
                                 android:textStyle="bold"
                                 android:textSize="14sp" />
 
@@ -227,7 +227,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Dismiss"
                                     android:layout_marginStart="8dp"
-                                    android:textColor="#FF5252" />
+                                    android:textColor="#FF3B8D" />
                             </LinearLayout>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -274,8 +274,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="16dp"
-                        app:cardBackgroundColor="#121A2C"
-                        app:cardCornerRadius="24dp"
+                        app:cardBackgroundColor="#4D000000"
+                        app:strokeColor="#66243656"
+                        app:strokeWidth="1dp"
+                        app:cardCornerRadius="26dp"
                         app:cardElevation="0dp">
 
                         <LinearLayout
@@ -359,8 +361,10 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginVertical="8dp"
-                            app:cardBackgroundColor="#121A2C"
-                            app:cardCornerRadius="12dp"
+                            app:cardBackgroundColor="#4D000000"
+                            app:strokeColor="#66243656"
+                            app:strokeWidth="1dp"
+                            app:cardCornerRadius="18dp"
                             app:cardElevation="0dp">
 
                             <LinearLayout
@@ -416,26 +420,24 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSetReminder"
-                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:layout_marginEnd="8dp"
                                 android:text="@string/btn_set_reminder"
                                 android:textColor="#2EE7FF"
-                                app:strokeColor="#2EE7FF"
-                                app:cornerRadius="8dp" />
+                                android:background="@drawable/bg_neon_cyan_button"
+                                app:backgroundTint="@null" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnAddCalendar"
-                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="@string/btn_add_calendar"
                                 android:textColor="#2EE7FF"
-                                app:strokeColor="#2EE7FF"
-                                app:cornerRadius="8dp" />
+                                android:background="@drawable/bg_neon_cyan_button"
+                                app:backgroundTint="@null" />
                         </LinearLayout>
 
                         <!-- Active Appointment Section -->
@@ -445,8 +447,10 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="16dp"
                             android:layout_marginBottom="8dp"
-                            app:cardBackgroundColor="#121A2C"
-                            app:cardCornerRadius="12dp"
+                            app:cardBackgroundColor="#4D000000"
+                            app:strokeColor="#66243656"
+                            app:strokeWidth="1dp"
+                            app:cardCornerRadius="18dp"
                             app:cardElevation="0dp">
 
                             <LinearLayout
@@ -496,13 +500,12 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnSetAppt"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
+                            android:layout_height="48dp"
                             android:text="Schedule Appointment"
-                            android:textColor="#3DFF9A"
-                            app:strokeColor="#3DFF9A"
-                            app:cornerRadius="8dp" />
+                            android:textColor="#C8FFE4"
+                            android:background="@drawable/bg_neon_green_button"
+                            app:backgroundTint="@null" />
                     </LinearLayout>
 
                     <!-- SMS Intro Toggle Header -->
@@ -589,8 +592,10 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            app:cardBackgroundColor="#121A2C"
-                            app:cardCornerRadius="12dp"
+                            app:cardBackgroundColor="#4D000000"
+                            app:strokeColor="#66243656"
+                            app:strokeWidth="1dp"
+                            app:cardCornerRadius="18dp"
                             app:cardElevation="0dp">
 
                             <EditText
@@ -618,24 +623,23 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnAIGenerate"
                                 android:layout_width="0dp"
-                                android:layout_height="50dp"
+                                android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:layout_marginEnd="8dp"
                                 android:text="✨ AI Draft"
-                                app:backgroundTint="#FFB14CFF"
-                                android:textColor="#FFFFFF"
-                                app:cornerRadius="8dp" />
+                                android:textColor="#FFB3D0"
+                                android:background="@drawable/bg_neon_purple_button"
+                                app:backgroundTint="@null" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnSendIntroAction"
-                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                                 android:layout_width="0dp"
-                                android:layout_height="50dp"
+                                android:layout_height="48dp"
                                 android:layout_weight="1"
-                                android:text="@string/btn_send_intro"
+                                android:text="Send 💬"
                                 android:textColor="#2EE7FF"
-                                app:strokeColor="#2EE7FF"
-                                app:cornerRadius="8dp" />
+                                android:background="@drawable/bg_neon_cyan_button"
+                                app:backgroundTint="@null" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>

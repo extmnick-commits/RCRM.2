@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.Timestamp
+import androidx.compose.foundation.background
 import com.nickpulido.rcrm.ui.components.GlassCard
 import com.nickpulido.rcrm.ui.theme.NeonCyan
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
@@ -93,11 +94,18 @@ class FollowUpAdapter(
                                 Toast.makeText(holder.itemView.context, "No phone number", Toast.LENGTH_SHORT).show()
                             }
                         }) {
-                            Icon(
-                                painter = painterResource(android.R.drawable.ic_menu_call),
-                                contentDescription = "Call",
-                                tint = NeonCyan
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(Color(0xFF0E3A28), androidx.compose.foundation.shape.CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(android.R.drawable.ic_menu_call),
+                                    contentDescription = "Call",
+                                    tint = NeonCyan // We can use NeonGreen here if we import it, but standard is fine
+                                )
+                            }
                         }
                         IconButton(onClick = {
                             val id = lead["id"] as? String ?: return@IconButton

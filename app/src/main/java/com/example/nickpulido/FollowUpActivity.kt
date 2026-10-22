@@ -237,6 +237,7 @@ class FollowUpActivity : AppCompatActivity() {
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         val docId = lead["id"] as String
         val editName = dialogView.findViewById<EditText>(R.id.editDetailName)
@@ -270,11 +271,12 @@ class FollowUpActivity : AppCompatActivity() {
             if (tabView == null) return
             if (isSelected) {
                 val selectedBg = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#2A62F0"))
-                    cornerRadius = 10f * resources.displayMetrics.density
+                    setColor(Color.parseColor("#332EE7FF"))
+                    cornerRadius = 20f * resources.displayMetrics.density
+                    setStroke((1.25f * resources.displayMetrics.density).toInt(), Color.parseColor("#2EE7FF"))
                 }
                 tabView.background = selectedBg
-                tabView.setTextColor(Color.WHITE)
+                tabView.setTextColor(Color.parseColor("#2EE7FF"))
                 tabView.setTypeface(null, android.graphics.Typeface.BOLD)
             } else {
                 tabView.background = null
@@ -904,10 +906,10 @@ class FollowUpActivity : AppCompatActivity() {
             fun updateOfficeUI() {
                 if (defaultOfficeAddress.isEmpty()) {
                     tvOfficeAddress?.text = "No address set"
-                    tvOfficeAddress?.setTextColor(Color.RED)
+                    tvOfficeAddress?.setTextColor(Color.parseColor("#FF3B8D"))
                 } else {
                     tvOfficeAddress?.text = defaultOfficeAddress
-                    tvOfficeAddress?.setTextColor(Color.BLACK)
+                    tvOfficeAddress?.setTextColor(Color.parseColor("#F4F7FF"))
                 }
             }
             updateOfficeUI()

@@ -159,6 +159,7 @@ class ContactsActivity : AppCompatActivity() {
     private fun showAddContactDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_quick_add, null)
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         val nameInput = dialogView.findViewById<EditText>(R.id.editQuickName)
         val phoneInput = dialogView.findViewById<EditText>(R.id.editQuickPhone)

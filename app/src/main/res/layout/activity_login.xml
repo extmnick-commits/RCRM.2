@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="32dp"
-    android:background="@color/backgroundColor"
+    android:background="@drawable/bg_dialog_space_glass"
     tools:context=".LoginActivity">
 
     <TextView
@@ -88,8 +88,8 @@
         android:layout_height="64dp"
         android:layout_marginTop="32dp"
         android:text="Login"
-        app:cornerRadius="16dp"
-        android:backgroundTint="@color/colorPrimary"
+        android:background="@drawable/bg_primary_gradient_button"
+        app:backgroundTint="@null"
         android:textColor="@color/white"
         app:layout_constraintBottom_toTopOf="@+id/tvSignupLink"
         app:layout_constraintEnd_toEndOf="parent"

@@ -7,11 +7,11 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="4dp"
     android:layout_marginVertical="6dp"
-    app:cardCornerRadius="16dp"
+    app:cardCornerRadius="18dp"
     app:cardElevation="0dp"
     app:strokeWidth="1dp"
-    app:strokeColor="@color/dividerColor"
-    app:cardBackgroundColor="@color/surfaceColor">
+    app:strokeColor="#66243656"
+    app:cardBackgroundColor="#4D000000">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -85,14 +85,14 @@
 
         <ImageView
             android:id="@+id/btnCallIcon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_marginStart="12dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
+            android:background="@drawable/bg_icon_circle_green"
+            android:padding="10dp"
             android:src="@android:drawable/ic_menu_call"
             android:contentDescription="Call Lead"
-            app:tint="@color/colorSuccess" />
+            app:tint="#3DFF9A" />
 
         <ImageView
             android:id="@+id/btnCompleteIcon"

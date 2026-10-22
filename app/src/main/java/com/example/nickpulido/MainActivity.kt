@@ -1238,6 +1238,7 @@ class MainActivity : AppCompatActivity() {
     private fun showQuickAddDialog(prefilledName: String = "", prefilledPhone: String = "", prefilledNotes: String = "") {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_quick_add, null)
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
         quickAddApptDate = null
         quickAddApptLocation = null

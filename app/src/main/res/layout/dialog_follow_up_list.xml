@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="@color/backgroundColor">
+    android:background="@drawable/bg_dialog_space_glass">
 
     <TextView
         android:id="@+id/tvPopupHeader"

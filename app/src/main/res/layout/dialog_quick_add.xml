@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/backgroundColor">
+    android:background="@drawable/bg_dialog_space_glass">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -32,7 +32,8 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="📷 Scan Business Card"
-                android:backgroundTint="@color/colorSecondary"
+                android:background="@drawable/bg_neon_purple_button"
+                app:backgroundTint="@null"
                 android:textColor="@color/white"
                 android:layout_marginEnd="6dp" />
 
@@ -42,7 +43,8 @@
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="📥 Import Contact"
-                android:backgroundTint="@color/colorInfo"
+                android:background="@drawable/bg_neon_cyan_button"
+                app:backgroundTint="@null"
                 android:textColor="@color/white"
                 android:layout_marginStart="6dp" />
         </LinearLayout>
@@ -56,7 +58,10 @@
             android:textSize="20sp"
             android:textColor="@color/textColorPrimary"
             android:autofillHints="name"
-            android:inputType="textPersonName" />
+            android:inputType="textPersonName"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
 
         <EditText
             android:id="@+id/editQuickPhone"
@@ -64,7 +69,10 @@
             android:layout_height="wrap_content"
             android:hint="@string/hint_phone_number"
             android:autofillHints="phone"
-            android:inputType="phone" />
+            android:inputType="phone"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
 
         <EditText
             android:id="@+id/editQuickEmail"
@@ -72,28 +80,40 @@
             android:layout_height="wrap_content"
             android:hint="Email Address"
             android:autofillHints="emailAddress"
-            android:inputType="textEmailAddress" />
+            android:inputType="textEmailAddress"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
 
         <EditText
             android:id="@+id/editQuickAddress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Address"
-            android:inputType="textPostalAddress" />
+            android:inputType="textPostalAddress"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
 
         <EditText
             android:id="@+id/editQuickCompany"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Company"
-            android:inputType="textCapWords" />
+            android:inputType="textCapWords"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
 
         <EditText
             android:id="@+id/editQuickJobTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Job Title"
-            android:inputType="textCapWords" />
+            android:inputType="textCapWords"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp"
+            android:layout_marginBottom="8dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -165,6 +185,8 @@
                     android:layout_centerInParent="true"
                     app:indicatorSize="80dp"
                     app:trackThickness="8dp"
+                    app:indicatorColor="#B14CFF"
+                    app:trackColor="#26B14CFF"
                     android:max="100" />
 
                 <TextView
@@ -213,15 +235,18 @@
             android:hint="@string/hint_notes"
             android:gravity="top"
             android:inputType="textMultiLine"
-            android:minLines="3" />
+            android:minLines="3"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:padding="12dp" />
 
         <Button
             android:id="@+id/btnQuickSave"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="54dp"
             android:layout_marginTop="24dp"
             android:text="@string/btn_save"
-            android:backgroundTint="@color/colorPrimary"
+            android:background="@drawable/bg_primary_gradient_button"
+            app:backgroundTint="@null"
             android:textColor="@color/white" />
 
     </LinearLayout>
