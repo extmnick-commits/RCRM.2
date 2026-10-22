@@ -258,6 +258,39 @@ class FollowUpActivity : AppCompatActivity() {
         val cbInv = dialogView.findViewById<CheckBox>(R.id.cbInvestmentDetail)
         val cbLife = dialogView.findViewById<CheckBox>(R.id.cbLifeInsuranceDetail)
 
+        val tabActivity = dialogView.findViewById<TextView>(R.id.tabActivity)
+        val tabProfile = dialogView.findViewById<TextView>(R.id.tabProfile)
+        val tabProducts = dialogView.findViewById<TextView>(R.id.tabProducts)
+        
+        val sectionActivity = dialogView.findViewById<View>(R.id.sectionActivity)
+        val sectionProfile = dialogView.findViewById<View>(R.id.sectionProfile)
+        val sectionProducts = dialogView.findViewById<View>(R.id.sectionProducts)
+        
+        fun updateTabColors(selected: TextView, other1: TextView, other2: TextView, showSection: View, hide1: View, hide2: View) {
+            selected.setBackgroundColor(Color.parseColor("#2A62F0"))
+            selected.setTextColor(Color.WHITE)
+            other1.setBackgroundColor(Color.TRANSPARENT)
+            other1.setTextColor(Color.parseColor("#8E99B0"))
+            other2.setBackgroundColor(Color.TRANSPARENT)
+            other2.setTextColor(Color.parseColor("#8E99B0"))
+            
+            showSection.visibility = View.VISIBLE
+            hide1.visibility = View.GONE
+            hide2.visibility = View.GONE
+        }
+        
+        tabActivity?.setOnClickListener { updateTabColors(tabActivity, tabProfile!!, tabProducts!!, sectionActivity!!, sectionProfile!!, sectionProducts!!) }
+        tabProfile?.setOnClickListener { updateTabColors(tabProfile!!, tabActivity!!, tabProducts!!, sectionProfile!!, sectionActivity!!, sectionProducts!!) }
+        tabProducts?.setOnClickListener { updateTabColors(tabProducts!!, tabActivity!!, tabProfile!!, sectionProducts!!, sectionActivity!!, sectionProfile!!) }
+
+        val tvInsSummaryBadge = dialogView.findViewById<TextView>(R.id.tvInsSummaryBadge)
+        val btnToggleInsEdit = dialogView.findViewById<Button>(R.id.btnToggleInsEdit)
+        val containerInsForm = dialogView.findViewById<View>(R.id.containerInsForm)
+        
+        val tvInvSummaryBadge = dialogView.findViewById<TextView>(R.id.tvInvSummaryBadge)
+        val btnToggleInvEdit = dialogView.findViewById<Button>(R.id.btnToggleInvEdit)
+        val containerInvForm = dialogView.findViewById<View>(R.id.containerInvForm)
+
         val llClientOptions = dialogView.findViewById<LinearLayout>(R.id.clientSubCategoryLayoutDetail)
         val cardLifeInsuranceDetails = dialogView.findViewById<View>(R.id.cardLifeInsuranceDetails)
         val spinnerInsPolicyType = dialogView.findViewById<Spinner>(R.id.spinnerInsPolicyType)
@@ -285,8 +318,93 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         cbClient?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
-        cbLife?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
-        cbInv?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+        cbLife?.setOnCheckedChangeListener { _, isChecked -> 
+            if (isChecked) cbClient?.isChecked = true
+            updateProductCardsVisibility() 
+        }
+        cbInv?.setOnCheckedChangeListener { _, isChecked -> 
+            if (isChecked) cbClient?.isChecked = true
+            updateProductCardsVisibility() 
+        }
+
+        fun updateInsSummary() {
+            val face = editInsFaceAmount?.text?.toString() ?: ""
+            val prem = editInsMonthlyPremium?.text?.toString() ?: ""
+            val status = spinnerInsStatus?.selectedItem?.toString() ?: ""
+            val parts = listOf(
+                if (face.isNotEmpty()) "$$face" else "",
+                if (prem.isNotEmpty()) "$$prem/mo" else "",
+                if (status != "Select Status..." && status.isNotEmpty()) status else ""
+            ).filter { it.isNotEmpty() }
+            if (parts.isEmpty()) {
+                tvInsSummaryBadge?.text = "Tap Edit to add details"
+                tvInsSummaryBadge?.setTextColor(Color.parseColor("#8E99B0"))
+            } else {
+                tvInsSummaryBadge?.text = parts.joinToString(" • ")
+                tvInsSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+            }
+        }
+
+        fun updateInvSummary() {
+            val acct = spinnerInvAccountType?.selectedItem?.toString() ?: ""
+            val pac = editInvMonthlyContribution?.text?.toString() ?: ""
+            val parts = listOf(
+                if (acct != "Select Account Type..." && acct.isNotEmpty()) acct else "",
+                if (pac.isNotEmpty()) "$$pac/mo" else ""
+            ).filter { it.isNotEmpty() }
+            if (parts.isEmpty()) {
+                tvInvSummaryBadge?.text = "Tap Edit to add details"
+                tvInvSummaryBadge?.setTextColor(Color.parseColor("#8E99B0"))
+            } else {
+                tvInvSummaryBadge?.text = parts.joinToString(" • ")
+                tvInvSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+            }
+        }
+
+        btnToggleInsEdit?.setOnClickListener {
+            if (containerInsForm?.visibility == View.VISIBLE) {
+                containerInsForm.visibility = View.GONE
+                btnToggleInsEdit.text = "Edit ▼"
+                updateInsSummary()
+            } else {
+                containerInsForm?.visibility = View.VISIBLE
+                btnToggleInsEdit.text = "Done ▲"
+            }
+        }
+
+        btnToggleInvEdit?.setOnClickListener {
+            if (containerInvForm?.visibility == View.VISIBLE) {
+                containerInvForm.visibility = View.GONE
+                btnToggleInvEdit.text = "Edit ▼"
+                updateInvSummary()
+            } else {
+                containerInvForm?.visibility = View.VISIBLE
+                btnToggleInvEdit.text = "Done ▲"
+            }
+        }
+
+        val insWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateInsSummary() }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        }
+        editInsFaceAmount?.addTextChangedListener(insWatcher)
+        editInsMonthlyPremium?.addTextChangedListener(insWatcher)
+        spinnerInsStatus?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) { updateInsSummary() }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+
+        val invWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updateInvSummary() }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        }
+        editInvMonthlyContribution?.addTextChangedListener(invWatcher)
+        spinnerInvAccountType?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) { updateInvSummary() }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
 
         var insRenewalDateStr = lead["insRenewalDate"] as? String
         btnSetInsRenewalDate?.setOnClickListener {
@@ -517,6 +635,9 @@ class FollowUpActivity : AppCompatActivity() {
         cbTmHomeowner?.isChecked = tmString.contains("Homeowner")
         cbTmOccupation?.isChecked = tmString.contains("Occupation")
         updateTargetMarketScore()
+        
+        updateInsSummary()
+        updateInvSummary()
 
         // Handle Side-Kick Suggestion Visibility
         val sideKickContainer = dialogView.findViewById<View>(R.id.sideKickSuggestionContainer)
