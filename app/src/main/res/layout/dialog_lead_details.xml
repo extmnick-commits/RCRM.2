@@ -107,8 +107,12 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="💬 Activity &amp; Follow-Up"
-                    android:textAlignment="center"
+                    android:text="💬 Activity"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
                     android:paddingVertical="8dp"
                     android:textSize="12sp"
@@ -119,7 +123,11 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="🎯 Profile &amp; TM"
-                    android:textAlignment="center"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
                     android:textColor="#9AA6BD"
                     android:paddingVertical="8dp"
                     android:textSize="12sp" />
@@ -128,8 +136,12 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🛡️ Products &amp; Client"
-                    android:textAlignment="center"
+                    android:text="🛡️ Products"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
                     android:textColor="#9AA6BD"
                     android:paddingVertical="8dp"
                     android:textSize="12sp" />
@@ -424,7 +436,10 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:layout_marginEnd="8dp"
-                                android:text="@string/btn_set_reminder"
+                                android:text="Set Reminder"
+                                android:includeFontPadding="false"
+                                android:singleLine="true"
+                                android:paddingVertical="0dp"
                                 android:textColor="#2EE7FF"
                                 android:background="@drawable/bg_neon_cyan_button"
                                 app:backgroundTint="@null" />
@@ -435,6 +450,9 @@
                                 android:layout_height="48dp"
                                 android:layout_weight="1"
                                 android:text="@string/btn_add_calendar"
+                                android:includeFontPadding="false"
+                                android:singleLine="true"
+                                android:paddingVertical="0dp"
                                 android:textColor="#2EE7FF"
                                 android:background="@drawable/bg_neon_cyan_button"
                                 app:backgroundTint="@null" />
@@ -503,6 +521,9 @@
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
                             android:text="Schedule Appointment"
+                            android:includeFontPadding="false"
+                            android:singleLine="true"
+                            android:paddingVertical="0dp"
                             android:textColor="#C8FFE4"
                             android:background="@drawable/bg_neon_green_button"
                             app:backgroundTint="@null" />
@@ -836,7 +857,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="vertical"
-                                android:layout_marginStart="16dp"
+                                android:layout_marginStart="10dp"
                                 android:visibility="visible">
                                 <!-- Hidden views from old UI for compat -->
                                 <View android:id="@+id/headerTargetMarket" android:layout_width="0dp" android:layout_height="0dp" />
@@ -846,19 +867,19 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:orientation="horizontal">
-                                    <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" android:textColor="#FFFFFF" />
-                                    <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" android:textColor="#FFFFFF" />
+                                    <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" android:textColor="#FFFFFF" app:buttonTint="#B14CFF" android:textSize="13sp" />
+                                    <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" android:textColor="#FFFFFF" app:buttonTint="#B14CFF" android:textSize="13sp" />
                                 </LinearLayout>
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:orientation="horizontal">
-                                    <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" android:textColor="#FFFFFF" />
-                                    <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" android:textColor="#FFFFFF" />
+                                    <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" android:textColor="#FFFFFF" app:buttonTint="#B14CFF" android:textSize="13sp" />
+                                    <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" android:textColor="#FFFFFF" app:buttonTint="#B14CFF" android:textSize="13sp" />
                                 </LinearLayout>
 
-                                <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" android:textColor="#FFFFFF" />
+                                <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" android:textColor="#FFFFFF" app:buttonTint="#B14CFF" android:textSize="13sp" />
                             </LinearLayout>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
@@ -900,9 +921,9 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal">
-                                <CheckBox android:id="@+id/cbRecruitDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" android:textColor="#FFFFFF" />
-                                <CheckBox android:id="@+id/cbProspectDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" android:textColor="#FFFFFF" />
-                                <CheckBox android:id="@+id/cbClientDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" android:textColor="#FFFFFF" />
+                                <CheckBox android:id="@+id/cbRecruitDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
+                                <CheckBox android:id="@+id/cbProspectDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
+                                <CheckBox android:id="@+id/cbClientDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
                             </LinearLayout>
 
                             <LinearLayout
@@ -912,8 +933,8 @@
                                 android:orientation="horizontal"
                                 android:visibility="visible"
                                 android:paddingStart="16dp">
-                                <CheckBox android:id="@+id/cbInvestmentDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" android:textColor="#FFFFFF" />
-                                <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:textColor="#FFFFFF" />
+                                <CheckBox android:id="@+id/cbInvestmentDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
+                                <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
                             </LinearLayout>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>

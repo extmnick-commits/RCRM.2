@@ -558,7 +558,10 @@ class FollowUpActivity : AppCompatActivity() {
                             refreshNotesUI()
                         }
                         .setNegativeButton("Cancel", null)
-                        .show()
+                        .create().apply {
+                            window?.setBackgroundDrawableResource(android.R.color.transparent)
+                            show()
+                        }
                 }
                 view.findViewById<View>(R.id.btnDeleteNote)?.setOnClickListener {
                     notesList.removeAt(index)
@@ -1268,6 +1271,7 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         dialog.show()
+        dialog.window?.setDimAmount(0.75f)
         val displayMetrics = resources.displayMetrics
         val width = (displayMetrics.widthPixels * 0.95).toInt()
         val height = (displayMetrics.heightPixels * 0.88).toInt()

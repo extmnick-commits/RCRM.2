@@ -824,7 +824,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create().apply {
+                window?.setBackgroundDrawableResource(android.R.color.transparent)
+                show()
+            }
     }
 
     private fun startBackup() {
@@ -1551,6 +1554,7 @@ class MainActivity : AppCompatActivity() {
         
         builder.setView(container)
         progressDialog = builder.create()
+        progressDialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
         progressDialog?.show()
     }
 

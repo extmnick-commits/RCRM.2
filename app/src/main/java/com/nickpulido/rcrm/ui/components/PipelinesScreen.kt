@@ -89,7 +89,7 @@ fun PipelinesScreen(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(SpaceTop, DarkSpaceBlue, SpaceBottom)))
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             // Top Header Bar
             Row(
                 modifier = Modifier
@@ -111,43 +111,44 @@ fun PipelinesScreen(
             
             // Search Bar (simplified for space)
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    onClick = {}
+                val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .frostedGlass(shape = RoundedCornerShape(26.dp), fillColor = GlassFill),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = "Search",
+                        tint = TextSecondary,
+                        modifier = Modifier.padding(start = 14.dp).size(20.dp)
+                    )
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .weight(1f)
+                            .padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.CenterStart
                     ) {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_search),
-                            contentDescription = "Search",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "Search pipelines...",
+                                color = TextSecondary,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         androidx.compose.foundation.text.BasicTextField(
                             value = searchQuery,
                             onValueChange = onSearchQueryChange,
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                color = TextPrimary,
-                                fontSize = 15.sp
-                            ),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            decorationBox = { innerTextField ->
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "Search pipelines...",
-                                        color = TextSecondary,
-                                        fontSize = 15.sp
-                                    )
-                                }
-                                innerTextField()
-                            }
+                            textStyle = androidx.compose.ui.text.TextStyle(color = TextPrimary, fontSize = 15.sp),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(NeonCyan),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focusManager.clearFocus() })
                         )
                     }
                 }

@@ -668,6 +668,7 @@ class SmartLogActivity : AppCompatActivity() {
         })
         builder.setView(container)
         progressDialog = builder.create()
+        progressDialog?.window?.setBackgroundDrawableResource(android.R.color.transparent)
         progressDialog?.show()
     }
 
@@ -931,6 +932,7 @@ class SmartLogActivity : AppCompatActivity() {
             listView.adapter = adapter
             builder.setView(listView)
             val dialog = builder.create()
+            dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
 
             listView.setOnItemClickListener { _, _, position, _ ->
                 val rawPreset = presets[position]
@@ -965,7 +967,10 @@ class SmartLogActivity : AppCompatActivity() {
                             presets[position] = input.text.toString()
                             saveAllPresetsLocally(presets)
                             onUpdate()
-                        }.show()
+                        }.create().apply {
+                            window?.setBackgroundDrawableResource(android.R.color.transparent)
+                            show()
+                        }
                 } else {
                     AlertDialog.Builder(this)
                         .setTitle("Confirm Delete")
