@@ -46,6 +46,7 @@ import com.nickpulido.rcrm.ui.theme.NeonGreen
 import com.nickpulido.rcrm.ui.theme.NeonGreenText
 import com.nickpulido.rcrm.ui.theme.NeonPink
 import com.nickpulido.rcrm.ui.theme.NeonPinkText
+import com.nickpulido.rcrm.ui.theme.NeonPurple
 import com.nickpulido.rcrm.ui.theme.PrimaryGradientEnd
 import com.nickpulido.rcrm.ui.theme.PrimaryGradientMid
 import com.nickpulido.rcrm.ui.theme.PrimaryGradientStart
@@ -61,6 +62,7 @@ fun QuickActionsGrid(
     onAppointments: () -> Unit,
     onFollowUps: () -> Unit,
     onContacts: () -> Unit,
+    onPipelines: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -117,6 +119,18 @@ fun QuickActionsGrid(
                 background = Brush.verticalGradient(listOf(ContactsFillTop, ContactsFillBottom)),
                 glowAlpha = 0.62f,
                 onClick = onContacts,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            NeonActionButton(
+                label = "Pipelines (Sales & Recruiting)",
+                icon = Icons.Filled.DateRange,
+                glowColor = NeonPurple,
+                tint = NeonPinkText,
+                background = Brush.verticalGradient(listOf(Color(0xFF3B1A40), Color(0xFF16091D))),
+                glowAlpha = 0.95f,
+                onClick = onPipelines,
                 modifier = Modifier.weight(1f)
             )
         }

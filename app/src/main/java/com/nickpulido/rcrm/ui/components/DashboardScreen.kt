@@ -78,6 +78,7 @@ fun DashboardScreen(
     onAppointments: () -> Unit,
     onFollowUps: () -> Unit,
     onContacts: () -> Unit,
+    onPipelines: () -> Unit,
     adminLabel: String?,
     onAdminClick: () -> Unit,
     totalCount: Int,
@@ -140,7 +141,8 @@ fun DashboardScreen(
                     onQuickAdd = onQuickAdd,
                     onAppointments = onAppointments,
                     onFollowUps = onFollowUps,
-                    onContacts = onContacts
+                    onContacts = onContacts,
+                    onPipelines = onPipelines
                 )
             }
             if (adminLabel != null) {
@@ -489,6 +491,7 @@ private fun DashboardScreenPreview() {
             onAppointments = {},
             onFollowUps = {},
             onContacts = {},
+            onPipelines = {},
             adminLabel = "Super Admin Panel",
             onAdminClick = {},
             totalCount = 1,

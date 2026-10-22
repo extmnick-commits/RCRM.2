@@ -156,4 +156,41 @@
     <string name="msg_reminder_removed">Reminder removed</string>
     <string name="btn_change_reminder">Change Reminder</string>
     <string name="empty_follow_ups">No follow-ups for today!</string>
+
+    <string-array name="ins_policy_types">
+        <item>Select Policy Type...</item>
+        <item>Custom Advantage Term</item>
+        <item>TermNow</item>
+        <item>Increasing Benefit Rider</item>
+        <item>Whole Life / IUL</item>
+        <item>Other</item>
+    </string-array>
+
+    <string-array name="ins_underwriting_status">
+        <item>Select Status...</item>
+        <item>App Submitted</item>
+        <item>Paramedical Pending</item>
+        <item>Underwriting Review</item>
+        <item>Approved / Issued</item>
+        <item>In-Force</item>
+        <item>Declined / Lapsed</item>
+    </string-array>
+
+    <string-array name="inv_account_types">
+        <item>Select Account Type...</item>
+        <item>Roth IRA</item>
+        <item>Traditional IRA</item>
+        <item>401(k) / 403(b) Rollover</item>
+        <item>SEP / SIMPLE IRA</item>
+        <item>529 College Savings</item>
+        <item>Individual Brokerage</item>
+    </string-array>
+
+    <string-array name="inv_account_status">
+        <item>Select Status...</item>
+        <item>Paperwork Pending</item>
+        <item>Transfer in Progress</item>
+        <item>Funded &amp; Active</item>
+        <item>Annual Review Due</item>
+    </string-array>
 </resources>

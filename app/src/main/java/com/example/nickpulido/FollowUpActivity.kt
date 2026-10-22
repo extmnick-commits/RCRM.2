@@ -148,6 +148,7 @@ class FollowUpActivity : AppCompatActivity() {
 
     private fun handleIntent(passedIntent: Intent?) {
         val targetId = passedIntent?.getStringExtra("targetLeadId")
+            ?: passedIntent?.getStringExtra("OPEN_LEAD_ID")
         val targetPhone = passedIntent?.getStringExtra("targetPhone")
         
         if (!targetId.isNullOrEmpty()) {
@@ -156,12 +157,19 @@ class FollowUpActivity : AppCompatActivity() {
                     val leadData = doc.data?.toMutableMap()
                     if (leadData != null) {
                         leadData["id"] = doc.id
-                        showLeadDetailsDialog(leadData)
+                        showLeadDetailsDialog(leadData, finishOnDismiss = true)
+                    } else {
+                        finish()
                     }
+                } else {
+                    finish()
                 }
+            }.addOnFailureListener {
+                finish()
             }
-            passedIntent.removeExtra("targetLeadId")
-            passedIntent.removeExtra("targetPhone")
+            passedIntent?.removeExtra("targetLeadId")
+            passedIntent?.removeExtra("OPEN_LEAD_ID")
+            passedIntent?.removeExtra("targetPhone")
         } else if (!targetPhone.isNullOrEmpty()) {
             val userId = auth.currentUser?.uid ?: return
             db.collection("leads").whereEqualTo("ownerId", userId).whereEqualTo("phone", targetPhone).get().addOnSuccessListener { docs ->
@@ -170,11 +178,17 @@ class FollowUpActivity : AppCompatActivity() {
                     val leadData = doc.data?.toMutableMap()
                     if (leadData != null) {
                         leadData["id"] = doc.id
-                        showLeadDetailsDialog(leadData)
+                        showLeadDetailsDialog(leadData, finishOnDismiss = true)
+                    } else {
+                        finish()
                     }
+                } else {
+                    finish()
                 }
+            }.addOnFailureListener {
+                finish()
             }
-            passedIntent.removeExtra("targetPhone")
+            passedIntent?.removeExtra("targetPhone")
         }
     }
 
@@ -218,7 +232,7 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     @SuppressLint("MissingInflatedId")
-    private fun showLeadDetailsDialog(lead: Map<String, Any>) {
+    private fun showLeadDetailsDialog(lead: Map<String, Any>, finishOnDismiss: Boolean = false) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_lead_details, null)
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -245,6 +259,43 @@ class FollowUpActivity : AppCompatActivity() {
         val cbLife = dialogView.findViewById<CheckBox>(R.id.cbLifeInsuranceDetail)
 
         val llClientOptions = dialogView.findViewById<LinearLayout>(R.id.clientSubCategoryLayoutDetail)
+        val cardLifeInsuranceDetails = dialogView.findViewById<View>(R.id.cardLifeInsuranceDetails)
+        val spinnerInsPolicyType = dialogView.findViewById<Spinner>(R.id.spinnerInsPolicyType)
+        val spinnerInsStatus = dialogView.findViewById<Spinner>(R.id.spinnerInsStatus)
+        val editInsCarrier = dialogView.findViewById<EditText>(R.id.editInsCarrier)
+        val editInsPolicyNumber = dialogView.findViewById<EditText>(R.id.editInsPolicyNumber)
+        val editInsFaceAmount = dialogView.findViewById<EditText>(R.id.editInsFaceAmount)
+        val editInsMonthlyPremium = dialogView.findViewById<EditText>(R.id.editInsMonthlyPremium)
+        val editInsBeneficiaries = dialogView.findViewById<EditText>(R.id.editInsBeneficiaries)
+        val tvInsRenewalDate = dialogView.findViewById<TextView>(R.id.tvInsRenewalDate)
+        val btnSetInsRenewalDate = dialogView.findViewById<Button>(R.id.btnSetInsRenewalDate)
+
+        val cardInvestmentDetails = dialogView.findViewById<View>(R.id.cardInvestmentDetails)
+        val spinnerInvAccountType = dialogView.findViewById<Spinner>(R.id.spinnerInvAccountType)
+        val spinnerInvStatus = dialogView.findViewById<Spinner>(R.id.spinnerInvStatus)
+        val editInvPlatform = dialogView.findViewById<EditText>(R.id.editInvPlatform)
+        val editInvLumpSum = dialogView.findViewById<EditText>(R.id.editInvLumpSum)
+        val editInvMonthlyContribution = dialogView.findViewById<EditText>(R.id.editInvMonthlyContribution)
+
+        fun updateProductCardsVisibility() {
+            val isClient = cbClient?.isChecked == true
+            llClientOptions?.visibility = if (isClient) View.VISIBLE else View.GONE
+            cardLifeInsuranceDetails?.visibility = if (isClient && cbLife?.isChecked == true) View.VISIBLE else View.GONE
+            cardInvestmentDetails?.visibility = if (isClient && cbInv?.isChecked == true) View.VISIBLE else View.GONE
+        }
+
+        cbClient?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+        cbLife?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+        cbInv?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+
+        var insRenewalDateStr = lead["insRenewalDate"] as? String
+        btnSetInsRenewalDate?.setOnClickListener {
+            val calendar = Calendar.getInstance()
+            DatePickerDialog(this, { _, y, m, d ->
+                insRenewalDateStr = String.format("%04d-%02d-%02d", y, m + 1, d)
+                tvInsRenewalDate?.text = "Annual Review / Issue Date: $insRenewalDateStr"
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        }
 
         val tvReminderValue = dialogView.findViewById<TextView>(R.id.tvReminderValue)
         val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
@@ -428,10 +479,36 @@ class FollowUpActivity : AppCompatActivity() {
         cbClient?.isChecked = category.contains(getString(R.string.category_client))
         cbInv?.isChecked = category.contains("Investment")
         cbLife?.isChecked = category.contains("Life Insurance")
-        llClientOptions?.visibility = if (cbClient?.isChecked == true) View.VISIBLE else View.GONE
-        cbClient?.setOnCheckedChangeListener { _, isChecked ->
-            llClientOptions?.visibility = if (isChecked) View.VISIBLE else View.GONE
+        updateProductCardsVisibility()
+
+        // Pre-fill Insurance Fields
+        editInsCarrier?.setText(lead["insCarrier"] as? String)
+        editInsPolicyNumber?.setText(lead["insPolicyNumber"] as? String)
+        editInsFaceAmount?.setText(lead["insFaceAmount"] as? String)
+        editInsMonthlyPremium?.setText(lead["insMonthlyPremium"] as? String)
+        editInsBeneficiaries?.setText(lead["insBeneficiaries"] as? String)
+        if (lead["insRenewalDate"] != null) {
+            tvInsRenewalDate?.text = "Annual Review / Issue Date: ${lead["insRenewalDate"]}"
         }
+
+        val insPolicyTypes = resources.getStringArray(R.array.ins_policy_types)
+        val insStatusTypes = resources.getStringArray(R.array.ins_underwriting_status)
+        val typeIdx = insPolicyTypes.indexOf(lead["insPolicyType"] as? String)
+        if (typeIdx >= 0) spinnerInsPolicyType?.setSelection(typeIdx)
+        val statusIdx = insStatusTypes.indexOf(lead["insUnderwritingStatus"] as? String)
+        if (statusIdx >= 0) spinnerInsStatus?.setSelection(statusIdx)
+
+        // Pre-fill Investment Fields
+        editInvPlatform?.setText(lead["invPlatform"] as? String)
+        editInvLumpSum?.setText(lead["invLumpSumRollover"] as? String)
+        editInvMonthlyContribution?.setText(lead["invMonthlyContribution"] as? String)
+        
+        val invAcctTypes = resources.getStringArray(R.array.inv_account_types)
+        val invStatusTypes = resources.getStringArray(R.array.inv_account_status)
+        val invAcctIdx = invAcctTypes.indexOf(lead["invAccountType"] as? String)
+        if (invAcctIdx >= 0) spinnerInvAccountType?.setSelection(invAcctIdx)
+        val invStatusIdx = invStatusTypes.indexOf(lead["invAccountStatus"] as? String)
+        if (invStatusIdx >= 0) spinnerInvStatus?.setSelection(invStatusIdx)
 
         val tmString = lead["targetMarket"] as? String ?: ""
         cbTmMarried?.isChecked = tmString.contains("Married")
@@ -763,7 +840,68 @@ class FollowUpActivity : AppCompatActivity() {
                 cbRecruit?.isChecked = cat.contains("Recruit", true)
                 cbProspect?.isChecked = cat.contains("Prospect", true)
                 cbClient?.isChecked = cat.contains("Client", true)
+                if (cat.contains("Life Insurance", true)) cbLife?.isChecked = true
+                if (cat.contains("Investment", true)) cbInv?.isChecked = true
+                updateProductCardsVisibility()
             }
+            if (json.has("insCarrier") && !json.isNull("insCarrier")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                editInsCarrier?.setText(json.getString("insCarrier"))
+            }
+            if (json.has("insPolicyType") && !json.isNull("insPolicyType")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                val insPolicyTypes = resources.getStringArray(R.array.ins_policy_types)
+                val typeIdx = insPolicyTypes.indexOf(json.getString("insPolicyType"))
+                if (typeIdx >= 0) spinnerInsPolicyType?.setSelection(typeIdx)
+            }
+            if (json.has("insPolicyNumber") && !json.isNull("insPolicyNumber")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                editInsPolicyNumber?.setText(json.getString("insPolicyNumber"))
+            }
+            if (json.has("insFaceAmount") && !json.isNull("insFaceAmount")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                editInsFaceAmount?.setText(json.getString("insFaceAmount"))
+            }
+            if (json.has("insMonthlyPremium") && !json.isNull("insMonthlyPremium")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                editInsMonthlyPremium?.setText(json.getString("insMonthlyPremium"))
+            }
+            if (json.has("insUnderwritingStatus") && !json.isNull("insUnderwritingStatus")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                val insStatusTypes = resources.getStringArray(R.array.ins_underwriting_status)
+                val statusIdx = insStatusTypes.indexOf(json.getString("insUnderwritingStatus"))
+                if (statusIdx >= 0) spinnerInsStatus?.setSelection(statusIdx)
+            }
+            if (json.has("insBeneficiaries") && !json.isNull("insBeneficiaries")) {
+                cbClient?.isChecked = true; cbLife?.isChecked = true; updateProductCardsVisibility()
+                editInsBeneficiaries?.setText(json.getString("insBeneficiaries"))
+            }
+            
+            if (json.has("invAccountType") && !json.isNull("invAccountType")) {
+                cbClient?.isChecked = true; cbInv?.isChecked = true; updateProductCardsVisibility()
+                val invAcctTypes = resources.getStringArray(R.array.inv_account_types)
+                val invAcctIdx = invAcctTypes.indexOf(json.getString("invAccountType"))
+                if (invAcctIdx >= 0) spinnerInvAccountType?.setSelection(invAcctIdx)
+            }
+            if (json.has("invPlatform") && !json.isNull("invPlatform")) {
+                cbClient?.isChecked = true; cbInv?.isChecked = true; updateProductCardsVisibility()
+                editInvPlatform?.setText(json.getString("invPlatform"))
+            }
+            if (json.has("invLumpSumRollover") && !json.isNull("invLumpSumRollover")) {
+                cbClient?.isChecked = true; cbInv?.isChecked = true; updateProductCardsVisibility()
+                editInvLumpSum?.setText(json.getString("invLumpSumRollover"))
+            }
+            if (json.has("invMonthlyContribution") && !json.isNull("invMonthlyContribution")) {
+                cbClient?.isChecked = true; cbInv?.isChecked = true; updateProductCardsVisibility()
+                editInvMonthlyContribution?.setText(json.getString("invMonthlyContribution"))
+            }
+            if (json.has("invAccountStatus") && !json.isNull("invAccountStatus")) {
+                cbClient?.isChecked = true; cbInv?.isChecked = true; updateProductCardsVisibility()
+                val invStatusTypes = resources.getStringArray(R.array.inv_account_status)
+                val invStatusIdx = invStatusTypes.indexOf(json.getString("invAccountStatus"))
+                if (invStatusIdx >= 0) spinnerInvStatus?.setSelection(invStatusIdx)
+            }
+            
             if (json.has("targetMarket") && !json.isNull("targetMarket")) {
                 val tmArray = json.getJSONArray("targetMarket")
                 for (i in 0 until tmArray.length()) {
@@ -813,6 +951,9 @@ class FollowUpActivity : AppCompatActivity() {
         dialog.setOnDismissListener {
             applyVoiceLogToDialog = null
             onVoiceLogComplete = null
+            if (finishOnDismiss) {
+                finish()
+            }
         }
 
         btnDefaultIntro?.setOnClickListener {
@@ -876,7 +1017,20 @@ class FollowUpActivity : AppCompatActivity() {
                 "targetMarket" to tmList.joinToString(", "),
                 "followUpDate" to selectedFollowUpDate?.let { Timestamp(it) },
                 "appointmentDate" to appointmentDate?.let { Timestamp(it) },
-                "appointmentLocation" to appointmentLocation
+                "appointmentLocation" to appointmentLocation,
+                "insCarrier" to editInsCarrier?.text.toString(),
+                "insPolicyType" to spinnerInsPolicyType?.selectedItem?.toString()?.takeIf { it != "Select Policy Type..." },
+                "insPolicyNumber" to editInsPolicyNumber?.text.toString(),
+                "insFaceAmount" to editInsFaceAmount?.text.toString(),
+                "insMonthlyPremium" to editInsMonthlyPremium?.text.toString(),
+                "insUnderwritingStatus" to spinnerInsStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." },
+                "insBeneficiaries" to editInsBeneficiaries?.text.toString(),
+                "insRenewalDate" to insRenewalDateStr,
+                "invAccountType" to spinnerInvAccountType?.selectedItem?.toString()?.takeIf { it != "Select Account Type..." },
+                "invPlatform" to editInvPlatform?.text.toString(),
+                "invLumpSumRollover" to editInvLumpSum?.text.toString(),
+                "invMonthlyContribution" to editInvMonthlyContribution?.text.toString(),
+                "invAccountStatus" to spinnerInvStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." }
             )
             
             // Instantly update the local item in memory so the UI is fresh if reopened quickly
@@ -1063,8 +1217,9 @@ class FollowUpActivity : AppCompatActivity() {
             try {
                 val prompt = "You are an assistant for a Primerica agent. Extract structured updates from the following voice log. " +
                              "The lead ID is $leadId. " +
-                             "Look for: phone, email, category (Recruit, Prospect, Client), targetMarket (list: Married, Age 25-55, Children, Homeowner, Occupation), " +
+                             "Look for: phone, email, category (Recruit, Prospect, Client, Life Insurance, Investment), targetMarket (list: Married, Age 25-55, Children, Homeowner, Occupation), " +
                              "followUpDate (yyyy-MM-dd HH:mm), appointmentDate (yyyy-MM-dd HH:mm), appointmentLocation, and notes. " +
+                             "Also extract optional insurance and investment keys: insCarrier, insPolicyType, insPolicyNumber, insFaceAmount, insMonthlyPremium, insUnderwritingStatus, insBeneficiaries, invAccountType, invPlatform, invLumpSumRollover, invMonthlyContribution, invAccountStatus. " +
                              "Return ONLY valid JSON.\nVoice Log: $spokenText"
                 val response = GeminiApiClient.generativeModel.generateContent(prompt)
                 val jsonStr = response.text?.replace("```json", "")?.replace("```", "")?.trim() ?: "{}"
@@ -1075,6 +1230,9 @@ class FollowUpActivity : AppCompatActivity() {
                     if (json.has("phone") && !json.isNull("phone")) updates["phone"] = json.getString("phone")
                     if (json.has("email") && !json.isNull("email")) updates["email"] = json.getString("email")
                     if (json.has("category") && !json.isNull("category")) updates["category"] = json.getString("category")
+                    
+                    val optKeys = listOf("insCarrier", "insPolicyType", "insPolicyNumber", "insFaceAmount", "insMonthlyPremium", "insUnderwritingStatus", "insBeneficiaries", "invAccountType", "invPlatform", "invLumpSumRollover", "invMonthlyContribution", "invAccountStatus")
+                    optKeys.forEach { k -> if (json.has(k) && !json.isNull(k)) updates[k] = json.getString(k) }
                     
                     var newNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
                     
@@ -1127,8 +1285,9 @@ class FollowUpActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val prompt = "You are an assistant for a Primerica agent. Extract structured updates from the following voice log. " +
-                             "Look for: phone, email, category (Recruit, Prospect, Client), targetMarket (list: Married, Age 25-55, Children, Homeowner, Occupation), " +
+                             "Look for: phone, email, category (Recruit, Prospect, Client, Life Insurance, Investment), targetMarket (list: Married, Age 25-55, Children, Homeowner, Occupation), " +
                              "followUpDate (yyyy-MM-dd HH:mm), appointmentDate (yyyy-MM-dd HH:mm), appointmentLocation, and notes. " +
+                             "Also extract optional insurance and investment keys: insCarrier, insPolicyType, insPolicyNumber, insFaceAmount, insMonthlyPremium, insUnderwritingStatus, insBeneficiaries, invAccountType, invPlatform, invLumpSumRollover, invMonthlyContribution, invAccountStatus. " +
                              "Return ONLY valid JSON.\nVoice Log: $spokenText"
                 val response = GeminiApiClient.generativeModel.generateContent(prompt)
                 val jsonStr = response.text?.replace("```json", "")?.replace("```", "")?.trim() ?: "{}"

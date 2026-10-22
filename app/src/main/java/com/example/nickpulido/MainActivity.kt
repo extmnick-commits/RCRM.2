@@ -190,6 +190,9 @@ class MainActivity : AppCompatActivity() {
                     onContacts = {
                         startActivity(Intent(this@MainActivity, ContactsActivity::class.java))
                     },
+                    onPipelines = {
+                        startActivity(Intent(this@MainActivity, PipelinesActivity::class.java))
+                    },
                     adminLabel = adminLabel,
                     onAdminClick = {
                         when (adminRole) {

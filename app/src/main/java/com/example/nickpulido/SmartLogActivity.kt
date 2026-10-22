@@ -41,6 +41,7 @@ class SmartLogActivity : AppCompatActivity() {
     private var isNewContact: Boolean = true
     private var followUpDate: Date? = null
     private var accountDefaultSms: String? = null
+    private var insRenewalDateStr: String? = null
     
     // Appointment variables
     private var appointmentDate: Date? = null
@@ -109,6 +110,32 @@ class SmartLogActivity : AppCompatActivity() {
         val clientSubCategoryLayout = findViewById<LinearLayout>(R.id.clientSubCategoryLayout)
         val cbInvestment = findViewById<CheckBox>(R.id.cbInvestment)
         val cbLifeInsurance = findViewById<CheckBox>(R.id.cbLifeInsurance)
+        val cardLifeInsuranceDetails = findViewById<View>(R.id.cardLifeInsuranceDetails)
+        val cardInvestmentDetails = findViewById<View>(R.id.cardInvestmentDetails)
+        val tvInsRenewalDate = findViewById<TextView>(R.id.tvInsRenewalDate)
+        val btnSetInsRenewalDate = findViewById<Button>(R.id.btnSetInsRenewalDate)
+
+        fun updateProductCardsVisibility() {
+            val isClient = cbClient.isChecked
+            clientSubCategoryLayout.visibility = if (isClient) View.VISIBLE else View.GONE
+            if (!isClient) {
+                cbInvestment.isChecked = false
+                cbLifeInsurance.isChecked = false
+            }
+            cardLifeInsuranceDetails?.visibility = if (isClient && cbLifeInsurance.isChecked) View.VISIBLE else View.GONE
+            cardInvestmentDetails?.visibility = if (isClient && cbInvestment.isChecked) View.VISIBLE else View.GONE
+        }
+        cbClient.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+        cbLifeInsurance.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+        cbInvestment.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+
+        btnSetInsRenewalDate?.setOnClickListener {
+            val cal = Calendar.getInstance()
+            DatePickerDialog(this, { _, y, m, d ->
+                insRenewalDateStr = String.format("%04d-%02d-%02d", y, m + 1, d)
+                tvInsRenewalDate?.text = "Annual Review / Issue Date: $insRenewalDateStr"
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+        }
         val etNotes = findViewById<EditText>(R.id.etQuickNote)
         val etIntroText = findViewById<EditText>(R.id.etIntroText)
         val btnSave = findViewById<Button>(R.id.btnSaveLeadAction)
@@ -201,13 +228,7 @@ class SmartLogActivity : AppCompatActivity() {
                 .show()
         }
 
-        cbClient.setOnCheckedChangeListener { _, isChecked ->
-            clientSubCategoryLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
-            if (!isChecked) {
-                cbInvestment.isChecked = false
-                cbLifeInsurance.isChecked = false
-            }
-        }
+
 
         fun applyDefaultIntro() {
             val currentName = etContactName.text.toString()
@@ -993,6 +1014,21 @@ class SmartLogActivity : AppCompatActivity() {
         val titleText = etTitle.text.toString().trim()
         val currentUserId = auth.currentUser?.uid
 
+        val spinnerInsPolicyType = findViewById<Spinner>(R.id.spinnerInsPolicyType)
+        val spinnerInsStatus = findViewById<Spinner>(R.id.spinnerInsStatus)
+        val editInsCarrier = findViewById<EditText>(R.id.editInsCarrier)
+        val editInsPolicyNumber = findViewById<EditText>(R.id.editInsPolicyNumber)
+        val editInsFaceAmount = findViewById<EditText>(R.id.editInsFaceAmount)
+        val editInsMonthlyPremium = findViewById<EditText>(R.id.editInsMonthlyPremium)
+        val editInsBeneficiaries = findViewById<EditText>(R.id.editInsBeneficiaries)
+        val tvInsRenewalDate = findViewById<TextView>(R.id.tvInsRenewalDate)
+        
+        val spinnerInvAccountType = findViewById<Spinner>(R.id.spinnerInvAccountType)
+        val spinnerInvStatus = findViewById<Spinner>(R.id.spinnerInvStatus)
+        val editInvPlatform = findViewById<EditText>(R.id.editInvPlatform)
+        val editInvLumpSum = findViewById<EditText>(R.id.editInvLumpSum)
+        val editInvMonthlyContribution = findViewById<EditText>(R.id.editInvMonthlyContribution)
+
         if (currentUserId == null) {
             Log.e(TAG, "No user logged in")
             Toast.makeText(this, "Error: You must be logged in to save leads", Toast.LENGTH_LONG).show()
@@ -1042,6 +1078,19 @@ class SmartLogActivity : AppCompatActivity() {
                         "followUpDate" to followUpDate?.let { Timestamp(it) }, 
                         "appointmentDate" to appointmentDate?.let { Timestamp(it) },
                         "appointmentLocation" to appointmentLocation,
+                        "insCarrier" to editInsCarrier?.text.toString(),
+                        "insPolicyType" to spinnerInsPolicyType?.selectedItem?.toString()?.takeIf { it != "Select Policy Type..." },
+                        "insPolicyNumber" to editInsPolicyNumber?.text.toString(),
+                        "insFaceAmount" to editInsFaceAmount?.text.toString(),
+                        "insMonthlyPremium" to editInsMonthlyPremium?.text.toString(),
+                        "insUnderwritingStatus" to spinnerInsStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." },
+                        "insBeneficiaries" to editInsBeneficiaries?.text.toString(),
+                        "insRenewalDate" to insRenewalDateStr,
+                        "invAccountType" to spinnerInvAccountType?.selectedItem?.toString()?.takeIf { it != "Select Account Type..." },
+                        "invPlatform" to editInvPlatform?.text.toString(),
+                        "invLumpSumRollover" to editInvLumpSum?.text.toString(),
+                        "invMonthlyContribution" to editInvMonthlyContribution?.text.toString(),
+                        "invAccountStatus" to spinnerInvStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." },
                         "timestamp" to Timestamp.now(),
                         "ownerId" to currentUserId,
                         "source" to "smart_log"

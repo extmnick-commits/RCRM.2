@@ -109,7 +109,17 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                     val lastActivityTime = notes.maxByOrNull { it.timestamp }?.timestamp ?: 0L
                     val neglectScore = now - lastActivityTime
                     
-                    val suggestion = analyzeLeadHistory(name, category, jobTitle, targetMarket, notes, previousSuggestion, previousFeedback)
+                    val insPolicyType = doc.getString("insPolicyType") ?: ""
+                    val insFaceAmount = doc.getString("insFaceAmount") ?: ""
+                    val insUnderwritingStatus = doc.getString("insUnderwritingStatus") ?: ""
+                    val invAccountType = doc.getString("invAccountType") ?: ""
+                    val invAccountStatus = doc.getString("invAccountStatus") ?: ""
+                    
+                    val suggestion = analyzeLeadHistory(
+                        name, category, jobTitle, targetMarket, 
+                        insPolicyType, insFaceAmount, insUnderwritingStatus, invAccountType, invAccountStatus,
+                        notes, previousSuggestion, previousFeedback
+                    )
                     val lastNoteContent = notes.maxByOrNull { it.timestamp }?.content ?: "No notes recorded"
 
                     neglectedLeads.add(NeglectedLead(doc.id, name, phone, lastNoteContent, suggestion, neglectScore))
@@ -224,6 +234,11 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
         category: String,
         jobTitle: String,
         targetMarket: String,
+        insPolicyType: String,
+        insFaceAmount: String,
+        insUnderwritingStatus: String,
+        invAccountType: String,
+        invAccountStatus: String,
         notes: List<Note>,
         previousSuggestion: String,
         previousFeedback: String?
@@ -237,6 +252,11 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
             if (category.isNotEmpty()) append("Category: $category. ")
             if (jobTitle.isNotEmpty()) append("Job Title: $jobTitle. ")
             if (targetMarket.isNotEmpty()) append("Target Market Traits: $targetMarket. ")
+            if (insPolicyType.isNotEmpty()) append("Life Ins Type: $insPolicyType. ")
+            if (insFaceAmount.isNotEmpty()) append("Face Amount: $insFaceAmount. ")
+            if (insUnderwritingStatus.isNotEmpty()) append("Ins Status: $insUnderwritingStatus. ")
+            if (invAccountType.isNotEmpty()) append("Investment Type: $invAccountType. ")
+            if (invAccountStatus.isNotEmpty()) append("Investment Status: $invAccountStatus. ")
         }.toString()
 
         val feedbackContext = if (previousFeedback != null && previousSuggestion.isNotEmpty()) {

@@ -210,6 +210,174 @@
                     <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
                 </LinearLayout>
 
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardLifeInsuranceDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="0dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🛡️ Life Insurance Policy Details"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:layout_marginBottom="8dp"/>
+                        <Spinner
+                            android:id="@+id/spinnerInsPolicyType"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:entries="@array/ins_policy_types"
+                            android:layout_marginBottom="8dp"/>
+                        <Spinner
+                            android:id="@+id/spinnerInsStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:entries="@array/ins_underwriting_status"
+                            android:layout_marginBottom="8dp"/>
+                        <EditText
+                            android:id="@+id/editInsCarrier"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Carrier (e.g., Primerica Life)"
+                            android:inputType="text"
+                            android:layout_marginBottom="8dp"/>
+                        <EditText
+                            android:id="@+id/editInsPolicyNumber"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Policy Number"
+                            android:inputType="text"
+                            android:layout_marginBottom="8dp"/>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+                            <EditText
+                                android:id="@+id/editInsFaceAmount"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:hint="Face Amount ($)"
+                                android:inputType="text"
+                                android:layout_marginEnd="4dp"/>
+                            <EditText
+                                android:id="@+id/editInsMonthlyPremium"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:hint="Monthly Premium ($)"
+                                android:inputType="text"
+                                android:layout_marginStart="4dp"/>
+                        </LinearLayout>
+                        <EditText
+                            android:id="@+id/editInsBeneficiaries"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Primary / Contingent Beneficiaries"
+                            android:inputType="text"
+                            android:layout_marginBottom="8dp"/>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+                            <TextView
+                                android:id="@+id/tvInsRenewalDate"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="Annual Review / Issue Date: None"
+                                android:textSize="12sp"
+                                android:textColor="?attr/colorOnSurfaceVariant"/>
+                            <Button
+                                android:id="@+id/btnSetInsRenewalDate"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="📅 Set Issue/Review Date"
+                                android:textAllCaps="false"
+                                android:textColor="@color/colorPrimary"
+                                android:padding="0dp"
+                                android:minWidth="0dp"
+                                android:minHeight="0dp"/>
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardInvestmentDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="0dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📈 Investment &amp; Retirement Account"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            android:layout_marginBottom="8dp"/>
+                        <Spinner
+                            android:id="@+id/spinnerInvAccountType"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:entries="@array/inv_account_types"
+                            android:layout_marginBottom="8dp"/>
+                        <Spinner
+                            android:id="@+id/spinnerInvStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:entries="@array/inv_account_status"
+                            android:layout_marginBottom="8dp"/>
+                        <EditText
+                            android:id="@+id/editInvPlatform"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Platform / Fund Family (e.g., PFSI, American Funds)"
+                            android:inputType="text"
+                            android:layout_marginBottom="8dp"/>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <EditText
+                                android:id="@+id/editInvLumpSum"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:hint="Rollover / Initial ($)"
+                                android:inputType="text"
+                                android:layout_marginEnd="4dp"/>
+                            <EditText
+                                android:id="@+id/editInvMonthlyContribution"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:hint="Monthly PAC ($/mo)"
+                                android:inputType="text"
+                                android:layout_marginStart="4dp"/>
+                        </LinearLayout>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
