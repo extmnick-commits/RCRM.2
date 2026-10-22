@@ -266,19 +266,37 @@ class FollowUpActivity : AppCompatActivity() {
         val sectionProfile = dialogView.findViewById<View>(R.id.sectionProfile)
         val sectionProducts = dialogView.findViewById<View>(R.id.sectionProducts)
         
+        fun styleTabButton(tabView: TextView?, isSelected: Boolean) {
+            if (tabView == null) return
+            if (isSelected) {
+                val selectedBg = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(Color.parseColor("#2A62F0"))
+                    cornerRadius = 10f * resources.displayMetrics.density
+                }
+                tabView.background = selectedBg
+                tabView.setTextColor(Color.WHITE)
+                tabView.setTypeface(null, android.graphics.Typeface.BOLD)
+            } else {
+                tabView.background = null
+                tabView.setTextColor(Color.parseColor("#9AA6BD"))
+                tabView.setTypeface(null, android.graphics.Typeface.NORMAL)
+            }
+        }
+
         fun updateTabColors(selected: TextView, other1: TextView, other2: TextView, showSection: View, hide1: View, hide2: View) {
-            selected.setBackgroundColor(Color.parseColor("#2A62F0"))
-            selected.setTextColor(Color.WHITE)
-            other1.setBackgroundColor(Color.TRANSPARENT)
-            other1.setTextColor(Color.parseColor("#8E99B0"))
-            other2.setBackgroundColor(Color.TRANSPARENT)
-            other2.setTextColor(Color.parseColor("#8E99B0"))
+            styleTabButton(selected, true)
+            styleTabButton(other1, false)
+            styleTabButton(other2, false)
             
             showSection.visibility = View.VISIBLE
             hide1.visibility = View.GONE
             hide2.visibility = View.GONE
         }
         
+        styleTabButton(tabActivity, true)
+        styleTabButton(tabProfile, false)
+        styleTabButton(tabProducts, false)
+
         tabActivity?.setOnClickListener { updateTabColors(tabActivity, tabProfile!!, tabProducts!!, sectionActivity!!, sectionProfile!!, sectionProducts!!) }
         tabProfile?.setOnClickListener { updateTabColors(tabProfile!!, tabActivity!!, tabProducts!!, sectionProfile!!, sectionActivity!!, sectionProducts!!) }
         tabProducts?.setOnClickListener { updateTabColors(tabProducts!!, tabActivity!!, tabProfile!!, sectionProducts!!, sectionActivity!!, sectionProfile!!) }
@@ -313,74 +331,122 @@ class FollowUpActivity : AppCompatActivity() {
         fun updateProductCardsVisibility() {
             val isClient = cbClient?.isChecked == true
             llClientOptions?.visibility = if (isClient) View.VISIBLE else View.GONE
-            cardLifeInsuranceDetails?.visibility = if (isClient && cbLife?.isChecked == true) View.VISIBLE else View.GONE
-            cardInvestmentDetails?.visibility = if (isClient && cbInv?.isChecked == true) View.VISIBLE else View.GONE
-        }
-
-        cbClient?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
-        cbLife?.setOnCheckedChangeListener { _, isChecked -> 
-            if (isChecked) cbClient?.isChecked = true
-            updateProductCardsVisibility() 
-        }
-        cbInv?.setOnCheckedChangeListener { _, isChecked -> 
-            if (isChecked) cbClient?.isChecked = true
-            updateProductCardsVisibility() 
+            cardLifeInsuranceDetails?.visibility = View.VISIBLE
+            cardInvestmentDetails?.visibility = View.VISIBLE
         }
 
         fun updateInsSummary() {
-            val face = editInsFaceAmount?.text?.toString() ?: ""
-            val prem = editInsMonthlyPremium?.text?.toString() ?: ""
-            val status = spinnerInsStatus?.selectedItem?.toString() ?: ""
-            val parts = listOf(
-                if (face.isNotEmpty()) "$$face" else "",
-                if (prem.isNotEmpty()) "$$prem/mo" else "",
-                if (status != "Select Status..." && status.isNotEmpty()) status else ""
-            ).filter { it.isNotEmpty() }
-            if (parts.isEmpty()) {
-                tvInsSummaryBadge?.text = "Tap Edit to add details"
+            val isChecked = cbLife?.isChecked == true
+            if (!isChecked) {
+                tvInsSummaryBadge?.text = "Not Enrolled • Tap + Add"
                 tvInsSummaryBadge?.setTextColor(Color.parseColor("#8E99B0"))
+                btnToggleInsEdit?.text = "+ Add"
             } else {
-                tvInsSummaryBadge?.text = parts.joinToString(" • ")
-                tvInsSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+                val face = editInsFaceAmount?.text?.toString()?.trim() ?: ""
+                val prem = editInsMonthlyPremium?.text?.toString()?.trim() ?: ""
+                val status = spinnerInsStatus?.selectedItem?.toString() ?: ""
+                val parts = listOf(
+                    if (face.isNotEmpty()) "$$face" else "",
+                    if (prem.isNotEmpty()) "$$prem/mo" else "",
+                    if (status != "Select Status..." && status.isNotEmpty()) status else ""
+                ).filter { it.isNotEmpty() }
+                
+                if (parts.isEmpty()) {
+                    tvInsSummaryBadge?.text = "Enrolled • Tap Edit"
+                    tvInsSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+                } else {
+                    tvInsSummaryBadge?.text = parts.joinToString(" • ")
+                    tvInsSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+                }
+
+                if (containerInsForm?.visibility == View.VISIBLE) {
+                    btnToggleInsEdit?.text = "Done ▲"
+                } else {
+                    btnToggleInsEdit?.text = "Edit ▼"
+                }
             }
         }
 
         fun updateInvSummary() {
-            val acct = spinnerInvAccountType?.selectedItem?.toString() ?: ""
-            val pac = editInvMonthlyContribution?.text?.toString() ?: ""
-            val parts = listOf(
-                if (acct != "Select Account Type..." && acct.isNotEmpty()) acct else "",
-                if (pac.isNotEmpty()) "$$pac/mo" else ""
-            ).filter { it.isNotEmpty() }
-            if (parts.isEmpty()) {
-                tvInvSummaryBadge?.text = "Tap Edit to add details"
+            val isChecked = cbInv?.isChecked == true
+            if (!isChecked) {
+                tvInvSummaryBadge?.text = "Not Enrolled • Tap + Add"
                 tvInvSummaryBadge?.setTextColor(Color.parseColor("#8E99B0"))
+                btnToggleInvEdit?.text = "+ Add"
             } else {
-                tvInvSummaryBadge?.text = parts.joinToString(" • ")
-                tvInvSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+                val acct = spinnerInvAccountType?.selectedItem?.toString() ?: ""
+                val pac = editInvMonthlyContribution?.text?.toString()?.trim() ?: ""
+                val parts = listOf(
+                    if (acct != "Select Account Type..." && acct.isNotEmpty()) acct else "",
+                    if (pac.isNotEmpty()) "$$pac/mo" else ""
+                ).filter { it.isNotEmpty() }
+                
+                if (parts.isEmpty()) {
+                    tvInvSummaryBadge?.text = "Enrolled • Tap Edit"
+                    tvInvSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+                } else {
+                    tvInvSummaryBadge?.text = parts.joinToString(" • ")
+                    tvInvSummaryBadge?.setTextColor(Color.parseColor("#3DFF9A"))
+                }
+
+                if (containerInvForm?.visibility == View.VISIBLE) {
+                    btnToggleInvEdit?.text = "Done ▲"
+                } else {
+                    btnToggleInvEdit?.text = "Edit ▼"
+                }
             }
         }
 
-        btnToggleInsEdit?.setOnClickListener {
+        fun toggleInsForm() {
             if (containerInsForm?.visibility == View.VISIBLE) {
                 containerInsForm.visibility = View.GONE
-                btnToggleInsEdit.text = "Edit ▼"
-                updateInsSummary()
             } else {
+                cbClient?.isChecked = true
+                cbLife?.isChecked = true
                 containerInsForm?.visibility = View.VISIBLE
-                btnToggleInsEdit.text = "Done ▲"
             }
+            updateProductCardsVisibility()
+            updateInsSummary()
         }
 
-        btnToggleInvEdit?.setOnClickListener {
+        btnToggleInsEdit?.setOnClickListener { toggleInsForm() }
+        (btnToggleInsEdit?.parent as? View)?.setOnClickListener { toggleInsForm() }
+
+        fun toggleInvForm() {
             if (containerInvForm?.visibility == View.VISIBLE) {
                 containerInvForm.visibility = View.GONE
-                btnToggleInvEdit.text = "Edit ▼"
-                updateInvSummary()
             } else {
+                cbClient?.isChecked = true
+                cbInv?.isChecked = true
                 containerInvForm?.visibility = View.VISIBLE
-                btnToggleInvEdit.text = "Done ▲"
             }
+            updateProductCardsVisibility()
+            updateInvSummary()
+        }
+
+        btnToggleInvEdit?.setOnClickListener { toggleInvForm() }
+        (btnToggleInvEdit?.parent as? View)?.setOnClickListener { toggleInvForm() }
+
+        cbClient?.setOnCheckedChangeListener { _, _ -> updateProductCardsVisibility() }
+        cbLife?.setOnCheckedChangeListener { _, isChecked -> 
+            if (isChecked) {
+                cbClient?.isChecked = true
+                containerInsForm?.visibility = View.VISIBLE
+            } else {
+                containerInsForm?.visibility = View.GONE
+            }
+            updateProductCardsVisibility() 
+            updateInsSummary()
+        }
+        cbInv?.setOnCheckedChangeListener { _, isChecked -> 
+            if (isChecked) {
+                cbClient?.isChecked = true
+                containerInvForm?.visibility = View.VISIBLE
+            } else {
+                containerInvForm?.visibility = View.GONE
+            }
+            updateProductCardsVisibility() 
+            updateInvSummary()
         }
 
         val insWatcher = object : android.text.TextWatcher {
@@ -1200,6 +1266,11 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         dialog.show()
+        val displayMetrics = resources.displayMetrics
+        val width = (displayMetrics.widthPixels * 0.95).toInt()
+        val height = (displayMetrics.heightPixels * 0.88).toInt()
+        dialog.window?.setLayout(width, height)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
     }
 
     private fun showPresetsDialog(target: EditText, nameSource: EditText) {

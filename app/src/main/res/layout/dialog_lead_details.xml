@@ -1,1294 +1,1039 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#0B111E">
+    app:cardCornerRadius="16dp"
+    app:cardBackgroundColor="#0B111E"
+    app:cardElevation="0dp"
+    app:strokeColor="#1F2A44"
+    app:strokeWidth="1dp">
 
-    <!-- Pinned Top Header -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <!-- Top row: editDetailName + quick actions -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <EditText
-                android:id="@+id/editDetailName"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="@string/hint_prospect_name"
-                android:textColorHint="#8E99B0"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:background="@null"
-                android:inputType="textPersonName"
-                android:autofillHints="name" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <ImageButton
-                    android:id="@+id/btnCallDetail"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_marginEnd="8dp"
-                    android:src="@android:drawable/ic_menu_call"
-                    android:background="@drawable/bg_edittext_outline"
-                    app:tint="#3DFF9A"
-                    android:scaleType="centerInside"
-                    android:padding="8dp"
-                    android:contentDescription="@string/call_icon_description" />
-                <ImageButton
-                    android:id="@+id/btnSmsDetail"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_marginEnd="8dp"
-                    android:src="@android:drawable/sym_action_chat"
-                    android:background="@drawable/bg_edittext_outline"
-                    app:tint="#2EE7FF"
-                    android:scaleType="centerInside"
-                    android:padding="8dp"
-                    android:contentDescription="Send SMS" />
-                <ImageButton
-                    android:id="@+id/btnEmailDetail"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_marginEnd="8dp"
-                    android:src="@android:drawable/ic_dialog_email"
-                    android:background="@drawable/bg_edittext_outline"
-                    app:tint="#E8D5FF"
-                    android:scaleType="centerInside"
-                    android:padding="8dp"
-                    android:contentDescription="Send Email" />
-                <ImageButton
-                    android:id="@+id/btnMapDetail"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:src="@android:drawable/ic_dialog_map"
-                    android:background="@drawable/bg_edittext_outline"
-                    app:tint="#FFB14CFF"
-                    android:scaleType="centerInside"
-                    android:padding="8dp"
-                    android:contentDescription="Open in Maps" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Second row: 3-Tab Segmented Switcher -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp"
-            android:background="#141E33"
-            android:padding="4dp">
-            <!-- Programmatically we apply corner radii to backgrounds -->
-            <TextView
-                android:id="@+id/tabActivity"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="💬 Activity &amp; Follow-Up"
-                android:textAlignment="center"
-                android:textColor="#FFFFFF"
-                android:paddingVertical="8dp"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:background="#2A62F0" />
-            <TextView
-                android:id="@+id/tabProfile"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="🎯 Profile &amp; TM"
-                android:textAlignment="center"
-                android:textColor="#8E99B0"
-                android:paddingVertical="8dp"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:background="@android:color/transparent" />
-            <TextView
-                android:id="@+id/tabProducts"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="🛡️ Products &amp; Client"
-                android:textAlignment="center"
-                android:textColor="#8E99B0"
-                android:paddingVertical="8dp"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:background="@android:color/transparent" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Middle Scrollable Content -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
-
+        <!-- Pinned Top Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingBottom="16dp">
+            android:padding="16dp">
 
-            <!-- TAB 1: Activity -->
+            <!-- Top row: editDetailName + quick actions -->
             <LinearLayout
-                android:id="@+id/sectionActivity"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-                <!-- Side-Kick Suggestion -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/sideKickSuggestionContainer"
+                <EditText
+                    android:id="@+id/editDetailName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/hint_prospect_name"
+                    android:textColorHint="#8E99B0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:background="@null"
+                    android:inputType="textPersonName"
+                    android:autofillHints="name" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <ImageButton
+                        android:id="@+id/btnCallDetail"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@android:drawable/ic_menu_call"
+                        android:background="@drawable/bg_edittext_outline"
+                        app:tint="#3DFF9A"
+                        android:scaleType="centerInside"
+                        android:padding="8dp"
+                        android:contentDescription="@string/call_icon_description" />
+                    <ImageButton
+                        android:id="@+id/btnSmsDetail"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@android:drawable/sym_action_chat"
+                        android:background="@drawable/bg_edittext_outline"
+                        app:tint="#2EE7FF"
+                        android:scaleType="centerInside"
+                        android:padding="8dp"
+                        android:contentDescription="Send SMS" />
+                    <ImageButton
+                        android:id="@+id/btnEmailDetail"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@android:drawable/ic_dialog_email"
+                        android:background="@drawable/bg_edittext_outline"
+                        app:tint="#E8D5FF"
+                        android:scaleType="centerInside"
+                        android:padding="8dp"
+                        android:contentDescription="Send Email" />
+                    <ImageButton
+                        android:id="@+id/btnMapDetail"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:src="@android:drawable/ic_dialog_map"
+                        android:background="@drawable/bg_edittext_outline"
+                        app:tint="#FFB14CFF"
+                        android:scaleType="centerInside"
+                        android:padding="8dp"
+                        android:contentDescription="Open in Maps" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Second row: 3-Tab Segmented Switcher -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="16dp"
+                android:background="#141E33"
+                android:padding="4dp">
+
+                <TextView
+                    android:id="@+id/tabActivity"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="💬 Activity &amp; Follow-Up"
+                    android:textAlignment="center"
+                    android:textColor="#FFFFFF"
+                    android:paddingVertical="8dp"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tabProfile"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🎯 Profile &amp; TM"
+                    android:textAlignment="center"
+                    android:textColor="#9AA6BD"
+                    android:paddingVertical="8dp"
+                    android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/tabProducts"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🛡️ Products &amp; Client"
+                    android:textAlignment="center"
+                    android:textColor="#9AA6BD"
+                    android:paddingVertical="8dp"
+                    android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Middle Scrollable Content -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingBottom="16dp">
+
+                <!-- TAB 1: Activity -->
+                <LinearLayout
+                    android:id="@+id/sectionActivity"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="#1E1433"
-                    app:strokeColor="#FFB14CFF"
-                    app:strokeWidth="1dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="0dp"
-                    android:visibility="gone"
-                    tools:visibility="visible">
+                    android:orientation="vertical">
 
+                    <!-- Side-Kick Suggestion -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/sideKickSuggestionContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        app:cardBackgroundColor="#1E1433"
+                        app:strokeColor="#FFB14CFF"
+                        app:strokeWidth="1dp"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="0dp"
+                        android:visibility="gone"
+                        tools:visibility="visible">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:id="@+id/tvSideKickTip"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="💡 Side-Kick Tip: Suggestion text goes here."
+                                android:textColor="#E8D5FF"
+                                android:textStyle="bold"
+                                android:textSize="14sp" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="12dp"
+                                android:gravity="end|center_vertical">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_weight="1"
+                                    android:layout_height="wrap_content"
+                                    android:text="Was this tip helpful?"
+                                    android:textSize="12sp"
+                                    android:textStyle="italic"
+                                    android:textColor="#B39DDB"/>
+
+                                <ImageButton
+                                    android:id="@+id/btnThumbsUp"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:src="@drawable/ic_thumb_up"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="Good Suggestion"
+                                    app:tint="#B39DDB" />
+
+                                <ImageButton
+                                    android:id="@+id/btnThumbsDown"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:src="@drawable/ic_thumb_down"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="Bad Suggestion"
+                                    app:tint="#B39DDB" />
+
+                                <Button
+                                    android:id="@+id/btnDismissSideKick"
+                                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Dismiss"
+                                    android:layout_marginStart="8dp"
+                                    android:textColor="#FF5252" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Activity & Notes Chat Section -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
                         <TextView
-                            android:id="@+id/tvSideKickTip"
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
                             android:layout_height="wrap_content"
-                            android:text="💡 Side-Kick Tip: Suggestion text goes here."
-                            android:textColor="#E8D5FF"
+                            android:text="Activity &amp; Notes"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvTogglePreviousNotes"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Show Previous ▼"
+                            android:textColor="#2EE7FF"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:textSize="14sp" />
+                            android:padding="8dp"
+                            android:visibility="gone"
+                            android:background="?attr/selectableItemBackground" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/notesContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Chat Input Bar -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        app:cardBackgroundColor="#121A2C"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="0dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:layout_marginTop="12dp"
-                            android:gravity="end|center_vertical">
+                            android:gravity="center_vertical"
+                            android:padding="4dp">
 
-                            <TextView
+                            <ImageButton
+                                android:id="@+id/btnRecordVoiceNote"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@android:drawable/ic_btn_speak_now"
+                                app:tint="#2EE7FF" />
+
+                            <EditText
+                                android:id="@+id/etQuickNote"
                                 android:layout_width="0dp"
+                                android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:text="Was this tip helpful?"
-                                android:textSize="12sp"
-                                android:textStyle="italic"
-                                android:textColor="#B39DDB"/>
+                                android:background="@null"
+                                android:hint="Message or log activity..."
+                                android:textColorHint="#8E99B0"
+                                android:textColor="#FFFFFF"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="12dp"
+                                android:inputType="textMultiLine"
+                                android:maxLines="4"
+                                android:textSize="15sp" />
 
                             <ImageButton
-                                android:id="@+id/btnThumbsUp"
-                                android:layout_width="36dp"
-                                android:layout_height="36dp"
-                                android:src="@drawable/ic_thumb_up"
+                                android:id="@+id/btnSendNote"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
                                 android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="Good Suggestion"
-                                app:tint="#B39DDB" />
-
-                            <ImageButton
-                                android:id="@+id/btnThumbsDown"
-                                android:layout_width="36dp"
-                                android:layout_height="36dp"
-                                android:src="@drawable/ic_thumb_down"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:contentDescription="Bad Suggestion"
-                                app:tint="#B39DDB" />
-
-                            <Button
-                                android:id="@+id/btnDismissSideKick"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Dismiss"
-                                android:layout_marginStart="8dp"
-                                android:textColor="#FF5252" />
+                                android:src="@android:drawable/ic_menu_send"
+                                app:tint="#2EE7FF" />
                         </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                    </com.google.android.material.card.MaterialCardView>
 
-                <!-- Activity & Notes Chat Section -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:text="Activity &amp; Notes"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvTogglePreviousNotes"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Show Previous ▼"
-                        android:textColor="#2EE7FF"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:padding="8dp"
-                        android:visibility="gone"
-                        android:background="?attr/selectableItemBackground" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/notesContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp" />
-
-                <!-- Chat Input Bar -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="#121A2C"
-                    app:cardCornerRadius="24dp"
-                    app:cardElevation="0dp">
-
+                    <!-- Reminders & Appointments Toggle Header -->
                     <LinearLayout
+                        android:id="@+id/headerReminders"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:padding="4dp">
-
-                        <ImageButton
-                            android:id="@+id/btnRecordVoiceNote"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:src="@android:drawable/ic_btn_speak_now"
-                            app:tint="#2EE7FF" />
-
-                        <EditText
-                            android:id="@+id/etQuickNote"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:background="@null"
-                            android:hint="Message or log activity..."
-                            android:textColorHint="#8E99B0"
-                            android:textColor="#FFFFFF"
-                            android:paddingHorizontal="8dp"
-                            android:paddingVertical="12dp"
-                            android:inputType="textMultiLine"
-                            android:maxLines="4"
-                            android:textSize="15sp" />
-
-                        <ImageButton
-                            android:id="@+id/btnSendNote"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:src="@android:drawable/ic_menu_send"
-                            app:tint="#2EE7FF" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Reminders & Appointments Toggle Header -->
-                <LinearLayout
-                    android:id="@+id/headerReminders"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingVertical="12dp"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Reminders &amp; Appointments"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:id="@+id/tvToggleReminders"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Hide ▲"
-                        android:textColor="#2EE7FF"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:padding="8dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/containerReminders"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:visibility="visible">
-
-                    <!-- Active Reminder Section -->
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/cardActiveReminder"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginVertical="8dp"
-                        app:cardBackgroundColor="#121A2C"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:padding="16dp"
-                            android:gravity="center_vertical">
-
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_lock_idle_alarm"
-                                app:tint="#2EE7FF" />
-
-                            <TextView
-                                android:id="@+id/tvReminderValue"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="16dp"
-                                android:text="No reminder set"
-                                android:textColor="#FFFFFF"
-                                android:textSize="15sp" />
-
-                            <ImageButton
-                                android:id="@+id/btnEditReminderIcon"
-                                android:layout_width="36dp"
-                                android:layout_height="36dp"
-                                android:src="@android:drawable/ic_menu_edit"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                app:tint="#8E99B0"
-                                android:visibility="gone"
-                                android:contentDescription="Edit Reminder" />
-
-                            <ImageButton
-                                android:id="@+id/btnDeleteReminderIcon"
-                                android:layout_width="36dp"
-                                android:layout_height="36dp"
-                                android:src="@android:drawable/ic_menu_delete"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                app:tint="#FF5252"
-                                android:visibility="gone"
-                                android:contentDescription="Delete Reminder" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:weightSum="2">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnSetReminder"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="8dp"
-                            android:text="@string/btn_set_reminder"
-                            android:textColor="#2EE7FF"
-                            app:strokeColor="#2EE7FF"
-                            app:cornerRadius="8dp" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnAddCalendar"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/btn_add_calendar"
-                            android:textColor="#2EE7FF"
-                            app:strokeColor="#2EE7FF"
-                            app:cornerRadius="8dp" />
-                    </LinearLayout>
-
-                    <!-- Active Appointment Section -->
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/cardActiveAppointment"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:layout_marginBottom="8dp"
-                        app:cardBackgroundColor="#121A2C"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:padding="16dp"
-                            android:gravity="center_vertical">
-
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_my_calendar"
-                                app:tint="#3DFF9A" />
-
-                            <TextView
-                                android:id="@+id/tvApptValue"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="16dp"
-                                android:text="No appointment scheduled"
-                                android:textColor="#FFFFFF"
-                                android:textSize="15sp" />
-
-                            <ImageButton
-                                android:id="@+id/btnEditApptIcon"
-                                android:layout_width="36dp"
-                                android:layout_height="36dp"
-                                android:src="@android:drawable/ic_menu_edit"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                app:tint="#8E99B0"
-                                android:visibility="gone"
-                                android:contentDescription="Edit Appointment" />
-
-                            <ImageButton
-                                android:id="@+id/btnDeleteApptIcon"
-                                android:layout_width="36dp"
-                                android:layout_height="36dp"
-                                android:src="@android:drawable/ic_menu_delete"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                app:tint="#FF5252"
-                                android:visibility="gone"
-                                android:contentDescription="Delete Appointment" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSetAppt"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Schedule Appointment"
-                        android:textColor="#3DFF9A"
-                        app:strokeColor="#3DFF9A"
-                        app:cornerRadius="8dp" />
-                </LinearLayout>
-
-                <!-- SMS Intro Toggle Header -->
-                <LinearLayout
-                    android:id="@+id/headerSmsIntro"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingVertical="12dp"
-                    android:layout_marginTop="16dp"
-                    android:background="?attr/selectableItemBackground">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Quick Intro SMS"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:id="@+id/tvToggleSms"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Hide ▲"
-                        android:textColor="#2EE7FF"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:padding="8dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/containerSmsIntro"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:visibility="visible">
-
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp">
-
+                        android:paddingVertical="12dp"
+                        android:background="?attr/selectableItemBackground">
                         <TextView
-                            android:id="@+id/tvIntroTextLabel"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Reminders &amp; Appointments"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tvToggleReminders"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_centerVertical="true"
-                            android:text="@string/label_quick_intro_sms"
-                            android:textColor="#8E99B0"
-                            android:textSize="13sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnDefaultIntro"
-                            style="?android:attr/borderlessButtonStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="36dp"
-                            android:layout_toStartOf="@id/btnManagePresets"
-                            android:layout_centerVertical="true"
-                            android:text="@string/btn_use_default"
+                            android:text="Hide ▲"
                             android:textColor="#2EE7FF"
                             android:textSize="12sp"
-                            android:textAllCaps="false"
-                            android:minWidth="0dp"
-                            android:paddingHorizontal="8dp" />
+                            android:textStyle="bold"
+                            android:padding="8dp" />
+                    </LinearLayout>
 
-                        <Button
-                            android:id="@+id/btnManagePresets"
-                            style="?android:attr/borderlessButtonStyle"
+                    <LinearLayout
+                        android:id="@+id/containerReminders"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="visible">
+
+                        <!-- Active Reminder Section -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardActiveReminder"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginVertical="8dp"
+                            app:cardBackgroundColor="#121A2C"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:padding="16dp"
+                                android:gravity="center_vertical">
+
+                                <ImageView
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:src="@android:drawable/ic_lock_idle_alarm"
+                                    app:tint="#2EE7FF" />
+
+                                <TextView
+                                    android:id="@+id/tvReminderValue"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:text="No reminder set"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="15sp" />
+
+                                <ImageButton
+                                    android:id="@+id/btnEditReminderIcon"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:src="@android:drawable/ic_menu_edit"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    app:tint="#8E99B0"
+                                    android:visibility="gone"
+                                    android:contentDescription="Edit Reminder" />
+
+                                <ImageButton
+                                    android:id="@+id/btnDeleteReminderIcon"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:src="@android:drawable/ic_menu_delete"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    app:tint="#FF5252"
+                                    android:visibility="gone"
+                                    android:contentDescription="Delete Reminder" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:weightSum="2">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnSetReminder"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="8dp"
+                                android:text="@string/btn_set_reminder"
+                                android:textColor="#2EE7FF"
+                                app:strokeColor="#2EE7FF"
+                                app:cornerRadius="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnAddCalendar"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/btn_add_calendar"
+                                android:textColor="#2EE7FF"
+                                app:strokeColor="#2EE7FF"
+                                app:cornerRadius="8dp" />
+                        </LinearLayout>
+
+                        <!-- Active Appointment Section -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardActiveAppointment"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:layout_marginBottom="8dp"
+                            app:cardBackgroundColor="#121A2C"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:padding="16dp"
+                                android:gravity="center_vertical">
+
+                                <ImageView
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:src="@android:drawable/ic_menu_my_calendar"
+                                    app:tint="#3DFF9A" />
+
+                                <TextView
+                                    android:id="@+id/tvApptValue"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:text="No appointment scheduled"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="15sp" />
+
+                                <ImageButton
+                                    android:id="@+id/btnEditApptIcon"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:src="@android:drawable/ic_menu_edit"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    app:tint="#8E99B0"
+                                    android:visibility="gone"
+                                    android:contentDescription="Edit Appointment" />
+
+                                <ImageButton
+                                    android:id="@+id/btnDeleteApptIcon"
+                                    android:layout_width="36dp"
+                                    android:layout_height="36dp"
+                                    android:src="@android:drawable/ic_menu_delete"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    app:tint="#FF5252"
+                                    android:visibility="gone"
+                                    android:contentDescription="Delete Appointment" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnSetAppt"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Schedule Appointment"
+                            android:textColor="#3DFF9A"
+                            app:strokeColor="#3DFF9A"
+                            app:cornerRadius="8dp" />
+                    </LinearLayout>
+
+                    <!-- SMS Intro Toggle Header -->
+                    <LinearLayout
+                        android:id="@+id/headerSmsIntro"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingVertical="12dp"
+                        android:layout_marginTop="16dp"
+                        android:background="?attr/selectableItemBackground">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Quick Intro SMS"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tvToggleSms"
                             android:layout_width="wrap_content"
-                            android:layout_height="36dp"
-                            android:layout_alignParentEnd="true"
-                            android:layout_centerVertical="true"
-                            android:minWidth="0dp"
-                            android:minHeight="0dp"
-                            android:text="@string/btn_presets_dropdown"
+                            android:layout_height="wrap_content"
+                            android:text="Hide ▲"
                             android:textColor="#2EE7FF"
-                            android:textSize="12sp" />
-                    </RelativeLayout>
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:padding="8dp" />
+                    </LinearLayout>
 
+                    <LinearLayout
+                        android:id="@+id/containerSmsIntro"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="visible">
+
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp">
+
+                            <TextView
+                                android:id="@+id/tvIntroTextLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentStart="true"
+                                android:layout_centerVertical="true"
+                                android:text="@string/label_quick_intro_sms"
+                                android:textColor="#8E99B0"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnDefaultIntro"
+                                style="?android:attr/borderlessButtonStyle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:layout_toStartOf="@id/btnManagePresets"
+                                android:layout_centerVertical="true"
+                                android:text="@string/btn_use_default"
+                                android:textColor="#2EE7FF"
+                                android:textSize="12sp"
+                                android:textAllCaps="false"
+                                android:minWidth="0dp"
+                                android:paddingHorizontal="8dp" />
+
+                            <Button
+                                android:id="@+id/btnManagePresets"
+                                style="?android:attr/borderlessButtonStyle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="36dp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_centerVertical="true"
+                                android:minWidth="0dp"
+                                android:minHeight="0dp"
+                                android:text="@string/btn_presets_dropdown"
+                                android:textColor="#2EE7FF"
+                                android:textSize="12sp" />
+                        </RelativeLayout>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            app:cardBackgroundColor="#121A2C"
+                            app:cardCornerRadius="12dp"
+                            app:cardElevation="0dp">
+
+                            <EditText
+                                android:id="@+id/etIntroText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:autofillHints="message"
+                                android:background="@android:color/transparent"
+                                android:gravity="top"
+                                android:textColor="#FFFFFF"
+                                android:textColorHint="#8E99B0"
+                                android:inputType="textMultiLine"
+                                android:minHeight="100dp"
+                                android:padding="16dp"
+                                android:textSize="15sp" />
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="16dp"
+                            android:weightSum="2">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnAIGenerate"
+                                android:layout_width="0dp"
+                                android:layout_height="50dp"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="8dp"
+                                android:text="✨ AI Draft"
+                                app:backgroundTint="#FFB14CFF"
+                                android:textColor="#FFFFFF"
+                                app:cornerRadius="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnSendIntroAction"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="50dp"
+                                android:layout_weight="1"
+                                android:text="@string/btn_send_intro"
+                                android:textColor="#2EE7FF"
+                                app:strokeColor="#2EE7FF"
+                                app:cornerRadius="8dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- TAB 2: Profile -->
+                <LinearLayout
+                    android:id="@+id/sectionProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <!-- Extended Details hidden views for backwards compat -->
+                    <View android:id="@+id/headerExtendedDetails" android:layout_width="0dp" android:layout_height="0dp" />
+                    <View android:id="@+id/containerExtendedDetails" android:layout_width="0dp" android:layout_height="0dp" />
+                    <TextView android:id="@+id/tvToggleExtended" android:layout_width="0dp" android:layout_height="0dp" />
+
+                    <!-- Contact Fields Card -->
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="16dp"
                         app:cardBackgroundColor="#121A2C"
                         app:cardCornerRadius="12dp"
                         app:cardElevation="0dp">
 
-                        <EditText
-                            android:id="@+id/etIntroText"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:autofillHints="message"
-                            android:background="@android:color/transparent"
-                            android:gravity="top"
-                            android:textColor="#FFFFFF"
-                            android:textColorHint="#8E99B0"
-                            android:inputType="textMultiLine"
-                            android:minHeight="100dp"
-                            android:padding="16dp"
-                            android:textSize="15sp" />
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginTop="16dp"
-                        android:weightSum="2">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnAIGenerate"
-                            android:layout_width="0dp"
-                            android:layout_height="50dp"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="8dp"
-                            android:text="✨ AI Draft"
-                            app:backgroundTint="#FFB14CFF"
-                            android:textColor="#FFFFFF"
-                            app:cornerRadius="8dp" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnSendIntroAction"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="50dp"
-                            android:layout_weight="1"
-                            android:text="@string/btn_send_intro"
-                            android:textColor="#2EE7FF"
-                            app:strokeColor="#2EE7FF"
-                            app:cornerRadius="8dp" />
-                    </LinearLayout>
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- TAB 2: Profile -->
-            <LinearLayout
-                android:id="@+id/sectionProfile"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <!-- Extended Details hidden views for backwards compat -->
-                <View android:id="@+id/headerExtendedDetails" android:layout_width="0dp" android:layout_height="0dp" />
-                <View android:id="@+id/containerExtendedDetails" android:layout_width="0dp" android:layout_height="0dp" />
-                <TextView android:id="@+id/tvToggleExtended" android:layout_width="0dp" android:layout_height="0dp" />
-
-                <!-- Contact Fields Card -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="#121A2C"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="0dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            app:boxBackgroundColor="#121A2C"
-                            app:boxStrokeColor="#8E99B0"
-                            app:hintTextColor="#8E99B0"
-                            android:hint="Phone Number">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editDetailPhone"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
-                                android:inputType="phone" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            app:boxBackgroundColor="#121A2C"
-                            app:boxStrokeColor="#8E99B0"
-                            app:hintTextColor="#8E99B0"
-                            android:hint="Email Address">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editDetailEmail"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
-                                android:inputType="textEmailAddress" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            app:boxBackgroundColor="#121A2C"
-                            app:boxStrokeColor="#8E99B0"
-                            app:hintTextColor="#8E99B0"
-                            android:hint="Address">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editDetailAddress"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
-                                android:inputType="textPostalAddress" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            app:boxBackgroundColor="#121A2C"
-                            app:boxStrokeColor="#8E99B0"
-                            app:hintTextColor="#8E99B0"
-                            android:hint="Company">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editDetailCompany"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
-                                android:inputType="textCapWords" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginBottom="12dp"
-                            app:boxBackgroundColor="#121A2C"
-                            app:boxStrokeColor="#8E99B0"
-                            app:hintTextColor="#8E99B0"
-                            android:hint="Job Title">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/editDetailJobTitle"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp"
-                                android:inputType="textCapWords" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
                         <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:paddingTop="8dp"
-                            android:gravity="center_vertical">
-                            <TextView
-                                android:id="@+id/tvBirthdayDisplay"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:text="Birthday: None"
-                                android:textColor="#FFFFFF"
-                                android:textStyle="bold"
-                                android:textSize="14sp" />
-                            <Button
-                                android:id="@+id/btnSetBirthday"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="📅 Add Birthday"
-                                android:textColor="#2EE7FF"
-                                android:padding="0dp"
-                                android:minWidth="0dp"
-                                android:minHeight="0dp"
-                                android:textAllCaps="false" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Target Market Score Card -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardBackgroundColor="#121A2C"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="0dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="16dp"
-                        android:gravity="center_vertical">
-
-                        <RelativeLayout
-                            android:layout_width="80dp"
-                            android:layout_height="80dp">
-                            <com.google.android.material.progressindicator.CircularProgressIndicator
-                                android:id="@+id/dialTargetMarket"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_centerInParent="true"
-                                app:indicatorSize="70dp"
-                                app:trackThickness="8dp"
-                                app:indicatorColor="#FFB14CFF"
-                                app:trackColor="#26B14CFF"
-                                android:max="100" />
-                            <TextView
-                                android:id="@+id/tvTargetMarketScore"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_centerInParent="true"
-                                android:text="0%"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#FFFFFF" />
-                        </RelativeLayout>
-
-                        <LinearLayout
-                            android:id="@+id/containerTargetMarketCheckboxes"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:layout_marginStart="16dp"
-                            android:visibility="visible">
-                            <!-- Hidden views from old UI for compat -->
-                            <View android:id="@+id/headerTargetMarket" android:layout_width="0dp" android:layout_height="0dp" />
-                            <TextView android:id="@+id/tvToggleTargetMarket" android:layout_width="0dp" android:layout_height="0dp" />
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal">
-                                <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" android:textColor="#FFFFFF" />
-                                <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" android:textColor="#FFFFFF" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal">
-                                <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" android:textColor="#FFFFFF" />
-                                <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" android:textColor="#FFFFFF" />
-                            </LinearLayout>
-
-                            <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" android:textColor="#FFFFFF" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-            </LinearLayout>
-
-            <!-- TAB 3: Products -->
-            <LinearLayout
-                android:id="@+id/sectionProducts"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <!-- Category Row -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="#121A2C"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="0dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="12dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Category"
-                            android:textStyle="bold"
-                            android:textColor="#FFFFFF"
-                            android:textSize="14sp"
-                            android:layout_marginBottom="4dp"/>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal">
-                            <CheckBox android:id="@+id/cbRecruitDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" android:textColor="#FFFFFF" />
-                            <CheckBox android:id="@+id/cbProspectDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" android:textColor="#FFFFFF" />
-                            <CheckBox android:id="@+id/cbClientDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" android:textColor="#FFFFFF" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/clientSubCategoryLayoutDetail"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:visibility="visible"
-                            android:paddingStart="16dp">
-                            <CheckBox android:id="@+id/cbInvestmentDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" android:textColor="#FFFFFF" />
-                            <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:textColor="#FFFFFF" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Life Insurance -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardLifeInsuranceDetails"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="#121A2C"
-                    app:cardCornerRadius="12dp"
-                    app:strokeColor="#2EE7FF"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp"
-                    android:visibility="visible">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="🛡️ Life Insurance"
-                                    android:textStyle="bold"
-                                    android:textSize="15sp"
-                                    android:textColor="#FFFFFF" />
-                                <TextView
-                                    android:id="@+id/tvInsSummaryBadge"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Tap Edit to add details"
-                                    android:textColor="#8E99B0"
-                                    android:textSize="12sp"
-                                    android:layout_marginTop="2dp" />
-                            </LinearLayout>
-
-                            <Button
-                                android:id="@+id/btnToggleInsEdit"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Edit ▼"
-                                android:textColor="#2EE7FF" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/containerInsForm"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:visibility="gone"
-                            android:layout_marginTop="12dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="46dp"
-                                android:orientation="vertical"
-                                android:background="@drawable/bg_edittext_outline"
-                                android:paddingHorizontal="12dp"
-                                android:layout_marginBottom="8dp">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="POLICY TYPE"
-                                    android:textSize="11sp"
-                                    android:textColor="#8E99B0" />
-                                <Spinner
-                                    android:id="@+id/spinnerInsPolicyType"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:entries="@array/ins_policy_types"
-                                    android:backgroundTint="#FFFFFF" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="46dp"
-                                android:orientation="vertical"
-                                android:background="@drawable/bg_edittext_outline"
-                                android:paddingHorizontal="12dp"
-                                android:layout_marginBottom="8dp">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="UNDERWRITING STATUS"
-                                    android:textSize="11sp"
-                                    android:textColor="#8E99B0" />
-                                <Spinner
-                                    android:id="@+id/spinnerInsStatus"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:entries="@array/ins_underwriting_status"
-                                    android:backgroundTint="#FFFFFF" />
-                            </LinearLayout>
+                            android:padding="16dp">
 
                             <com.google.android.material.textfield.TextInputLayout
                                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
+                                android:layout_marginBottom="12dp"
                                 app:boxBackgroundColor="#121A2C"
                                 app:boxStrokeColor="#8E99B0"
                                 app:hintTextColor="#8E99B0"
-                                android:hint="Carrier">
+                                android:hint="Phone Number">
                                 <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/editInsCarrier"
+                                    android:id="@+id/editDetailPhone"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:textColor="#FFFFFF"
-                                    android:textSize="13sp"
-                                    android:inputType="text" />
+                                    android:textSize="14sp"
+                                    android:inputType="phone" />
                             </com.google.android.material.textfield.TextInputLayout>
 
                             <com.google.android.material.textfield.TextInputLayout
                                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
+                                android:layout_marginBottom="12dp"
                                 app:boxBackgroundColor="#121A2C"
                                 app:boxStrokeColor="#8E99B0"
                                 app:hintTextColor="#8E99B0"
-                                android:hint="Policy #">
+                                android:hint="Email Address">
                                 <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/editInsPolicyNumber"
+                                    android:id="@+id/editDetailEmail"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:textColor="#FFFFFF"
-                                    android:textSize="13sp"
-                                    android:inputType="text" />
+                                    android:textSize="14sp"
+                                    android:inputType="textEmailAddress" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="12dp"
+                                app:boxBackgroundColor="#121A2C"
+                                app:boxStrokeColor="#8E99B0"
+                                app:hintTextColor="#8E99B0"
+                                android:hint="Address">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/editDetailAddress"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="14sp"
+                                    android:inputType="textPostalAddress" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="12dp"
+                                app:boxBackgroundColor="#121A2C"
+                                app:boxStrokeColor="#8E99B0"
+                                app:hintTextColor="#8E99B0"
+                                android:hint="Company">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/editDetailCompany"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="14sp"
+                                    android:inputType="textCapWords" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginBottom="12dp"
+                                app:boxBackgroundColor="#121A2C"
+                                app:boxStrokeColor="#8E99B0"
+                                app:hintTextColor="#8E99B0"
+                                android:hint="Job Title">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/editDetailJobTitle"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="14sp"
+                                    android:inputType="textCapWords" />
                             </com.google.android.material.textfield.TextInputLayout>
 
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal"
-                                android:weightSum="2"
-                                android:layout_marginBottom="8dp">
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="0dp"
-                                    android:layout_weight="1"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginEnd="4dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Face Amount ($)">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editInsFaceAmount"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="13sp"
-                                        android:inputType="text" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="0dp"
-                                    android:layout_weight="1"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="4dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Premium ($/mo)">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editInsMonthlyPremium"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="13sp"
-                                        android:inputType="text" />
-                                </com.google.android.material.textfield.TextInputLayout>
-                            </LinearLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
-                                app:boxBackgroundColor="#121A2C"
-                                app:boxStrokeColor="#8E99B0"
-                                app:hintTextColor="#8E99B0"
-                                android:hint="Beneficiaries">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/editInsBeneficiaries"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:textColor="#FFFFFF"
-                                    android:textSize="13sp"
-                                    android:inputType="text" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
+                                android:paddingTop="8dp"
                                 android:gravity="center_vertical">
                                 <TextView
-                                    android:id="@+id/tvInsRenewalDate"
+                                    android:id="@+id/tvBirthdayDisplay"
                                     android:layout_width="0dp"
                                     android:layout_weight="1"
                                     android:layout_height="wrap_content"
-                                    android:text="Annual Review / Issue Date: None"
-                                    android:textSize="12sp"
-                                    android:textColor="#FFFFFF"/>
+                                    android:text="Birthday: None"
+                                    android:textColor="#FFFFFF"
+                                    android:textStyle="bold"
+                                    android:textSize="14sp" />
                                 <Button
-                                    android:id="@+id/btnSetInsRenewalDate"
+                                    android:id="@+id/btnSetBirthday"
                                     style="@style/Widget.MaterialComponents.Button.TextButton"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="📅 Set Date"
-                                    android:textAllCaps="false"
+                                    android:text="📅 Add Birthday"
                                     android:textColor="#2EE7FF"
                                     android:padding="0dp"
                                     android:minWidth="0dp"
-                                    android:minHeight="0dp"/>
+                                    android:minHeight="0dp"
+                                    android:textAllCaps="false" />
                             </LinearLayout>
                         </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                    </com.google.android.material.card.MaterialCardView>
 
-                <!-- Investments -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardInvestmentDetails"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    app:cardBackgroundColor="#121A2C"
-                    app:cardCornerRadius="12dp"
-                    app:strokeColor="#3DFF9A"
-                    app:strokeWidth="1dp"
-                    app:cardElevation="0dp"
-                    android:visibility="visible">
-
-                    <LinearLayout
+                    <!-- Target Market Score Card -->
+                    <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
+                        app:cardBackgroundColor="#121A2C"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="0dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
+                            android:padding="16dp"
                             android:gravity="center_vertical">
 
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-                                <TextView
+                            <RelativeLayout
+                                android:layout_width="80dp"
+                                android:layout_height="80dp">
+                                <com.google.android.material.progressindicator.CircularProgressIndicator
+                                    android:id="@+id/dialTargetMarket"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="📈 Investments"
+                                    android:layout_centerInParent="true"
+                                    app:indicatorSize="70dp"
+                                    app:trackThickness="8dp"
+                                    app:indicatorColor="#FFB14CFF"
+                                    app:trackColor="#26B14CFF"
+                                    android:max="100" />
+                                <TextView
+                                    android:id="@+id/tvTargetMarketScore"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_centerInParent="true"
+                                    android:text="0%"
+                                    android:textSize="16sp"
                                     android:textStyle="bold"
-                                    android:textSize="15sp"
                                     android:textColor="#FFFFFF" />
-                                <TextView
-                                    android:id="@+id/tvInvSummaryBadge"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Tap Edit to add details"
-                                    android:textColor="#8E99B0"
-                                    android:textSize="12sp"
-                                    android:layout_marginTop="2dp" />
-                            </LinearLayout>
+                            </RelativeLayout>
 
-                            <Button
-                                android:id="@+id/btnToggleInvEdit"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
-                                android:layout_width="wrap_content"
+                            <LinearLayout
+                                android:id="@+id/containerTargetMarketCheckboxes"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Edit ▼"
-                                android:textColor="#3DFF9A" />
+                                android:orientation="vertical"
+                                android:layout_marginStart="16dp"
+                                android:visibility="visible">
+                                <!-- Hidden views from old UI for compat -->
+                                <View android:id="@+id/headerTargetMarket" android:layout_width="0dp" android:layout_height="0dp" />
+                                <TextView android:id="@+id/tvToggleTargetMarket" android:layout_width="0dp" android:layout_height="0dp" />
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal">
+                                    <CheckBox android:id="@+id/cbTmMarried" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Married" android:textColor="#FFFFFF" />
+                                    <CheckBox android:id="@+id/cbTmAge" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Age 25-55" android:textColor="#FFFFFF" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal">
+                                    <CheckBox android:id="@+id/cbTmChildren" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Children" android:textColor="#FFFFFF" />
+                                    <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Homeowner" android:textColor="#FFFFFF" />
+                                </LinearLayout>
+
+                                <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" android:textColor="#FFFFFF" />
+                            </LinearLayout>
                         </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+                <!-- TAB 3: Products -->
+                <LinearLayout
+                    android:id="@+id/sectionProducts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <!-- Category Row -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        app:cardBackgroundColor="#121A2C"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="0dp">
 
                         <LinearLayout
-                            android:id="@+id/containerInvForm"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:visibility="gone"
-                            android:layout_marginTop="12dp">
+                            android:padding="12dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Category"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF"
+                                android:textSize="14sp"
+                                android:layout_marginBottom="4dp"/>
 
                             <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="46dp"
-                                android:orientation="vertical"
-                                android:background="@drawable/bg_edittext_outline"
-                                android:paddingHorizontal="12dp"
-                                android:layout_marginBottom="8dp">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="ACCOUNT TYPE"
-                                    android:textSize="11sp"
-                                    android:textColor="#8E99B0" />
-                                <Spinner
-                                    android:id="@+id/spinnerInvAccountType"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:entries="@array/inv_account_types"
-                                    android:backgroundTint="#FFFFFF" />
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="46dp"
-                                android:orientation="vertical"
-                                android:background="@drawable/bg_edittext_outline"
-                                android:paddingHorizontal="12dp"
-                                android:layout_marginBottom="8dp">
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="ACCOUNT STATUS"
-                                    android:textSize="11sp"
-                                    android:textColor="#8E99B0" />
-                                <Spinner
-                                    android:id="@+id/spinnerInvStatus"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:entries="@array/inv_account_status"
-                                    android:backgroundTint="#FFFFFF" />
-                            </LinearLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginBottom="8dp"
-                                app:boxBackgroundColor="#121A2C"
-                                app:boxStrokeColor="#8E99B0"
-                                app:hintTextColor="#8E99B0"
-                                android:hint="Platform / Fund (e.g., PFSI)">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/editInvPlatform"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:textColor="#FFFFFF"
-                                    android:textSize="13sp"
-                                    android:inputType="text" />
-                            </com.google.android.material.textfield.TextInputLayout>
+                                android:orientation="horizontal">
+                                <CheckBox android:id="@+id/cbRecruitDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" android:textColor="#FFFFFF" />
+                                <CheckBox android:id="@+id/cbProspectDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" android:textColor="#FFFFFF" />
+                                <CheckBox android:id="@+id/cbClientDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" android:textColor="#FFFFFF" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/clientSubCategoryLayoutDetail"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:visibility="visible"
+                                android:paddingStart="16dp">
+                                <CheckBox android:id="@+id/cbInvestmentDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" android:textColor="#FFFFFF" />
+                                <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:textColor="#FFFFFF" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Life Insurance -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardLifeInsuranceDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        app:cardBackgroundColor="#121A2C"
+                        app:cardCornerRadius="12dp"
+                        app:strokeColor="#2EE7FF"
+                        app:strokeWidth="1dp"
+                        app:cardElevation="0dp"
+                        android:visibility="visible">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal"
-                                android:weightSum="2"
-                                android:layout_marginBottom="8dp">
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="🛡️ Life Insurance"
+                                        android:textStyle="bold"
+                                        android:textSize="15sp"
+                                        android:textColor="#FFFFFF" />
+                                    <TextView
+                                        android:id="@+id/tvInsSummaryBadge"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Not Enrolled • Tap + Add"
+                                        android:textColor="#8E99B0"
+                                        android:textSize="12sp"
+                                        android:layout_marginTop="2dp" />
+                                </LinearLayout>
+
+                                <Button
+                                    android:id="@+id/btnToggleInsEdit"
+                                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="+ Add"
+                                    android:textColor="#2EE7FF" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/containerInsForm"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:visibility="gone"
+                                android:layout_marginTop="12dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="46dp"
+                                    android:orientation="vertical"
+                                    android:background="@drawable/bg_edittext_outline"
+                                    android:paddingHorizontal="12dp"
+                                    android:layout_marginBottom="8dp">
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="POLICY TYPE"
+                                        android:textSize="11sp"
+                                        android:textColor="#8E99B0" />
+                                    <Spinner
+                                        android:id="@+id/spinnerInsPolicyType"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:entries="@array/ins_policy_types"
+                                        android:backgroundTint="#FFFFFF" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="46dp"
+                                    android:orientation="vertical"
+                                    android:background="@drawable/bg_edittext_outline"
+                                    android:paddingHorizontal="12dp"
+                                    android:layout_marginBottom="8dp">
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="UNDERWRITING STATUS"
+                                        android:textSize="11sp"
+                                        android:textColor="#8E99B0" />
+                                    <Spinner
+                                        android:id="@+id/spinnerInsStatus"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:entries="@array/ins_underwriting_status"
+                                        android:backgroundTint="#FFFFFF" />
+                                </LinearLayout>
 
                                 <com.google.android.material.textfield.TextInputLayout
                                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="0dp"
-                                    android:layout_weight="1"
+                                    android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginEnd="4dp"
+                                    android:layout_marginBottom="8dp"
                                     app:boxBackgroundColor="#121A2C"
                                     app:boxStrokeColor="#8E99B0"
                                     app:hintTextColor="#8E99B0"
-                                    android:hint="Rollover ($)">
+                                    android:hint="Carrier">
                                     <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editInvLumpSum"
+                                        android:id="@+id/editInsCarrier"
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:textColor="#FFFFFF"
@@ -1298,46 +1043,311 @@
 
                                 <com.google.android.material.textfield.TextInputLayout
                                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="0dp"
-                                    android:layout_weight="1"
+                                    android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginStart="4dp"
+                                    android:layout_marginBottom="8dp"
                                     app:boxBackgroundColor="#121A2C"
                                     app:boxStrokeColor="#8E99B0"
                                     app:hintTextColor="#8E99B0"
-                                    android:hint="Monthly PAC ($)">
+                                    android:hint="Policy #">
                                     <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editInvMonthlyContribution"
+                                        android:id="@+id/editInsPolicyNumber"
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:textColor="#FFFFFF"
                                         android:textSize="13sp"
                                         android:inputType="text" />
                                 </com.google.android.material.textfield.TextInputLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:weightSum="2"
+                                    android:layout_marginBottom="8dp">
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="0dp"
+                                        android:layout_weight="1"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginEnd="4dp"
+                                        app:boxBackgroundColor="#121A2C"
+                                        app:boxStrokeColor="#8E99B0"
+                                        app:hintTextColor="#8E99B0"
+                                        android:hint="Face Amount ($)">
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/editInsFaceAmount"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="13sp"
+                                            android:inputType="text" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="0dp"
+                                        android:layout_weight="1"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="4dp"
+                                        app:boxBackgroundColor="#121A2C"
+                                        app:boxStrokeColor="#8E99B0"
+                                        app:hintTextColor="#8E99B0"
+                                        android:hint="Premium ($/mo)">
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/editInsMonthlyPremium"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="13sp"
+                                            android:inputType="text" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+                                </LinearLayout>
+
+                                <com.google.android.material.textfield.TextInputLayout
+                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="8dp"
+                                    app:boxBackgroundColor="#121A2C"
+                                    app:boxStrokeColor="#8E99B0"
+                                    app:hintTextColor="#8E99B0"
+                                    android:hint="Beneficiaries">
+                                    <com.google.android.material.textfield.TextInputEditText
+                                        android:id="@+id/editInsBeneficiaries"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="13sp"
+                                        android:inputType="text" />
+                                </com.google.android.material.textfield.TextInputLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical">
+                                    <TextView
+                                        android:id="@+id/tvInsRenewalDate"
+                                        android:layout_width="0dp"
+                                        android:layout_weight="1"
+                                        android:layout_height="wrap_content"
+                                        android:text="Annual Review / Issue Date: None"
+                                        android:textSize="12sp"
+                                        android:textColor="#FFFFFF"/>
+                                    <Button
+                                        android:id="@+id/btnSetInsRenewalDate"
+                                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="📅 Set Date"
+                                        android:textAllCaps="false"
+                                        android:textColor="#2EE7FF"
+                                        android:padding="0dp"
+                                        android:minWidth="0dp"
+                                        android:minHeight="0dp"/>
+                                </LinearLayout>
                             </LinearLayout>
                         </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Investments -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardInvestmentDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        app:cardBackgroundColor="#121A2C"
+                        app:cardCornerRadius="12dp"
+                        app:strokeColor="#3DFF9A"
+                        app:strokeWidth="1dp"
+                        app:cardElevation="0dp"
+                        android:visibility="visible">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="📈 Investments &amp; Retirement"
+                                        android:textStyle="bold"
+                                        android:textSize="15sp"
+                                        android:textColor="#FFFFFF" />
+                                    <TextView
+                                        android:id="@+id/tvInvSummaryBadge"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Not Enrolled • Tap + Add"
+                                        android:textColor="#8E99B0"
+                                        android:textSize="12sp"
+                                        android:layout_marginTop="2dp" />
+                                </LinearLayout>
+
+                                <Button
+                                    android:id="@+id/btnToggleInvEdit"
+                                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="+ Add"
+                                    android:textColor="#3DFF9A" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/containerInvForm"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:visibility="gone"
+                                android:layout_marginTop="12dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="46dp"
+                                    android:orientation="vertical"
+                                    android:background="@drawable/bg_edittext_outline"
+                                    android:paddingHorizontal="12dp"
+                                    android:layout_marginBottom="8dp">
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="ACCOUNT TYPE"
+                                        android:textSize="11sp"
+                                        android:textColor="#8E99B0" />
+                                    <Spinner
+                                        android:id="@+id/spinnerInvAccountType"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:entries="@array/inv_account_types"
+                                        android:backgroundTint="#FFFFFF" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="46dp"
+                                    android:orientation="vertical"
+                                    android:background="@drawable/bg_edittext_outline"
+                                    android:paddingHorizontal="12dp"
+                                    android:layout_marginBottom="8dp">
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="ACCOUNT STATUS"
+                                        android:textSize="11sp"
+                                        android:textColor="#8E99B0" />
+                                    <Spinner
+                                        android:id="@+id/spinnerInvStatus"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:entries="@array/inv_account_status"
+                                        android:backgroundTint="#FFFFFF" />
+                                </LinearLayout>
+
+                                <com.google.android.material.textfield.TextInputLayout
+                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginBottom="8dp"
+                                    app:boxBackgroundColor="#121A2C"
+                                    app:boxStrokeColor="#8E99B0"
+                                    app:hintTextColor="#8E99B0"
+                                    android:hint="Platform / Fund (e.g., PFSI)">
+                                    <com.google.android.material.textfield.TextInputEditText
+                                        android:id="@+id/editInvPlatform"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:textColor="#FFFFFF"
+                                        android:textSize="13sp"
+                                        android:inputType="text" />
+                                </com.google.android.material.textfield.TextInputLayout>
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:weightSum="2"
+                                    android:layout_marginBottom="8dp">
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="0dp"
+                                        android:layout_weight="1"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginEnd="4dp"
+                                        app:boxBackgroundColor="#121A2C"
+                                        app:boxStrokeColor="#8E99B0"
+                                        app:hintTextColor="#8E99B0"
+                                        android:hint="Rollover ($)">
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/editInvLumpSum"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="13sp"
+                                            android:inputType="text" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+
+                                    <com.google.android.material.textfield.TextInputLayout
+                                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+                                        android:layout_width="0dp"
+                                        android:layout_weight="1"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="4dp"
+                                        app:boxBackgroundColor="#121A2C"
+                                        app:boxStrokeColor="#8E99B0"
+                                        app:hintTextColor="#8E99B0"
+                                        android:hint="Monthly PAC ($)">
+                                        <com.google.android.material.textfield.TextInputEditText
+                                            android:id="@+id/editInvMonthlyContribution"
+                                            android:layout_width="match_parent"
+                                            android:layout_height="wrap_content"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="13sp"
+                                            android:inputType="text" />
+                                    </com.google.android.material.textfield.TextInputLayout>
+                                </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
 
             </LinearLayout>
+        </ScrollView>
 
-        </LinearLayout>
-    </ScrollView>
-
-    <!-- Pinned Bottom Bar -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#101828"
-        android:padding="12dp">
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSaveChanges"
+        <!-- Pinned Bottom Bar -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="Save &amp; Mark Followed Up"
-            android:textSize="16sp"
-            app:cornerRadius="12dp"
-            app:backgroundTint="#2A62F0"
-            android:textColor="#FFFFFF" />
+            android:layout_height="wrap_content"
+            android:background="#101828"
+            android:padding="12dp">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSaveChanges"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="Save &amp; Mark Followed Up"
+                android:textSize="16sp"
+                app:cornerRadius="12dp"
+                app:backgroundTint="#2A62F0"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>
