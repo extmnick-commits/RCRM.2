@@ -1,5 +1,6 @@
 package com.nickpulido.rcrm
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -75,6 +76,18 @@ class SmartLogActivity : AppCompatActivity() {
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             croppedImageUri?.let { processBusinessCard(it) }
         }
+    }
+
+    private var pendingCalendarAction: ((Boolean) -> Unit)? = null
+
+    private val calendarPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result[Manifest.permission.READ_CALENDAR] == true &&
+            result[Manifest.permission.WRITE_CALENDAR] == true
+        val action = pendingCalendarAction
+        pendingCalendarAction = null
+        action?.invoke(granted)
     }
 
     private companion object {
@@ -1109,6 +1122,7 @@ class SmartLogActivity : AppCompatActivity() {
                             }
                             if (appointmentDate != null) {
                                 ReminderReceiver.scheduleReminder(this, "appt_$phoneToNotify", "Appointment: $contactName", appointmentDate!!.time)
+                                syncSmartLogAppointment(it.id, null)
                             }
                             onSuccess() 
                         }
@@ -1148,6 +1162,10 @@ class SmartLogActivity : AppCompatActivity() {
                             val phoneToNotify = phoneNumber.ifEmpty { contactName }
                             if (appointmentDate != null) {
                                 ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $contactName", appointmentDate!!.time)
+                                syncSmartLogAppointment(
+                                    docId,
+                                    GoogleCalendarManager.readStoredEventId(existingLead.get("googleCalendarEventId"))
+                                )
                             } else if (followUpDate != null) {
                                 ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
                             } else {
@@ -1160,6 +1178,45 @@ class SmartLogActivity : AppCompatActivity() {
             .addOnFailureListener { e ->
                 Log.e(TAG, "Error checking for existing lead", e)
             }
+    }
+
+    private fun syncSmartLogAppointment(leadId: String, existingEventId: Long?) {
+        val startMillis = appointmentDate?.time ?: return
+        if (leadId.isBlank()) return
+        val runSync = {
+            GoogleCalendarManager.syncCrmAppointmentAsync(
+                context = this,
+                leadId = leadId,
+                leadName = contactName.ifBlank { "Lead" },
+                phone = phoneNumber,
+                startMillis = startMillis,
+                location = appointmentLocation,
+                existingEventId = existingEventId
+            ) { result ->
+                if (result is GoogleCalendarManager.AppointmentSyncResult.Linked) {
+                    db.collection("leads").document(leadId)
+                        .update("googleCalendarEventId", result.eventId)
+                }
+            }
+        }
+        if (GoogleCalendarManager.hasCalendarPermissions(this)) {
+            runSync()
+        } else {
+            pendingCalendarAction = { granted ->
+                if (granted) {
+                    runSync()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "Appointment saved. Allow calendar access to sync with Google Calendar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            calendarPermissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+            )
+        }
     }
 
     private fun incrementDailyStat(field: String) {

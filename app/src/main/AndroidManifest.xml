@@ -14,6 +14,8 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission
         android:name="android.permission.SEND_SMS"
         tools:ignore="ProtectedPermissions" />
@@ -21,6 +23,14 @@
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <queries>
+        <package android:name="com.google.android.calendar" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="com.android.calendar" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -48,8 +58,16 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="rcrm" android:host="lead" />
+            </intent-filter>
+        </activity>
         <activity android:name=".SignupActivity" android:exported="false" />
         <activity android:name=".SmartLogActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".FollowUpActivity" android:exported="false" android:theme="@style/Theme.RCRM" />

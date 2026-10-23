@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/backgroundColor">
 
-    <!-- Top App Bar equivalent -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -15,7 +13,7 @@
         android:padding="16dp"
         android:gravity="center_vertical"
         android:background="@color/backgroundColor">
-        
+
         <ImageButton
             android:id="@+id/btnBackAppointments"
             android:layout_width="48dp"
@@ -29,7 +27,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:text="Upcoming Appointments"
+            android:text="Appointments"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/textColorPrimary" />
@@ -39,6 +37,108 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/dividerColor" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="4dp">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnFilterCalendars"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:text="Calendars"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="14sp"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:stateListAnimator="@null"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnOpenGoogleCalendar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.45"
+            android:layout_marginStart="8dp"
+            android:minHeight="48dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="Open Google Calendar"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="14sp"
+            android:maxLines="2"
+            android:gravity="center"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:stateListAnimator="@null"
+            app:backgroundTint="@null" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:id="@+id/btnPrevMonth"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="‹"
+            android:textSize="28sp"
+            android:textColor="@color/colorInfo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Previous month" />
+
+        <TextView
+            android:id="@+id/tvMonthLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:text="This month" />
+
+        <TextView
+            android:id="@+id/btnNextMonth"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="›"
+            android:textSize="28sp"
+            android:textColor="@color/colorInfo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Next month" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvCalendarStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:padding="12dp"
+        android:background="@drawable/bg_frosted_card"
+        android:text="Calendar access is off. Tap to show Google Calendar events."
+        android:textColor="@color/colorInfo"
+        android:textSize="13sp"
+        android:visibility="gone" />
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -50,19 +150,25 @@
             android:layout_height="match_parent"
             android:divider="@android:color/transparent"
             android:dividerHeight="8dp"
-            android:padding="12dp"
-            android:clipToPadding="false" />
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="12dp"
+            android:clipToPadding="false"
+            android:cacheColorHint="@android:color/transparent" />
 
         <TextView
             android:id="@+id/tvNoAppointments"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="No upcoming appointments"
+            android:padding="24dp"
+            android:gravity="center"
+            android:text="No appointments or calendar events this month"
             android:textColor="@color/textColorSecondary"
             android:textSize="16sp"
             android:visibility="gone" />
-            
+
         <ProgressBar
             android:id="@+id/progressAppointments"
             android:layout_width="wrap_content"

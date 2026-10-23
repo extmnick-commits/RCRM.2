@@ -144,6 +144,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var pendingCalendarAction: ((Boolean) -> Unit)? = null
+
+    private val calendarPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result[Manifest.permission.READ_CALENDAR] == true &&
+            result[Manifest.permission.WRITE_CALENDAR] == true
+        val action = pendingCalendarAction
+        pendingCalendarAction = null
+        action?.invoke(granted)
+    }
+
     private companion object {
         const val PREFS_INTRO = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -162,6 +174,10 @@ class MainActivity : AppCompatActivity() {
         window.decorView.setBackgroundColor(Color.parseColor("#070B14"))
 
         if (auth.currentUser == null) {
+            val pendingLeadId = GoogleCalendarManager.leadIdFromUri(intent?.data)
+            if (!pendingLeadId.isNullOrBlank()) {
+                GoogleCalendarManager.stashPendingLeadId(this, pendingLeadId)
+            }
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
@@ -244,6 +260,110 @@ class MainActivity : AppCompatActivity() {
         }
         if (prefs.getBoolean(DailyFollowUpWorker.KEY_ENABLED, DailyFollowUpWorker.DEFAULT_ENABLED)) {
             scheduleDailyDigestWorker()
+        }
+
+        if (savedInstanceState == null) {
+            val fromIntent = GoogleCalendarManager.leadIdFromUri(intent?.data)
+            intent?.data = null
+            setIntent(intent)
+            val leadId = fromIntent ?: GoogleCalendarManager.consumePendingLeadId(this)
+            if (!leadId.isNullOrBlank()) {
+                openLeadFromCalendarLink(leadId)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val leadId = GoogleCalendarManager.leadIdFromUri(intent.data) ?: return
+        intent.data = null
+        setIntent(intent)
+        if (auth.currentUser == null) {
+            GoogleCalendarManager.stashPendingLeadId(this, leadId)
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
+        openLeadFromCalendarLink(leadId)
+    }
+
+    private fun openLeadFromCalendarLink(leadId: String) {
+        db.collection("leads").document(leadId).get()
+            .addOnSuccessListener { doc ->
+                if (isDestroyed) return@addOnSuccessListener
+                if (!doc.exists()) {
+                    Toast.makeText(this, "That lead is no longer in RCRM", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+                val ownerId = doc.getString("ownerId")
+                val currentUserId = auth.currentUser?.uid
+                if (!ownerId.isNullOrBlank() && !currentUserId.isNullOrBlank() && ownerId != currentUserId) {
+                    Toast.makeText(this, "That lead belongs to another account", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+                startActivity(Intent(this, FollowUpActivity::class.java).apply {
+                    putExtra("targetLeadId", doc.id)
+                    data = Uri.parse("rcrm://lead/${doc.id}")
+                })
+            }
+            .addOnFailureListener {
+                if (!isDestroyed) {
+                    Toast.makeText(this, "Couldn't open that lead", Toast.LENGTH_LONG).show()
+                }
+            }
+    }
+
+    private fun pushAppointmentToCalendar(
+        leadId: String,
+        leadName: String,
+        phone: String?,
+        startMillis: Long?,
+        location: String?,
+        existingEventId: Long?
+    ) {
+        if (leadId.isBlank()) return
+        if ((startMillis == null || startMillis <= 0L) && existingEventId == null) return
+        val runSync = {
+            GoogleCalendarManager.syncCrmAppointmentAsync(
+                context = this,
+                leadId = leadId,
+                leadName = leadName,
+                phone = phone,
+                startMillis = startMillis,
+                location = location,
+                existingEventId = existingEventId
+            ) { result ->
+                when (result) {
+                    is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
+                        db.collection("leads").document(leadId)
+                            .update("googleCalendarEventId", result.eventId)
+                    }
+                    GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
+                        db.collection("leads").document(leadId)
+                            .update("googleCalendarEventId", FieldValue.delete())
+                    }
+                    GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
+                }
+            }
+        }
+        if (GoogleCalendarManager.hasCalendarPermissions(this)) {
+            runSync()
+        } else {
+            pendingCalendarAction = { granted ->
+                if (granted) {
+                    runSync()
+                } else if (startMillis != null) {
+                    Toast.makeText(
+                        this,
+                        "Appointment saved. Allow calendar access to sync with Google Calendar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            calendarPermissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+            )
         }
     }
 
@@ -1441,14 +1561,24 @@ class MainActivity : AppCompatActivity() {
                 leadData["birthday"] = currentQuickBirthday!!
             }
         
-        if (quickAddApptDate != null) leadData["appointmentDate"] = Timestamp(quickAddApptDate!!)
-        if (quickAddApptLocation != null) leadData["appointmentLocation"] = quickAddApptLocation
+        val appointmentToSync = quickAddApptDate
+        val locationToSync = quickAddApptLocation
+        if (appointmentToSync != null) leadData["appointmentDate"] = Timestamp(appointmentToSync)
+        if (locationToSync != null) leadData["appointmentLocation"] = locationToSync
 
-            db.collection("leads").add(leadData).addOnSuccessListener {
+            db.collection("leads").add(leadData).addOnSuccessListener { ref ->
                 incrementDailyStat("total_count")
                 val phoneToNotify = phoneInput.text.toString().trim().ifEmpty { name }
-                if (quickAddApptDate != null) {
-                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $name", quickAddApptDate!!.time)
+                if (appointmentToSync != null) {
+                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $name", appointmentToSync.time)
+                    pushAppointmentToCalendar(
+                        leadId = ref.id,
+                        leadName = name,
+                        phone = phoneInput.text.toString().trim(),
+                        startMillis = appointmentToSync.time,
+                        location = locationToSync,
+                        existingEventId = null
+                    )
                 } else if (quickAddFollowUpDate != null) {
                     ReminderReceiver.scheduleReminder(this, phoneToNotify, name, quickAddFollowUpDate!!.time)
                 } else {
@@ -1665,7 +1795,7 @@ class MainActivity : AppCompatActivity() {
     private fun openLead(docId: String) {
         val lead = hotListData.find { it["__docId"] == docId } ?: return
         startActivity(Intent(this, FollowUpActivity::class.java).apply {
-            putExtra("targetLeadId", lead["id"] as? String)
+            putExtra("targetLeadId", (lead["__docId"] as? String) ?: (lead["id"] as? String))
             putExtra("targetPhone", lead["phone"] as? String)
         })
     }

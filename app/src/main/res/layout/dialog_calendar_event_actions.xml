@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="22dp"
+    android:background="@drawable/bg_dialog_space_glass">
+
+    <TextView
+        android:id="@+id/tvEventActionTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/textColorPrimary"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:maxLines="3"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/tvEventActionWhen"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="18dp"
+        android:textColor="@color/textColorSecondary"
+        android:textSize="14sp" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnViewInGoogleCalendar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:text="View / Edit in Google Calendar"
+        android:textAllCaps="false"
+        android:textColor="@color/textColorPrimary"
+        android:textSize="15sp"
+        android:background="@drawable/bg_neon_cyan_button"
+        android:stateListAnimator="@null"
+        app:backgroundTint="@null" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnOpenLeadInRcrm"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:minHeight="48dp"
+        android:text="Open Lead in RCRM"
+        android:textAllCaps="false"
+        android:textColor="@color/textColorPrimary"
+        android:textSize="15sp"
+        android:background="@drawable/bg_neon_purple_button"
+        android:stateListAnimator="@null"
+        app:backgroundTint="@null" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnCloseEventActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Close"
+        android:textAllCaps="false"
+        android:textColor="@color/textColorSecondary"
+        android:background="@android:color/transparent"
+        app:backgroundTint="@null" />
+
+</LinearLayout>

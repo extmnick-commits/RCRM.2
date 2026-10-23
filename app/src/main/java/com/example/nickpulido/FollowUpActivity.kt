@@ -1,5 +1,6 @@
 package com.nickpulido.rcrm
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -13,6 +14,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
@@ -71,6 +73,18 @@ class FollowUpActivity : AppCompatActivity() {
         dictatingForLeadId = null
     }
     
+    private var pendingCalendarAction: ((Boolean) -> Unit)? = null
+
+    private val calendarPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result[Manifest.permission.READ_CALENDAR] == true &&
+            result[Manifest.permission.WRITE_CALENDAR] == true
+        val action = pendingCalendarAction
+        pendingCalendarAction = null
+        action?.invoke(granted)
+    }
+
     private companion object {
         const val PREFS_NAME = "IntroPresets"
         const val PREFS_KEY = "saved_presets_list"
@@ -147,9 +161,14 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(passedIntent: Intent?) {
-        val targetId = passedIntent?.getStringExtra("targetLeadId")
+        val uriLeadId = GoogleCalendarManager.leadIdFromUri(passedIntent?.data)
+        val targetId = uriLeadId
+            ?: passedIntent?.getStringExtra("targetLeadId")
             ?: passedIntent?.getStringExtra("OPEN_LEAD_ID")
         val targetPhone = passedIntent?.getStringExtra("targetPhone")
+        if (uriLeadId != null) {
+            passedIntent?.data = null
+        }
         
         if (!targetId.isNullOrEmpty()) {
             db.collection("leads").document(targetId).get().addOnSuccessListener { doc ->
@@ -1249,6 +1268,16 @@ class FollowUpActivity : AppCompatActivity() {
                 } else {
                     ReminderReceiver.cancelReminder(this, "appt_$phoneToNotify")
                 }
+
+                syncAppointmentAndStore(
+                    leadId = docId,
+                    leadName = editName?.text?.toString().orEmpty(),
+                    phone = editPhone?.text?.toString(),
+                    startMillis = appointmentDate?.time,
+                    location = appointmentLocation,
+                    existingEventId = GoogleCalendarManager.readStoredEventId(lead["googleCalendarEventId"]),
+                    leadMap = lead
+                )
                 
                 Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
@@ -1467,6 +1496,18 @@ class FollowUpActivity : AppCompatActivity() {
                         db.collection("leads").document(leadId).update(updates).addOnSuccessListener {
                             Toast.makeText(this@FollowUpActivity, "Lead updated via Voice!", Toast.LENGTH_SHORT).show()
                             incrementDailyStat("followup_count")
+                            val spokenAppointment = updates["appointmentDate"] as? Timestamp
+                            if (spokenAppointment != null) {
+                                syncAppointmentAndStore(
+                                    leadId = leadId,
+                                    leadName = doc.getString("name").orEmpty(),
+                                    phone = (updates["phone"] as? String) ?: doc.getString("phone"),
+                                    startMillis = spokenAppointment.toDate().time,
+                                    location = (updates["appointmentLocation"] as? String) ?: doc.getString("appointmentLocation"),
+                                    existingEventId = GoogleCalendarManager.readStoredEventId(doc.get("googleCalendarEventId")),
+                                    leadMap = null
+                                )
+                            }
                         }
                     }
                 }
@@ -1504,6 +1545,62 @@ class FollowUpActivity : AppCompatActivity() {
                     onVoiceLogComplete = null
                 }
             }
+        }
+    }
+
+    private fun syncAppointmentAndStore(
+        leadId: String,
+        leadName: String,
+        phone: String?,
+        startMillis: Long?,
+        location: String?,
+        existingEventId: Long?,
+        leadMap: Map<String, Any>?
+    ) {
+        if (leadId.isBlank()) return
+        if ((startMillis == null || startMillis <= 0L) && existingEventId == null) return
+        val runSync = {
+            GoogleCalendarManager.syncCrmAppointmentAsync(
+                context = this,
+                leadId = leadId,
+                leadName = leadName.ifBlank { "Lead" },
+                phone = phone,
+                startMillis = startMillis,
+                location = location,
+                existingEventId = existingEventId
+            ) { result ->
+                when (result) {
+                    is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
+                        db.collection("leads").document(leadId)
+                            .update("googleCalendarEventId", result.eventId)
+                        (leadMap as? MutableMap<String, Any?>)?.put("googleCalendarEventId", result.eventId)
+                    }
+                    GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
+                        db.collection("leads").document(leadId)
+                            .update("googleCalendarEventId", FieldValue.delete())
+                        (leadMap as? MutableMap<String, Any?>)?.remove("googleCalendarEventId")
+                    }
+                    GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
+                }
+            }
+        }
+        if (GoogleCalendarManager.hasCalendarPermissions(this)) {
+            runSync()
+        } else {
+            pendingCalendarAction = { granted ->
+                if (granted) {
+                    runSync()
+                } else if (startMillis != null) {
+                    Toast.makeText(
+                        this,
+                        "Appointment saved. Allow calendar access to sync with Google Calendar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            calendarPermissionLauncher.launch(
+                arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR)
+            )
         }
     }
 
