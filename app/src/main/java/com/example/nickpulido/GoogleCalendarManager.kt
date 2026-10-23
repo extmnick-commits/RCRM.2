@@ -38,7 +38,8 @@ data class SyncedCalendarEvent(
     val calendarDisplayName: String,
     val calendarColor: Int,
     val allDay: Boolean,
-    val leadId: String?
+    val leadId: String?,
+    val accountName: String = ""
 )
 
 object GoogleCalendarManager {
@@ -49,6 +50,7 @@ object GoogleCalendarManager {
     private const val KEY_FILTER_SET = "calendar_filter_set"
     private const val KEY_DEFAULT_ID = "default_calendar_id"
     private const val KEY_PENDING_LEAD = "pending_deep_link_lead_id"
+    private const val KEY_HIDE_DUPLICATE_READONLY = "hide_duplicate_holiday_readonly"
     private const val DEFAULT_DURATION_MS = 60L * 60L * 1000L
     private const val REMINDER_MINUTES = 15
     private const val GOOGLE_CALENDAR_PACKAGE = "com.google.android.calendar"
@@ -155,6 +157,40 @@ object GoogleCalendarManager {
         prefs(context).edit { putLong(KEY_DEFAULT_ID, calendarId) }
     }
 
+    fun hideDuplicateHolidayCalendars(context: Context): Boolean {
+        return prefs(context).getBoolean(KEY_HIDE_DUPLICATE_READONLY, true)
+    }
+
+    fun saveHideDuplicateHolidayCalendars(context: Context, enabled: Boolean) {
+        prefs(context).edit { putBoolean(KEY_HIDE_DUPLICATE_READONLY, enabled) }
+    }
+
+    /**
+     * Read-only copies of a calendar that already exists on another account
+     * (Family, Holidays in United States, and similar shared calendars).
+     * One keeper stays visible: the primary writable calendar when there is one.
+     */
+    fun redundantReadOnlyCalendarIds(calendars: List<GoogleSubCalendar>): Set<Long> {
+        val hide = mutableSetOf<Long>()
+        calendars
+            .groupBy { it.displayName.trim().lowercase(Locale.getDefault()) }
+            .values
+            .forEach { group ->
+                if (group.size < 2) return@forEach
+                val keeper = group.minWithOrNull(
+                    compareBy<GoogleSubCalendar> { calendarPreferenceRank(it) }
+                        .thenBy { it.accountName.trim().lowercase(Locale.getDefault()) }
+                        .thenBy { it.id }
+                ) ?: return@forEach
+                val holidayGroup = keeper.displayName.contains("holiday", ignoreCase = true)
+                group.forEach { calendar ->
+                    if (calendar.id == keeper.id) return@forEach
+                    if (!calendar.canWrite || holidayGroup) hide += calendar.id
+                }
+            }
+        return hide
+    }
+
     fun getUserCalendars(context: Context): List<GoogleSubCalendar> {
         if (!hasCalendarPermissions(context)) return emptyList()
         val fullProjection = arrayOf(
@@ -199,17 +235,21 @@ object GoogleCalendarManager {
     ): List<SyncedCalendarEvent> {
         if (!hasCalendarPermissions(context)) return emptyList()
         if (endMillis <= startMillis) return emptyList()
-        if (selectedCalendarIds != null && selectedCalendarIds.isEmpty()) return emptyList()
+
+        val calendars = getUserCalendars(context)
+        val calendarsById = calendars.associateBy { it.id }
+        val effectiveIds = effectiveCalendarIds(context, calendars, selectedCalendarIds)
+        if (effectiveIds != null && effectiveIds.isEmpty()) return emptyList()
 
         val selection: String?
         val selectionArgs: Array<String>?
-        if (selectedCalendarIds == null) {
+        if (effectiveIds == null) {
             selection = null
             selectionArgs = null
         } else {
-            val placeholders = selectedCalendarIds.joinToString(",") { "?" }
+            val placeholders = effectiveIds.joinToString(",") { "?" }
             selection = "${CalendarContract.Instances.CALENDAR_ID} IN ($placeholders)"
-            selectionArgs = selectedCalendarIds.map { it.toString() }.toTypedArray()
+            selectionArgs = effectiveIds.map { it.toString() }.toTypedArray()
         }
 
         // Instances expands recurring events only when the window is appended as two path ids.
@@ -245,20 +285,22 @@ object GoogleCalendarManager {
                     val start = cursor.longValue(CalendarContract.Instances.BEGIN)
                     val end = cursor.longValue(CalendarContract.Instances.END).takeIf { it > start }
                         ?: (start + DEFAULT_DURATION_MS)
+                    val calendarId = cursor.longValue(CalendarContract.Instances.CALENDAR_ID)
                     events += SyncedCalendarEvent(
                         eventId = eventId,
                         title = cursor.stringValue(CalendarContract.Instances.TITLE),
                         description = description,
                         startMillis = start,
                         endMillis = end,
-                        calendarId = cursor.longValue(CalendarContract.Instances.CALENDAR_ID),
+                        calendarId = calendarId,
                         calendarDisplayName = cursor.stringValue(CalendarContract.Instances.CALENDAR_DISPLAY_NAME),
                         calendarColor = displayColor(cursor.intValue(CalendarContract.Instances.CALENDAR_COLOR)),
                         allDay = cursor.intValue(CalendarContract.Instances.ALL_DAY) == 1,
-                        leadId = extractLeadId(description)
+                        leadId = extractLeadId(description),
+                        accountName = calendarsById[calendarId]?.accountName.orEmpty()
                     )
                 }
-                events.sortedBy { it.startMillis }
+                dedupeSharedEvents(events, calendarsById)
             } ?: emptyList()
         } catch (e: SecurityException) {
             Log.e(TAG, "Calendar read permission missing", e)
@@ -461,6 +503,54 @@ object GoogleCalendarManager {
             resolver.insert(CalendarContract.Reminders.CONTENT_URI, reminder)
         } catch (e: Exception) {
             Log.w(TAG, "Couldn't attach reminder for $eventId", e)
+        }
+    }
+
+    private fun effectiveCalendarIds(
+        context: Context,
+        calendars: List<GoogleSubCalendar>,
+        selectedCalendarIds: Set<Long>?
+    ): Set<Long>? {
+        if (!hideDuplicateHolidayCalendars(context)) return selectedCalendarIds
+        val hidden = redundantReadOnlyCalendarIds(calendars)
+        if (hidden.isEmpty()) return selectedCalendarIds
+        val base = selectedCalendarIds ?: calendars.map { it.id }.toSet()
+        return base - hidden
+    }
+
+    private fun dedupeSharedEvents(
+        events: List<SyncedCalendarEvent>,
+        calendars: Map<Long, GoogleSubCalendar>
+    ): List<SyncedCalendarEvent> {
+        val ranked = events.sortedWith(
+            compareBy<SyncedCalendarEvent> { calendarPreferenceRank(calendars[it.calendarId]) }
+                .thenBy { calendars[it.calendarId]?.accountName.orEmpty().lowercase(Locale.getDefault()) }
+                .thenBy { it.calendarId }
+                .thenBy { it.eventId }
+        )
+        val seen = HashSet<String>(ranked.size)
+        val kept = ArrayList<SyncedCalendarEvent>(ranked.size)
+        for (event in ranked) {
+            val key = "${normalizeEventTitle(event.title)}|${event.startMillis}|${event.endMillis}"
+            if (seen.add(key)) kept += event
+        }
+        return kept.sortedWith(
+            compareBy<SyncedCalendarEvent> { it.startMillis }
+                .thenBy { it.title.lowercase(Locale.getDefault()) }
+        )
+    }
+
+    private fun normalizeEventTitle(title: String): String {
+        return title.trim().lowercase(Locale.getDefault())
+    }
+
+    private fun calendarPreferenceRank(calendar: GoogleSubCalendar?): Int {
+        if (calendar == null) return 4
+        return when {
+            calendar.isPrimary && calendar.canWrite -> 0
+            calendar.canWrite -> 1
+            calendar.isPrimary -> 2
+            else -> 3
         }
     }
 

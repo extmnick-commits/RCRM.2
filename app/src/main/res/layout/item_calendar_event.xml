@@ -9,6 +9,7 @@
     android:paddingEnd="14dp"
     android:paddingTop="12dp"
     android:paddingBottom="12dp"
+    android:layout_marginBottom="8dp"
     android:background="@drawable/bg_frosted_card">
 
     <View

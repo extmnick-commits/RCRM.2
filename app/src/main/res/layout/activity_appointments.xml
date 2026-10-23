@@ -88,7 +88,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="8dp"
-        android:paddingEnd="8dp"
+        android:paddingEnd="12dp"
         android:paddingTop="4dp"
         android:paddingBottom="4dp">
 
@@ -114,6 +114,23 @@
             android:textStyle="bold"
             android:text="This month" />
 
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnJumpToday"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minWidth="72dp"
+            android:minHeight="36dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="Today"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="13sp"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:stateListAnimator="@null"
+            app:backgroundTint="@null"
+            android:contentDescription="Jump to today" />
+
         <TextView
             android:id="@+id/btnNextMonth"
             android:layout_width="48dp"
@@ -124,6 +141,105 @@
             android:textColor="@color/colorInfo"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Next month" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/btnFilterUpcoming"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="44dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="Upcoming &amp; Today"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btnFilterAllMonth"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:minHeight="44dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="All Month (Include Past)"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvDayStrip"
+        android:layout_width="match_parent"
+        android:layout_height="76dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:scrollbars="none" />
+
+    <LinearLayout
+        android:id="@+id/rowSelectedDay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvSelectedDayLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/colorInfo"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnShowFullMonth"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="Show Full Month"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="13sp"
+            android:clickable="true"
+            android:focusable="true" />
     </LinearLayout>
 
     <TextView
@@ -144,18 +260,16 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <ListView
-            android:id="@+id/listViewAppointments"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvAppointments"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="@android:color/transparent"
-            android:dividerHeight="8dp"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:paddingTop="4dp"
-            android:paddingBottom="12dp"
+            android:paddingBottom="96dp"
             android:clipToPadding="false"
-            android:cacheColorHint="@android:color/transparent" />
+            android:scrollbars="vertical" />
 
         <TextView
             android:id="@+id/tvNoAppointments"
@@ -175,6 +289,25 @@
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:indeterminateTint="@color/colorPrimary" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnNewAppointment"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:layout_margin="16dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:minHeight="52dp"
+            android:text="+ New Appointment"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="15sp"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:stateListAnimator="@null"
+            app:backgroundTint="@null"
+            android:contentDescription="New appointment" />
     </RelativeLayout>
 
 </LinearLayout>
