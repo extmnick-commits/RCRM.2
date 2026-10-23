@@ -320,7 +320,8 @@ class MainActivity : AppCompatActivity() {
         phone: String?,
         startMillis: Long?,
         location: String?,
-        existingEventId: Long?
+        existingEventId: Long?,
+        appointmentId: String? = null
     ) {
         if (leadId.isBlank()) return
         if ((startMillis == null || startMillis <= 0L) && existingEventId == null) return
@@ -332,18 +333,40 @@ class MainActivity : AppCompatActivity() {
                 phone = phone,
                 startMillis = startMillis,
                 location = location,
-                existingEventId = existingEventId
+                existingEventId = existingEventId,
+                appointmentId = appointmentId
             ) { result ->
                 when (result) {
                     is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
-                        db.collection("leads").document(leadId)
-                            .update("googleCalendarEventId", result.eventId)
+                        val recordsUpdate = appointmentId?.let { id ->
+                            db.collection("leads").document(leadId).get().addOnSuccessListener { doc ->
+                                val updated = AppointmentAgenda.withEventId(
+                                    LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
+                                    id,
+                                    result.eventId
+                                )
+                                if (updated != null) {
+                                    doc.reference.update(
+                                        LeadAppointmentSync.fields(updated, System.currentTimeMillis(), forUpdate = true)
+                                    )
+                                } else {
+                                    doc.reference.update("googleCalendarEventId", result.eventId)
+                                }
+                            }
+                        }
+                        if (recordsUpdate == null) {
+                            db.collection("leads").document(leadId)
+                                .update("googleCalendarEventId", result.eventId)
+                        }
                     }
                     GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
                         db.collection("leads").document(leadId)
                             .update("googleCalendarEventId", FieldValue.delete())
                     }
                     GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
+                    is GoogleCalendarManager.AppointmentSyncResult.Failed -> {
+                        Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }
@@ -1563,21 +1586,39 @@ class MainActivity : AppCompatActivity() {
         
         val appointmentToSync = quickAddApptDate
         val locationToSync = quickAddApptLocation
-        if (appointmentToSync != null) leadData["appointmentDate"] = Timestamp(appointmentToSync)
-        if (locationToSync != null) leadData["appointmentLocation"] = locationToSync
+        val createdAppointmentId = if (appointmentToSync != null) AppointmentAgenda.newAppointmentId() else null
+        if (createdAppointmentId != null && appointmentToSync != null) {
+            val record = AppointmentAgenda.AppointmentRecord(
+                id = createdAppointmentId,
+                startMillis = appointmentToSync.time,
+                location = locationToSync,
+                eventId = null,
+                status = AppointmentAgenda.AppointmentStatus.SCHEDULED,
+                originalInstanceTime = null,
+                updatedAtMillis = System.currentTimeMillis()
+            )
+            LeadAppointmentSync.fields(listOf(record), System.currentTimeMillis(), forUpdate = false)
+                .forEach { (key, value) -> if (value != null) leadData[key] = value }
+        }
 
             db.collection("leads").add(leadData).addOnSuccessListener { ref ->
                 incrementDailyStat("total_count")
                 val phoneToNotify = phoneInput.text.toString().trim().ifEmpty { name }
-                if (appointmentToSync != null) {
-                    ReminderReceiver.scheduleReminder(this, phoneToNotify, "Appointment: $name", appointmentToSync.time)
+                if (appointmentToSync != null && createdAppointmentId != null) {
+                    ReminderReceiver.scheduleReminder(
+                        this,
+                        AppointmentAgenda.appointmentReminderKey(createdAppointmentId),
+                        "Appointment: $name",
+                        appointmentToSync.time
+                    )
                     pushAppointmentToCalendar(
                         leadId = ref.id,
                         leadName = name,
                         phone = phoneInput.text.toString().trim(),
                         startMillis = appointmentToSync.time,
                         location = locationToSync,
-                        existingEventId = null
+                        existingEventId = null,
+                        appointmentId = createdAppointmentId
                     )
                 } else if (quickAddFollowUpDate != null) {
                     ReminderReceiver.scheduleReminder(this, phoneToNotify, name, quickAddFollowUpDate!!.time)

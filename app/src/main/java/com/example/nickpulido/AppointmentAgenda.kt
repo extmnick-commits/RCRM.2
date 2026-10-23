@@ -1,0 +1,907 @@
+package com.nickpulido.rcrm
+
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
+
+/**
+ * Pure calendar and appointment rules. UI, Firestore, and the device calendar
+ * call into this object so month navigation, filtering, reconciliation, migration,
+ * and outcomes can be tested without Android.
+ */
+object AppointmentAgenda {
+
+    const val FIELD_APPOINTMENTS = "appointments"
+    const val SAME_INSTANT_TOLERANCE_MS = 60_000L
+    const val CRM_COLOR = 0xFF4C8DFF.toInt()
+
+    private val APPOINTMENT_LINK = Regex("""rcrm://appointment/(\S+)""")
+
+    enum class MonthWindow { UPCOMING, ALL }
+
+    enum class EventSource { ALL_EVENTS, CRM_ONLY }
+
+    enum class AppointmentStatus { SCHEDULED, COMPLETED, NO_SHOW, CANCELED }
+
+    enum class Outcome { COMPLETED, NO_SHOW, CANCELED }
+
+    data class AppointmentRecord(
+        val id: String,
+        val startMillis: Long,
+        val location: String?,
+        val eventId: Long?,
+        val status: AppointmentStatus,
+        val originalInstanceTime: Long?,
+        val updatedAtMillis: Long
+    )
+
+    data class CalendarNav(
+        val monthStartMillis: Long,
+        val selectedDayMillis: Long?,
+        val monthWindow: MonthWindow,
+        val source: EventSource
+    )
+
+    data class DayCellModel(
+        val dayStartMillis: Long,
+        val dayOfMonth: Int,
+        val dowLabel: String,
+        val isToday: Boolean,
+        val selected: Boolean
+    )
+
+    data class CrmAppointmentRef(
+        val leadId: String,
+        val ownerId: String?,
+        val appointmentId: String,
+        val leadName: String,
+        val phone: String,
+        val location: String?,
+        val startMillis: Long,
+        val eventId: Long?,
+        val status: AppointmentStatus,
+        val originalInstanceTime: Long?
+    )
+
+    data class CalendarEventRef(
+        val eventId: Long,
+        val title: String,
+        val startMillis: Long,
+        val endMillis: Long,
+        val allDay: Boolean,
+        val calendarDisplayName: String,
+        val accountName: String,
+        val color: Int,
+        val canWrite: Boolean,
+        val recurring: Boolean,
+        val originalInstanceTime: Long?,
+        val originalEventId: Long?,
+        val explicitLeadId: String?,
+        val explicitAppointmentId: String?,
+        val canceled: Boolean
+    )
+
+    data class AgendaEntry(
+        val title: String,
+        val startMillis: Long,
+        val endMillis: Long,
+        val allDay: Boolean,
+        val color: Int,
+        val eventId: Long?,
+        val leadId: String?,
+        val ownerId: String?,
+        val appointmentId: String?,
+        val leadName: String?,
+        val phone: String?,
+        val location: String?,
+        val explicitCrm: Boolean,
+        val suggestedLeadId: String?,
+        val calendarDisplayName: String,
+        val accountName: String,
+        val canWrite: Boolean,
+        val recurring: Boolean,
+        val recurringMaster: Boolean,
+        val storedStartMillis: Long?,
+        val timeDrifted: Boolean,
+        val status: AppointmentStatus?
+    )
+
+    data class LegacyMirror(
+        val appointmentId: String?,
+        val startMillis: Long?,
+        val location: String?,
+        val eventId: Long?
+    )
+
+    data class ReminderChange(
+        val scheduleKey: String?,
+        val scheduleAtMillis: Long?,
+        val cancelKeys: List<String>
+    )
+
+    sealed class CalendarWritePlan {
+        data class UpdateExisting(val eventId: Long) : CalendarWritePlan()
+        data object InsertNew : CalendarWritePlan()
+        data class Blocked(val message: String) : CalendarWritePlan()
+    }
+
+    sealed class ResolvedWrite {
+        data class Update(val eventId: Long) : ResolvedWrite()
+        data object Insert : ResolvedWrite()
+        data class Fail(val message: String) : ResolvedWrite()
+    }
+
+    fun startOfDay(millis: Long, zone: TimeZone): Long {
+        return Calendar.getInstance(zone).apply {
+            timeInMillis = millis
+            zero(this)
+        }.timeInMillis
+    }
+
+    fun startOfMonthContaining(millis: Long, zone: TimeZone): Long {
+        return Calendar.getInstance(zone).apply {
+            timeInMillis = millis
+            set(Calendar.DAY_OF_MONTH, 1)
+            zero(this)
+        }.timeInMillis
+    }
+
+    fun shiftMonth(monthStartMillis: Long, delta: Int, zone: TimeZone): Long {
+        return Calendar.getInstance(zone).apply {
+            timeInMillis = startOfMonthContaining(monthStartMillis, zone)
+            add(Calendar.MONTH, delta)
+            set(Calendar.DAY_OF_MONTH, 1)
+            zero(this)
+        }.timeInMillis
+    }
+
+    fun shiftVisibleMonth(state: CalendarNav, delta: Int, zone: TimeZone): CalendarNav {
+        return state.copy(
+            monthStartMillis = shiftMonth(state.monthStartMillis, delta, zone),
+            selectedDayMillis = null
+        )
+    }
+
+    fun jumpToToday(state: CalendarNav, nowMillis: Long, zone: TimeZone): CalendarNav {
+        return state.copy(
+            monthStartMillis = startOfMonthContaining(nowMillis, zone),
+            selectedDayMillis = null,
+            monthWindow = MonthWindow.UPCOMING
+        )
+    }
+
+    fun buildDayCells(
+        monthStartMillis: Long,
+        todayStartMillis: Long,
+        selectedDayMillis: Long?,
+        zone: TimeZone,
+        locale: Locale
+    ): List<DayCellModel> {
+        val cursor = Calendar.getInstance(zone).apply {
+            timeInMillis = startOfMonthContaining(monthStartMillis, zone)
+            zero(this)
+        }
+        val days = cursor.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val dow = java.text.SimpleDateFormat("EEE", locale)
+        return (1..days).map { day ->
+            cursor.set(Calendar.DAY_OF_MONTH, day)
+            zero(cursor)
+            val start = cursor.timeInMillis
+            DayCellModel(
+                dayStartMillis = start,
+                dayOfMonth = day,
+                dowLabel = dow.format(cursor.time),
+                isToday = start == todayStartMillis,
+                selected = start == selectedDayMillis
+            )
+        }
+    }
+
+    /**
+     * Where the horizontal day strip should scroll.
+     * A month that does not contain today starts at day 1 so the strip cannot
+     * stay parked on the previous month's visible week (22–28).
+     */
+    fun dayStripAnchorIndex(dayStarts: List<Long>, todayStart: Long, selectedDay: Long?): Int {
+        if (dayStarts.isEmpty()) return 0
+        if (selectedDay != null) {
+            val selectedIndex = dayStarts.indexOf(selectedDay)
+            if (selectedIndex >= 0) return selectedIndex
+        }
+        val todayIndex = dayStarts.indexOf(todayStart)
+        if (todayIndex >= 0) return todayIndex
+        return 0
+    }
+
+    fun eventDayStart(startMillis: Long, allDay: Boolean, zone: TimeZone): Long {
+        if (!allDay) return startOfDay(startMillis, zone)
+        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = startMillis }
+        return Calendar.getInstance(zone).apply {
+            set(Calendar.YEAR, utc.get(Calendar.YEAR))
+            set(Calendar.MONTH, utc.get(Calendar.MONTH))
+            set(Calendar.DAY_OF_MONTH, utc.get(Calendar.DAY_OF_MONTH))
+            zero(this)
+        }.timeInMillis
+    }
+
+    fun legacyAppointmentId(leadId: String): String = "legacy:$leadId"
+
+    fun newAppointmentId(): String = UUID.randomUUID().toString()
+
+    fun appointmentReminderKey(appointmentId: String): String = "appt:$appointmentId"
+
+    fun legacyAppointmentReminderKey(phoneOrLeadId: String): String = "appt_$phoneOrLeadId"
+
+    fun ownerCanEdit(ownerId: String?, currentUserId: String?): Boolean {
+        if (currentUserId.isNullOrBlank()) return false
+        if (ownerId.isNullOrBlank()) return true
+        return ownerId == currentUserId
+    }
+
+    fun extractAppointmentId(description: String?): String? {
+        if (description.isNullOrBlank()) return null
+        val raw = APPOINTMENT_LINK.find(description)?.groupValues?.getOrNull(1) ?: return null
+        return raw.trim().trimEnd('.', ',', ';', ')', ']').takeIf { it.isNotEmpty() }
+    }
+
+    fun crmDescription(
+        leadName: String,
+        phone: String?,
+        location: String?,
+        leadId: String,
+        appointmentId: String?
+    ): String {
+        val lines = mutableListOf("Appointment with $leadName")
+        if (!phone.isNullOrBlank()) lines += "Phone: ${phone.trim()}"
+        if (!location.isNullOrBlank()) lines += "Location: ${location.trim()}"
+        lines += ""
+        lines += "---"
+        lines += "Open Lead in RCRM: rcrm://lead/$leadId"
+        if (!appointmentId.isNullOrBlank()) lines += "rcrm://appointment/$appointmentId"
+        return lines.joinToString("\n")
+    }
+
+    fun mergeDescription(
+        existing: String?,
+        leadName: String,
+        phone: String?,
+        location: String?,
+        leadId: String,
+        appointmentId: String?
+    ): String {
+        if (existing.isNullOrBlank()) {
+            return crmDescription(leadName, phone, location, leadId, appointmentId)
+        }
+        var text = existing.trimEnd()
+        if (!text.contains("rcrm://lead/$leadId")) {
+            text += "\n\nOpen Lead in RCRM: rcrm://lead/$leadId"
+        }
+        if (!appointmentId.isNullOrBlank() && !text.contains("rcrm://appointment/$appointmentId")) {
+            text += "\nrcrm://appointment/$appointmentId"
+        }
+        return text
+    }
+
+    fun parseRecords(raw: Any?, epochMillis: (Any?) -> Long?): List<AppointmentRecord> {
+        val list = raw as? List<*> ?: return emptyList()
+        val records = list.mapNotNull { entry ->
+            val map = entry as? Map<*, *> ?: return@mapNotNull null
+            val id = (map["id"] as? String)?.trim().orEmpty()
+            val start = map["startAt"]?.let(epochMillis) ?: return@mapNotNull null
+            if (id.isEmpty() || start <= 0L) return@mapNotNull null
+            AppointmentRecord(
+                id = id,
+                startMillis = start,
+                location = (map["location"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                eventId = longOrNull(map["eventId"])?.takeIf { it > 0L },
+                status = statusOf(map["status"] as? String),
+                originalInstanceTime = map["originalInstanceTime"]?.let(epochMillis)?.takeIf { it > 0L },
+                updatedAtMillis = map["updatedAt"]?.let(epochMillis) ?: 0L
+            )
+        }
+        return normalize(records)
+    }
+
+    fun toFieldMaps(records: List<AppointmentRecord>): List<Map<String, Any?>> {
+        return normalize(records).map { record ->
+            linkedMapOf(
+                "id" to record.id,
+                "startAt" to record.startMillis,
+                "location" to record.location,
+                "eventId" to record.eventId,
+                "status" to statusName(record.status),
+                "originalInstanceTime" to record.originalInstanceTime,
+                "updatedAt" to record.updatedAtMillis
+            )
+        }
+    }
+
+    fun migrateAppointments(
+        leadId: String,
+        existing: List<AppointmentRecord>,
+        legacyStartMillis: Long?,
+        legacyLocation: String?,
+        legacyEventId: Long?,
+        nowMillis: Long
+    ): List<AppointmentRecord> {
+        val normalized = normalize(existing)
+        if (legacyStartMillis == null || legacyStartMillis <= 0L) return normalized
+        val legacyId = legacyAppointmentId(leadId)
+        if (normalized.any { it.id == legacyId }) return normalized
+        if (legacyEventId != null && legacyEventId > 0L && normalized.any { it.eventId == legacyEventId }) {
+            return normalized
+        }
+        if (normalized.any { sameInstant(it.startMillis, legacyStartMillis) }) return normalized
+        return normalized + AppointmentRecord(
+            id = legacyId,
+            startMillis = legacyStartMillis,
+            location = legacyLocation?.trim()?.takeIf { it.isNotEmpty() },
+            eventId = legacyEventId?.takeIf { it > 0L },
+            status = AppointmentStatus.SCHEDULED,
+            originalInstanceTime = null,
+            updatedAtMillis = nowMillis
+        )
+    }
+
+    fun applySingleAppointmentEdit(
+        leadId: String,
+        existing: List<AppointmentRecord>,
+        previousStartMillis: Long?,
+        previousLocation: String?,
+        previousEventId: Long?,
+        newStartMillis: Long?,
+        newLocation: String?,
+        newEventId: Long?,
+        nowMillis: Long,
+        createdId: String
+    ): List<AppointmentRecord> {
+        val base = migrateAppointments(
+            leadId = leadId,
+            existing = existing,
+            legacyStartMillis = previousStartMillis,
+            legacyLocation = previousLocation,
+            legacyEventId = previousEventId,
+            nowMillis = nowMillis
+        )
+        val index = findEditedIndex(base, leadId, previousStartMillis, previousEventId)
+        if (newStartMillis == null || newStartMillis <= 0L) {
+            if (index < 0) return base
+            val current = base[index]
+            if (current.status == AppointmentStatus.CANCELED) return base
+            return base.replacing(
+                index,
+                current.copy(status = AppointmentStatus.CANCELED, updatedAtMillis = nowMillis)
+            )
+        }
+        val location = newLocation?.trim()?.takeIf { it.isNotEmpty() }
+        val eventId = newEventId?.takeIf { it > 0L }
+        if (index >= 0) {
+            val current = base[index]
+            return base.replacing(
+                index,
+                current.copy(
+                    startMillis = newStartMillis,
+                    location = location ?: current.location,
+                    eventId = eventId ?: current.eventId,
+                    status = AppointmentStatus.SCHEDULED,
+                    updatedAtMillis = nowMillis
+                )
+            )
+        }
+        val id = createdId.trim().ifEmpty { newAppointmentId() }
+        val created = AppointmentRecord(
+            id = id,
+            startMillis = newStartMillis,
+            location = location,
+            eventId = eventId,
+            status = AppointmentStatus.SCHEDULED,
+            originalInstanceTime = null,
+            updatedAtMillis = nowMillis
+        )
+        return upsertRecord(base, created)
+    }
+
+    fun addAppointment(
+        records: List<AppointmentRecord>,
+        record: AppointmentRecord
+    ): List<AppointmentRecord> = upsertRecord(normalize(records), record)
+
+    fun upsertRecord(records: List<AppointmentRecord>, record: AppointmentRecord): List<AppointmentRecord> {
+        if (record.id.isBlank() || record.startMillis <= 0L) return normalize(records)
+        val normalized = normalize(records)
+        val index = normalized.indexOfFirst { it.id == record.id }
+        return if (index < 0) normalized + record else normalized.replacing(index, record)
+    }
+
+    fun withEventId(
+        records: List<AppointmentRecord>,
+        appointmentId: String,
+        eventId: Long
+    ): List<AppointmentRecord>? {
+        if (appointmentId.isBlank() || eventId <= 0L) return null
+        val index = records.indexOfFirst { it.id == appointmentId }
+        if (index < 0) return null
+        val current = records[index]
+        if (current.eventId == eventId) return records
+        return records.replacing(index, current.copy(eventId = eventId))
+    }
+
+    fun applyOutcome(
+        records: List<AppointmentRecord>,
+        appointmentId: String,
+        outcome: Outcome,
+        nowMillis: Long
+    ): List<AppointmentRecord> {
+        val index = records.indexOfFirst { it.id == appointmentId }
+        if (index < 0) return records
+        val status = when (outcome) {
+            Outcome.COMPLETED -> AppointmentStatus.COMPLETED
+            Outcome.NO_SHOW -> AppointmentStatus.NO_SHOW
+            Outcome.CANCELED -> AppointmentStatus.CANCELED
+        }
+        val current = records[index]
+        if (current.status == status) return records
+        return records.replacing(index, current.copy(status = status, updatedAtMillis = nowMillis))
+    }
+
+    fun reschedule(
+        records: List<AppointmentRecord>,
+        appointmentId: String,
+        newStartMillis: Long,
+        nowMillis: Long,
+        rememberInstance: Boolean
+    ): List<AppointmentRecord> {
+        if (newStartMillis <= 0L) return records
+        val index = records.indexOfFirst { it.id == appointmentId }
+        if (index < 0) return records
+        val current = records[index]
+        val original = current.originalInstanceTime
+            ?: if (rememberInstance) current.startMillis else null
+        return records.replacing(
+            index,
+            current.copy(
+                startMillis = newStartMillis,
+                status = AppointmentStatus.SCHEDULED,
+                originalInstanceTime = original,
+                updatedAtMillis = nowMillis
+            )
+        )
+    }
+
+    fun legacyMirror(records: List<AppointmentRecord>, nowMillis: Long): LegacyMirror {
+        val scheduled = records.filter { it.status == AppointmentStatus.SCHEDULED && it.startMillis > 0L }
+        val primary = scheduled.filter { it.startMillis >= nowMillis }.minByOrNull { it.startMillis }
+            ?: scheduled.maxByOrNull { it.startMillis }
+        return LegacyMirror(
+            appointmentId = primary?.id,
+            startMillis = primary?.startMillis,
+            location = primary?.location,
+            eventId = primary?.eventId
+        )
+    }
+
+    fun reminderChange(record: AppointmentRecord, legacyPhoneKey: String?): ReminderChange {
+        val key = appointmentReminderKey(record.id)
+        val legacy = legacyPhoneKey?.takeIf { it.isNotBlank() && it != key }
+        return if (record.status == AppointmentStatus.SCHEDULED && record.startMillis > 0L) {
+            ReminderChange(
+                scheduleKey = key,
+                scheduleAtMillis = record.startMillis,
+                cancelKeys = listOfNotNull(legacy)
+            )
+        } else {
+            ReminderChange(
+                scheduleKey = null,
+                scheduleAtMillis = null,
+                cancelKeys = listOfNotNull(key, legacy).distinct()
+            )
+        }
+    }
+
+    fun digestAppointmentStarts(
+        records: List<AppointmentRecord>,
+        dayStart: Long,
+        dayEnd: Long
+    ): List<Long> {
+        return records
+            .filter { it.status == AppointmentStatus.SCHEDULED && it.startMillis in dayStart until dayEnd }
+            .map { it.startMillis }
+            .sorted()
+    }
+
+    fun reconcile(
+        appointments: List<CrmAppointmentRef>,
+        events: List<CalendarEventRef>,
+        suggestedLeadIdsByEventId: Map<Long, String>,
+        rangeStart: Long,
+        rangeEnd: Long,
+        zone: TimeZone
+    ): List<AgendaEntry> {
+        val used = mutableSetOf<Int>()
+        val rows = mutableListOf<AgendaEntry>()
+        appointments.forEach { appointment ->
+            val match = matchEventIndex(appointment, events, used, appointments)
+            if (match != null) {
+                used += match
+                rows += mergedEntry(appointment, events[match])
+            } else if (inRange(appointment.startMillis, allDay = false, rangeStart, rangeEnd, zone)) {
+                rows += crmOnlyEntry(appointment)
+            }
+        }
+        events.forEachIndexed { index, event ->
+            if (index in used || event.canceled) return@forEachIndexed
+            if (!inRange(event.startMillis, event.allDay, rangeStart, rangeEnd, zone)) return@forEachIndexed
+            val suggestion = if (event.explicitLeadId.isNullOrBlank() && event.explicitAppointmentId.isNullOrBlank()) {
+                suggestedLeadIdsByEventId[event.eventId]
+            } else {
+                null
+            }
+            rows += eventEntry(event, suggestion)
+        }
+        return rows.sortedWith(compareBy<AgendaEntry> { it.startMillis }.thenBy { it.title.lowercase(Locale.US) })
+    }
+
+    fun visibleEntries(
+        entries: List<AgendaEntry>,
+        monthWindow: MonthWindow,
+        source: EventSource,
+        selectedDayMillis: Long?,
+        todayStartMillis: Long,
+        zone: TimeZone
+    ): List<AgendaEntry> {
+        return entries.filter { entry ->
+            if (source == EventSource.CRM_ONLY && !entry.explicitCrm) return@filter false
+            val day = eventDayStart(entry.startMillis, entry.allDay, zone)
+            if (selectedDayMillis != null) return@filter day == selectedDayMillis
+            if (monthWindow == MonthWindow.UPCOMING && day < todayStartMillis) return@filter false
+            true
+        }
+    }
+
+    fun emptyMessage(monthWindow: MonthWindow, source: EventSource, daySelected: Boolean): String {
+        if (daySelected && source == EventSource.CRM_ONLY) return "No RCRM appointments on this day"
+        if (daySelected) return "No events on this day"
+        if (source == EventSource.CRM_ONLY && monthWindow == MonthWindow.UPCOMING) {
+            return "No upcoming RCRM appointments this month."
+        }
+        if (source == EventSource.CRM_ONLY) return "No RCRM appointments this month."
+        if (monthWindow == MonthWindow.UPCOMING) {
+            return "Nothing upcoming this month. Switch to All Month to see earlier days."
+        }
+        return "No appointments or calendar events this month"
+    }
+
+    fun shortCalendarLabel(displayName: String, explicitCrm: Boolean): String {
+        val name = displayName.trim()
+        if (name.isNotEmpty()) return name
+        return if (explicitCrm) "RCRM" else "Calendar"
+    }
+
+    fun statusLabel(status: AppointmentStatus?): String? {
+        return when (status) {
+            null, AppointmentStatus.SCHEDULED -> null
+            AppointmentStatus.COMPLETED -> "Completed"
+            AppointmentStatus.NO_SHOW -> "No-show"
+            AppointmentStatus.CANCELED -> "Canceled"
+        }
+    }
+
+    fun eventDetail(
+        entry: AgendaEntry,
+        storedTimeLabel: String?
+    ): String {
+        val lines = mutableListOf<String>()
+        if (entry.calendarDisplayName.isNotBlank()) lines += "Calendar: ${entry.calendarDisplayName}"
+        if (entry.accountName.isNotBlank()) lines += "Account: ${entry.accountName}"
+        if (entry.eventId != null || entry.calendarDisplayName.isNotBlank()) {
+            lines += if (entry.canWrite) "Access: Writable" else "Access: Read only"
+        }
+        if (!entry.location.isNullOrBlank()) lines += "Location: ${entry.location}"
+        if (entry.explicitCrm && !entry.leadName.isNullOrBlank()) lines += "Lead: ${entry.leadName}"
+        statusLabel(entry.status)?.let { lines += "Status: $it" }
+        if (entry.recurring) {
+            lines += "Repeats on the calendar. RCRM will not change the whole series."
+        }
+        if (entry.timeDrifted) {
+            val saved = storedTimeLabel?.takeIf { it.isNotBlank() }
+            lines += if (saved == null) {
+                "The calendar time differs from the time saved in RCRM. Neither one was overwritten."
+            } else {
+                "Saved in RCRM for $saved. The calendar time is shown here, and neither one was overwritten."
+            }
+        }
+        return lines.joinToString("\n")
+    }
+
+    fun planCalendarWrite(
+        eventId: Long?,
+        canWrite: Boolean,
+        recurringMaster: Boolean,
+        allowInsert: Boolean
+    ): CalendarWritePlan {
+        if (recurringMaster) {
+            return CalendarWritePlan.Blocked(
+                "This event repeats. Change that occurrence in Google Calendar so the rest of the series is left alone."
+            )
+        }
+        if (eventId != null && eventId > 0L) {
+            if (!canWrite) {
+                return CalendarWritePlan.Blocked(
+                    "That calendar is read-only. The RCRM appointment was saved, and the calendar event was left unchanged."
+                )
+            }
+            return CalendarWritePlan.UpdateExisting(eventId)
+        }
+        if (!allowInsert) {
+            return CalendarWritePlan.Blocked(
+                "The calendar event could not be found on this device. Tap retry to add it once."
+            )
+        }
+        return CalendarWritePlan.InsertNew
+    }
+
+    fun resolveWrite(plan: CalendarWritePlan, foundEventId: Long?): ResolvedWrite {
+        return when (plan) {
+            is CalendarWritePlan.Blocked -> ResolvedWrite.Fail(plan.message)
+            is CalendarWritePlan.UpdateExisting -> ResolvedWrite.Update(plan.eventId)
+            CalendarWritePlan.InsertNew -> {
+                if (foundEventId != null && foundEventId > 0L) {
+                    ResolvedWrite.Update(foundEventId)
+                } else {
+                    ResolvedWrite.Insert
+                }
+            }
+        }
+    }
+
+    fun selectRetryTarget(
+        candidates: List<CalendarEventRef>,
+        appointmentId: String?,
+        leadId: String,
+        preferredEventId: Long?
+    ): Long? {
+        if (preferredEventId != null && preferredEventId > 0L && candidates.any { it.eventId == preferredEventId }) {
+            return preferredEventId
+        }
+        if (!appointmentId.isNullOrBlank()) {
+            val matches = candidates
+                .filter { it.explicitAppointmentId == appointmentId }
+                .map { it.eventId }
+                .distinct()
+            if (matches.isNotEmpty()) return matches.first()
+        }
+        if (leadId.isNotBlank()) {
+            val leadMatches = candidates
+                .filter { it.explicitLeadId == leadId && it.explicitAppointmentId == null }
+                .map { it.eventId }
+                .distinct()
+            if (leadMatches.size == 1) return leadMatches.first()
+        }
+        return null
+    }
+
+    private fun matchEventIndex(
+        appointment: CrmAppointmentRef,
+        events: List<CalendarEventRef>,
+        used: Set<Int>,
+        appointments: List<CrmAppointmentRef>
+    ): Int? {
+        val open = events.indices.filter { index ->
+            index !in used && !events[index].canceled
+        }
+        fun pick(indices: List<Int>): Int? {
+            if (indices.isEmpty()) return null
+            val exact = indices.filter { sameInstant(events[it].startMillis, appointment.startMillis) }
+            if (exact.size == 1) return exact.first()
+            if (exact.size > 1) return exact.minByOrNull { events[it].eventId }
+            val storedInstance = appointment.originalInstanceTime
+            val moved = indices.filter { index ->
+                val event = events[index]
+                val original = event.originalInstanceTime
+                (original != null && sameInstant(original, appointment.startMillis)) ||
+                    (storedInstance != null && sameInstant(event.startMillis, storedInstance))
+            }
+            if (moved.size == 1) return moved.first()
+            if (moved.isNotEmpty()) return null
+            if (indices.size == 1) return indices.first()
+            return null
+        }
+
+        pick(open.filter { events[it].explicitAppointmentId == appointment.appointmentId })?.let { return it }
+
+        val eventId = appointment.eventId
+        if (eventId != null && eventId > 0L) {
+            pick(
+                open.filter { index ->
+                    val event = events[index]
+                    event.eventId == eventId || event.originalEventId == eventId
+                }
+            )?.let { return it }
+        }
+
+        val leadEvents = open.filter { index ->
+            val event = events[index]
+            event.explicitLeadId == appointment.leadId && event.explicitAppointmentId == null
+        }
+        val leadAppointments = appointments.count { it.leadId == appointment.leadId }
+        if (leadEvents.size == 1 && leadAppointments == 1) return leadEvents.first()
+        return null
+    }
+
+    private fun mergedEntry(appointment: CrmAppointmentRef, event: CalendarEventRef): AgendaEntry {
+        val drifted = !sameInstant(appointment.startMillis, event.startMillis)
+        val entry = AgendaEntry(
+            title = event.title.ifBlank { appointment.leadName.ifBlank { "Appointment" } },
+            startMillis = event.startMillis,
+            endMillis = event.endMillis,
+            allDay = event.allDay,
+            color = event.color,
+            eventId = event.eventId,
+            leadId = appointment.leadId,
+            ownerId = appointment.ownerId,
+            appointmentId = appointment.appointmentId,
+            leadName = appointment.leadName,
+            phone = appointment.phone,
+            location = appointment.location?.takeIf { it.isNotBlank() },
+            explicitCrm = true,
+            suggestedLeadId = null,
+            calendarDisplayName = event.calendarDisplayName,
+            accountName = event.accountName,
+            canWrite = event.canWrite,
+            recurring = event.recurring || event.originalEventId != null,
+            recurringMaster = event.recurring && event.originalInstanceTime == null,
+            storedStartMillis = appointment.startMillis,
+            timeDrifted = drifted,
+            status = appointment.status
+        )
+        return entry
+    }
+
+    private fun crmOnlyEntry(appointment: CrmAppointmentRef): AgendaEntry {
+        val end = appointment.startMillis + 60L * 60L * 1000L
+        return AgendaEntry(
+            title = appointment.leadName.ifBlank { "Appointment" },
+            startMillis = appointment.startMillis,
+            endMillis = end,
+            allDay = false,
+            color = CRM_COLOR,
+            eventId = appointment.eventId,
+            leadId = appointment.leadId,
+            ownerId = appointment.ownerId,
+            appointmentId = appointment.appointmentId,
+            leadName = appointment.leadName,
+            phone = appointment.phone,
+            location = appointment.location,
+            explicitCrm = true,
+            suggestedLeadId = null,
+            calendarDisplayName = "",
+            accountName = "",
+            canWrite = true,
+            recurring = false,
+            recurringMaster = false,
+            storedStartMillis = appointment.startMillis,
+            timeDrifted = false,
+            status = appointment.status
+        )
+    }
+
+    private fun eventEntry(event: CalendarEventRef, suggestedLeadId: String?): AgendaEntry {
+        val explicit = !event.explicitLeadId.isNullOrBlank() || !event.explicitAppointmentId.isNullOrBlank()
+        return AgendaEntry(
+            title = event.title.ifBlank { "(No title)" },
+            startMillis = event.startMillis,
+            endMillis = event.endMillis,
+            allDay = event.allDay,
+            color = event.color,
+            eventId = event.eventId,
+            leadId = event.explicitLeadId,
+            ownerId = null,
+            appointmentId = event.explicitAppointmentId,
+            leadName = null,
+            phone = null,
+            location = null,
+            explicitCrm = explicit,
+            suggestedLeadId = if (explicit) null else suggestedLeadId,
+            calendarDisplayName = event.calendarDisplayName,
+            accountName = event.accountName,
+            canWrite = event.canWrite,
+            recurring = event.recurring || event.originalEventId != null,
+            recurringMaster = event.recurring && event.originalInstanceTime == null,
+            storedStartMillis = null,
+            timeDrifted = false,
+            status = null
+        )
+    }
+
+    private fun inRange(
+        startMillis: Long,
+        allDay: Boolean,
+        rangeStart: Long,
+        rangeEnd: Long,
+        zone: TimeZone
+    ): Boolean {
+        if (allDay) {
+            val day = eventDayStart(startMillis, true, zone)
+            return day >= rangeStart && day < rangeEnd
+        }
+        return startMillis >= rangeStart && startMillis < rangeEnd
+    }
+
+    private fun findEditedIndex(
+        records: List<AppointmentRecord>,
+        leadId: String,
+        previousStartMillis: Long?,
+        previousEventId: Long?
+    ): Int {
+        if (previousEventId != null && previousEventId > 0L) {
+            val byEvent = records.indexOfFirst { it.eventId == previousEventId }
+            if (byEvent >= 0) return byEvent
+        }
+        if (previousStartMillis != null && previousStartMillis > 0L) {
+            val byStart = records.indexOfFirst { sameInstant(it.startMillis, previousStartMillis) }
+            if (byStart >= 0) return byStart
+        }
+        val legacy = records.indexOfFirst { it.id == legacyAppointmentId(leadId) }
+        if (legacy >= 0) return legacy
+        val scheduled = records.mapIndexedNotNull { index, record ->
+            if (record.status == AppointmentStatus.SCHEDULED) index else null
+        }
+        return if (scheduled.size == 1) scheduled.first() else -1
+    }
+
+    private fun normalize(records: List<AppointmentRecord>): List<AppointmentRecord> {
+        val seen = HashSet<String>()
+        val kept = ArrayList<AppointmentRecord>(records.size)
+        records.forEach { record ->
+            if (record.id.isBlank() || record.startMillis <= 0L) return@forEach
+            if (seen.add(record.id)) kept += record
+        }
+        return kept
+    }
+
+    private fun statusOf(raw: String?): AppointmentStatus {
+        return when (raw?.trim()?.lowercase(Locale.US)) {
+            "completed" -> AppointmentStatus.COMPLETED
+            "no_show", "noshow", "no-show" -> AppointmentStatus.NO_SHOW
+            "canceled", "cancelled" -> AppointmentStatus.CANCELED
+            else -> AppointmentStatus.SCHEDULED
+        }
+    }
+
+    private fun statusName(status: AppointmentStatus): String {
+        return when (status) {
+            AppointmentStatus.SCHEDULED -> "scheduled"
+            AppointmentStatus.COMPLETED -> "completed"
+            AppointmentStatus.NO_SHOW -> "no_show"
+            AppointmentStatus.CANCELED -> "canceled"
+        }
+    }
+
+    private fun longOrNull(value: Any?): Long? {
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Number -> value.toLong()
+            is String -> value.toLongOrNull()
+            else -> null
+        }
+    }
+
+    private fun sameInstant(left: Long, right: Long): Boolean {
+        return kotlin.math.abs(left - right) <= SAME_INSTANT_TOLERANCE_MS
+    }
+
+    private fun <T> List<T>.replacing(index: Int, value: T): List<T> {
+        val copy = toMutableList()
+        copy[index] = value
+        return copy
+    }
+
+    private fun zero(calendar: Calendar) {
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+    }
+}

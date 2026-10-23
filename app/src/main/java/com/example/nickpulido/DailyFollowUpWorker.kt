@@ -18,7 +18,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 class DailyFollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -58,10 +61,22 @@ class DailyFollowUpWorker(context: Context, params: WorkerParameters) : Coroutin
                     }
                 }
 
-                doc.getTimestamp(FIELD_APPOINTMENT_DATE)?.let { ts ->
-                    if (ts.isSameCalendarDay(todayKey)) {
-                        appointments.add("$name · ${timeFormat.format(ts.toDate())}")
-                    }
+                val zone = TimeZone.getDefault()
+                val todayStart = AppointmentAgenda.startOfDay(System.currentTimeMillis(), zone)
+                val todayEnd = Calendar.getInstance(zone).apply {
+                    timeInMillis = todayStart
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }.timeInMillis
+                val records = AppointmentAgenda.migrateAppointments(
+                    leadId = doc.id,
+                    existing = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
+                    legacyStartMillis = doc.getTimestamp(FIELD_APPOINTMENT_DATE)?.toDate()?.time,
+                    legacyLocation = doc.getString("appointmentLocation"),
+                    legacyEventId = null,
+                    nowMillis = System.currentTimeMillis()
+                )
+                AppointmentAgenda.digestAppointmentStarts(records, todayStart, todayEnd).forEach { start ->
+                    appointments.add("$name · ${timeFormat.format(Date(start))}")
                 }
             }
 

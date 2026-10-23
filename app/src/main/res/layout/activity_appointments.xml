@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/appointmentsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -158,7 +159,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="44dp"
+            android:minHeight="48dp"
             android:gravity="center"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
@@ -179,7 +180,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="8dp"
-            android:minHeight="44dp"
+            android:minHeight="48dp"
             android:gravity="center"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
@@ -195,10 +196,64 @@
             android:focusable="true" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/btnFilterAllEvents"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="All Events"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Show all events" />
+
+        <TextView
+            android:id="@+id/btnFilterCrmOnly"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:minHeight="48dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="CRM Only"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Show RCRM appointments only" />
+    </LinearLayout>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvDayStrip"
         android:layout_width="match_parent"
-        android:layout_height="76dp"
+        android:layout_height="wrap_content"
+        android:minHeight="76dp"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
         android:clipToPadding="false"
@@ -256,9 +311,25 @@
         android:textSize="13sp"
         android:visibility="gone" />
 
-    <RelativeLayout
+    <TextView
+        android:id="@+id/tvSyncStatus"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:padding="12dp"
+        android:background="@drawable/bg_frosted_card"
+        android:textColor="@color/colorDanger"
+        android:textSize="13sp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvAppointments"
@@ -267,7 +338,7 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:paddingTop="4dp"
-            android:paddingBottom="96dp"
+            android:paddingBottom="16dp"
             android:clipToPadding="false"
             android:scrollbars="vertical" />
 
@@ -275,7 +346,8 @@
             android:id="@+id/tvNoAppointments"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
+            android:layout_gravity="center"
+            android:layout_marginBottom="88dp"
             android:padding="24dp"
             android:gravity="center"
             android:text="No appointments or calendar events this month"
@@ -287,27 +359,47 @@
             android:id="@+id/progressAppointments"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
+            android:layout_gravity="center"
             android:indeterminateTint="@color/colorPrimary" />
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnNewAppointment"
-            android:layout_width="wrap_content"
-            android:layout_height="52dp"
-            android:layout_alignParentBottom="true"
-            android:layout_alignParentEnd="true"
-            android:layout_margin="16dp"
-            android:paddingStart="18dp"
-            android:paddingEnd="18dp"
-            android:minHeight="52dp"
-            android:text="+ New Appointment"
-            android:textAllCaps="false"
-            android:textColor="@color/textColorPrimary"
-            android:textSize="15sp"
-            android:background="@drawable/bg_neon_cyan_button"
-            android:stateListAnimator="@null"
-            app:backgroundTint="@null"
-            android:contentDescription="New appointment" />
-    </RelativeLayout>
+        <LinearLayout
+            android:id="@+id/appointmentActionBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:background="@color/backgroundColor"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="12dp"
+            android:elevation="6dp">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/dividerColor" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnNewAppointment"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="8dp"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:minHeight="52dp"
+                android:minWidth="48dp"
+                android:text="+ New Appointment"
+                android:textAllCaps="false"
+                android:textColor="@color/textColorPrimary"
+                android:textSize="15sp"
+                android:maxLines="2"
+                android:background="@drawable/bg_neon_cyan_button"
+                android:stateListAnimator="@null"
+                app:backgroundTint="@null"
+                android:contentDescription="New appointment" />
+        </LinearLayout>
+    </FrameLayout>
 
 </LinearLayout>

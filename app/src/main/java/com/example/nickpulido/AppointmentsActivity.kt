@@ -36,6 +36,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -51,7 +53,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import kotlin.math.abs
 
 class AppointmentsActivity : AppCompatActivity() {
 
@@ -80,7 +81,10 @@ class AppointmentsActivity : AppCompatActivity() {
     private val followUpFormat = SimpleDateFormat("MMM dd, yyyy h:mm a", Locale.getDefault())
     private var loadToken = 0
     private var monthFilter = MonthFilter.UPCOMING
+    private var sourceFilter = SourceFilter.ALL_EVENTS
     private var selectedDayMillis: Long? = null
+    private var snapDayStrip = true
+    private var failedSync: FailedCalendarSync? = null
 
     private var contactNameTarget: EditText? = null
     private var contactPhoneTarget: EditText? = null
@@ -122,7 +126,8 @@ class AppointmentsActivity : AppCompatActivity() {
                 phone = waitingSync.phone,
                 startMillis = waitingSync.startMillis,
                 location = waitingSync.location,
-                existingEventId = waitingSync.existingEventId
+                existingEventId = waitingSync.existingEventId,
+                appointmentId = waitingSync.appointmentId
             )
         }
         when (pending) {
@@ -172,6 +177,11 @@ class AppointmentsActivity : AppCompatActivity() {
                 MonthFilter.ALL
             } else {
                 MonthFilter.UPCOMING
+            }
+            sourceFilter = if (savedInstanceState.getString(STATE_SOURCE) == SourceFilter.CRM_ONLY.name) {
+                SourceFilter.CRM_ONLY
+            } else {
+                SourceFilter.ALL_EVENTS
             }
             if (savedInstanceState.getBoolean(STATE_HAS_DAY)) {
                 selectedDayMillis = savedInstanceState.getLong(STATE_DAY)
@@ -223,6 +233,18 @@ class AppointmentsActivity : AppCompatActivity() {
             styleFilterChips()
             renderAgenda(scroll = true)
         }
+        findViewById<View>(R.id.btnFilterAllEvents).setOnClickListener {
+            sourceFilter = SourceFilter.ALL_EVENTS
+            styleFilterChips()
+            renderAgenda(scroll = false)
+        }
+        findViewById<View>(R.id.btnFilterCrmOnly).setOnClickListener {
+            sourceFilter = SourceFilter.CRM_ONLY
+            styleFilterChips()
+            renderAgenda(scroll = false)
+        }
+        findViewById<View>(R.id.tvSyncStatus).setOnClickListener { retryFailedSync() }
+        applyWindowInsets()
         findViewById<View>(R.id.btnShowFullMonth).setOnClickListener {
             selectedDayMillis = null
             renderAgenda(scroll = true)
@@ -234,7 +256,7 @@ class AppointmentsActivity : AppCompatActivity() {
         }
 
         styleFilterChips()
-        bindDayStrip(emptyList())
+        bindDayStrip(emptyList(), snap = true)
 
         if (savedInstanceState == null && !GoogleCalendarManager.hasCalendarPermissions(this)) {
             requestCalendarPermissions()
@@ -245,6 +267,7 @@ class AppointmentsActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
         outState.putLong(STATE_MONTH, visibleMonth.timeInMillis)
         outState.putString(STATE_FILTER, monthFilter.name)
+        outState.putString(STATE_SOURCE, sourceFilter.name)
         outState.putBoolean(STATE_HAS_DAY, selectedDayMillis != null)
         selectedDayMillis?.let { outState.putLong(STATE_DAY, it) }
     }
@@ -264,19 +287,20 @@ class AppointmentsActivity : AppCompatActivity() {
     }
 
     private fun shiftMonth(delta: Int) {
-        visibleMonth.add(Calendar.MONTH, delta)
-        selectedDayMillis = null
+        val zone = TimeZone.getDefault()
+        val next = AppointmentAgenda.shiftVisibleMonth(currentNav(), delta, zone)
+        applyNav(next)
+        snapDayStrip = true
         loadAgenda()
     }
 
     private fun jumpToToday() {
-        val now = Calendar.getInstance()
-        val sameMonth = visibleMonth.get(Calendar.YEAR) == now.get(Calendar.YEAR) &&
-            visibleMonth.get(Calendar.MONTH) == now.get(Calendar.MONTH)
-        visibleMonth.timeInMillis = startOfLocalDay(now.timeInMillis)
-        visibleMonth.set(Calendar.DAY_OF_MONTH, 1)
-        selectedDayMillis = null
-        monthFilter = MonthFilter.UPCOMING
+        val zone = TimeZone.getDefault()
+        val now = System.currentTimeMillis()
+        val sameMonth = AppointmentAgenda.startOfMonthContaining(visibleMonth.timeInMillis, zone) ==
+            AppointmentAgenda.startOfMonthContaining(now, zone)
+        applyNav(AppointmentAgenda.jumpToToday(currentNav(), now, zone))
+        snapDayStrip = true
         styleFilterChips()
         updateSelectedBanner()
         if (sameMonth && monthItems.isNotEmpty()) {
@@ -285,6 +309,65 @@ class AppointmentsActivity : AppCompatActivity() {
         } else {
             loadAgenda()
         }
+    }
+
+    private fun currentNav(): AppointmentAgenda.CalendarNav {
+        return AppointmentAgenda.CalendarNav(
+            monthStartMillis = visibleMonth.timeInMillis,
+            selectedDayMillis = selectedDayMillis,
+            monthWindow = if (monthFilter == MonthFilter.ALL) {
+                AppointmentAgenda.MonthWindow.ALL
+            } else {
+                AppointmentAgenda.MonthWindow.UPCOMING
+            },
+            source = if (sourceFilter == SourceFilter.CRM_ONLY) {
+                AppointmentAgenda.EventSource.CRM_ONLY
+            } else {
+                AppointmentAgenda.EventSource.ALL_EVENTS
+            }
+        )
+    }
+
+    private fun applyNav(nav: AppointmentAgenda.CalendarNav) {
+        visibleMonth.timeInMillis = nav.monthStartMillis
+        zeroTime(visibleMonth)
+        visibleMonth.set(Calendar.DAY_OF_MONTH, 1)
+        selectedDayMillis = nav.selectedDayMillis
+        monthFilter = if (nav.monthWindow == AppointmentAgenda.MonthWindow.ALL) {
+            MonthFilter.ALL
+        } else {
+            MonthFilter.UPCOMING
+        }
+        sourceFilter = if (nav.source == AppointmentAgenda.EventSource.CRM_ONLY) {
+            SourceFilter.CRM_ONLY
+        } else {
+            SourceFilter.ALL_EVENTS
+        }
+    }
+
+    private fun applyWindowInsets() {
+        val root = findViewById<View>(R.id.appointmentsRoot)
+        val actionBar = findViewById<View>(R.id.appointmentActionBar)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(bars.left, bars.top, bars.right, 0)
+            actionBar.setPadding(dp(16), dp(8), dp(16), bars.bottom + dp(12))
+            insets
+        }
+        actionBar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val bottomPad = actionBar.height + dp(8)
+            if (::agendaList.isInitialized && agendaList.paddingBottom != bottomPad) {
+                agendaList.setPadding(
+                    agendaList.paddingLeft,
+                    agendaList.paddingTop,
+                    agendaList.paddingRight,
+                    bottomPad
+                )
+            }
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     private fun monthRange(): Pair<Long, Long> {
@@ -302,7 +385,7 @@ class AppointmentsActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvMonthLabel).text = monthLabelFormat.format(visibleMonth.time)
         updateSelectedBanner()
         styleFilterChips()
-        bindDayStrip(emptyList())
+        bindDayStrip(emptyList(), snap = true)
 
         val statusView = findViewById<TextView>(R.id.tvCalendarStatus)
         progressBar.visibility = View.VISIBLE
@@ -359,7 +442,8 @@ class AppointmentsActivity : AppCompatActivity() {
         displayRows.clear()
         displayRows.addAll(built)
         agendaAdapter.notifyDataSetChanged()
-        bindDayStrip(monthItems)
+        bindDayStrip(monthItems, snapDayStrip)
+        snapDayStrip = false
         updateSelectedBanner()
         styleFilterChips()
         emptyView.visibility = if (displayRows.isEmpty()) View.VISIBLE else View.GONE
@@ -370,125 +454,163 @@ class AppointmentsActivity : AppCompatActivity() {
     }
 
     private fun emptyMessage(): String {
-        if (selectedDayMillis != null) return "No events on this day"
-        if (monthFilter == MonthFilter.UPCOMING) {
-            return "Nothing upcoming this month. Switch to All Month to see earlier days."
-        }
-        return "No appointments or calendar events this month"
+        return AppointmentAgenda.emptyMessage(
+            monthWindow = if (monthFilter == MonthFilter.ALL) {
+                AppointmentAgenda.MonthWindow.ALL
+            } else {
+                AppointmentAgenda.MonthWindow.UPCOMING
+            },
+            source = if (sourceFilter == SourceFilter.CRM_ONLY) {
+                AppointmentAgenda.EventSource.CRM_ONLY
+            } else {
+                AppointmentAgenda.EventSource.ALL_EVENTS
+            },
+            daySelected = selectedDayMillis != null
+        )
     }
 
-    private fun assembleAgenda(
+    private suspend fun assembleAgenda(
         leads: List<MutableMap<String, Any>>,
         startMillis: Long,
         endMillis: Long
     ): List<AgendaItem> {
+        val zone = TimeZone.getDefault()
+        val now = System.currentTimeMillis()
         val names = mutableListOf<String>()
         val nameToId = LinkedHashMap<String, String>()
+        val appointments = mutableListOf<AppointmentAgenda.CrmAppointmentRef>()
+        val migrations = mutableListOf<Pair<String, List<AppointmentAgenda.AppointmentRecord>>>()
         leads.forEach { lead ->
             val name = (lead["name"] as? String)?.trim().orEmpty()
-            val id = lead["__docId"] as? String ?: return@forEach
+            val leadId = lead["__docId"] as? String ?: return@forEach
+            val ownerId = lead["ownerId"] as? String
             val key = name.lowercase(Locale.getDefault())
             if (name.length >= 2 && !nameToId.containsKey(key)) {
-                nameToId[key] = id
+                nameToId[key] = leadId
                 names += name
+            }
+            val parsed = LeadAppointmentSync.readRecords(lead["appointments"])
+            val legacyStart = (lead["appointmentDate"] as? Timestamp)?.toDate()?.time
+            val legacyLocation = (lead["appointmentLocation"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+            val legacyEventId = GoogleCalendarManager.readStoredEventId(lead["googleCalendarEventId"])
+            val migrated = AppointmentAgenda.migrateAppointments(
+                leadId = leadId,
+                existing = parsed,
+                legacyStartMillis = legacyStart,
+                legacyLocation = legacyLocation,
+                legacyEventId = legacyEventId,
+                nowMillis = now
+            )
+            if (migrated != parsed && AppointmentAgenda.ownerCanEdit(ownerId, auth.currentUser?.uid)) {
+                migrations += leadId to migrated
+            }
+            val phone = (lead["phone"] as? String)?.trim().orEmpty()
+            migrated.forEach { record ->
+                appointments += AppointmentAgenda.CrmAppointmentRef(
+                    leadId = leadId,
+                    ownerId = ownerId,
+                    appointmentId = record.id,
+                    leadName = name.ifBlank { "Lead" },
+                    phone = phone,
+                    location = record.location,
+                    startMillis = record.startMillis,
+                    eventId = record.eventId,
+                    status = record.status,
+                    originalInstanceTime = record.originalInstanceTime
+                )
+            }
+        }
+        if (migrations.isNotEmpty()) {
+            withContext(Dispatchers.Main) {
+                if (!isDestroyed) persistMigrations(migrations, now)
             }
         }
 
-        val crmItems = mutableListOf<AgendaItem>()
-        leads.forEach { lead ->
-            val appointment = lead["appointmentDate"] as? Timestamp ?: return@forEach
-            val start = appointment.toDate().time
-            if (start < startMillis || start >= endMillis) return@forEach
-            val leadId = lead["__docId"] as? String ?: return@forEach
-            val name = (lead["name"] as? String)?.trim().orEmpty().ifEmpty { "Lead" }
-            val phone = (lead["phone"] as? String)?.trim().orEmpty()
-            val location = (lead["appointmentLocation"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
-            val eventId = GoogleCalendarManager.readStoredEventId(lead["googleCalendarEventId"])
-            val end = start + 60L * 60L * 1000L
-            crmItems += AgendaItem(
-                title = name,
-                whenLabel = formatWhen(start, end, allDay = false),
-                meta = listOfNotNull("RCRM", location).joinToString(" · "),
-                startMillis = start,
-                endMillis = end,
-                color = GoogleCalendarManager.displayColor(0),
-                eventId = eventId,
-                leadId = leadId,
-                leadName = name,
-                phone = phone,
-                location = location,
-                allDay = false,
-                accountName = ""
-            )
-        }
-
-        val googleItems = mutableListOf<AgendaItem>()
+        val events = mutableListOf<SyncedCalendarEvent>()
         if (GoogleCalendarManager.hasCalendarPermissions(this)) {
-            val events = GoogleCalendarManager.getEventsInRange(
+            events += GoogleCalendarManager.getEventsInRange(
                 context = this,
                 startMillis = startMillis,
                 endMillis = endMillis,
                 selectedCalendarIds = GoogleCalendarManager.getVisibleCalendarIds(this)
             )
-            events.forEach { event ->
-                val closeCrm = crmItems.indexOfFirst { item ->
-                    val sameEvent = item.eventId != null && item.eventId == event.eventId
-                    val sameLead = !event.leadId.isNullOrBlank() && event.leadId == item.leadId
-                    (sameEvent || sameLead) && abs(item.startMillis - event.startMillis) <= 15L * 60L * 1000L
-                }
-                if (closeCrm >= 0) {
-                    val current = crmItems[closeCrm]
-                    crmItems[closeCrm] = current.copy(
-                        color = event.calendarColor,
-                        eventId = event.eventId,
-                        accountName = event.accountName,
-                        meta = listOfNotNull(
-                            "RCRM",
-                            calendarLabel(event.calendarDisplayName, event.accountName),
-                            current.location?.takeIf { it.isNotBlank() }
-                        ).joinToString(" · ")
-                    )
-                    return@forEach
-                }
-
-                val matchedName = if (event.leadId.isNullOrBlank()) {
-                    GoogleCalendarManager.matchEventToLeadName(event.title, names)
-                } else {
-                    null
-                }
-                val matchedId = event.leadId ?: matchedName?.let { nameToId[it.lowercase(Locale.getDefault())] }
-                googleItems += AgendaItem(
-                    title = event.title.ifBlank { "(No title)" },
-                    whenLabel = formatWhen(event.startMillis, event.endMillis, event.allDay),
-                    meta = calendarLabel(event.calendarDisplayName, event.accountName),
-                    startMillis = event.startMillis,
-                    endMillis = event.endMillis,
-                    color = event.calendarColor,
-                    eventId = event.eventId,
-                    leadId = matchedId,
-                    leadName = matchedName,
-                    phone = null,
-                    location = null,
-                    allDay = event.allDay,
-                    accountName = event.accountName
-                )
+            val seenIds = events.map { it.eventId }.toMutableSet()
+            appointments.mapNotNull { it.eventId }.distinct().forEach { eventId ->
+                if (eventId in seenIds) return@forEach
+                val lookedUp = GoogleCalendarManager.lookupEvent(this, eventId) ?: return@forEach
+                if (lookedUp.recurring && lookedUp.originalInstanceTime == null) return@forEach
+                events += lookedUp
+                seenIds += lookedUp.eventId
             }
         }
+        val suggestions = LinkedHashMap<Long, String>()
+        events.forEach { event ->
+            if (!event.leadId.isNullOrBlank() || !event.explicitAppointmentId.isNullOrBlank()) return@forEach
+            val matchedName = GoogleCalendarManager.matchEventToLeadName(event.title, names) ?: return@forEach
+            val matchedId = nameToId[matchedName.lowercase(Locale.getDefault())] ?: return@forEach
+            suggestions[event.eventId] = matchedId
+        }
+        val reconciled = AppointmentAgenda.reconcile(
+            appointments = appointments,
+            events = events.map { it.toCalendarRef() },
+            suggestedLeadIdsByEventId = suggestions,
+            rangeStart = startMillis,
+            rangeEnd = endMillis,
+            zone = zone
+        )
+        return reconciled.map { entry -> entry.toAgendaItem() }
+    }
 
-        return (crmItems + googleItems).sortedBy { it.startMillis }
+    private fun persistMigrations(
+        migrations: List<Pair<String, List<AppointmentAgenda.AppointmentRecord>>>,
+        nowMillis: Long
+    ) {
+        migrations.forEach { (leadId, records) ->
+            db.collection("leads").document(leadId)
+                .update(LeadAppointmentSync.fields(records, nowMillis, forUpdate = true))
+                .addOnFailureListener { error ->
+                    if (isDestroyed) return@addOnFailureListener
+                    showSyncFailure(
+                        FailedCalendarSync(
+                            leadId = leadId,
+                            appointmentId = records.firstOrNull()?.id.orEmpty(),
+                            leadName = "",
+                            phone = "",
+                            startMillis = records.firstOrNull()?.startMillis ?: 0L,
+                            location = null,
+                            eventId = records.firstOrNull()?.eventId,
+                            message = "Couldn't save appointment history. Tap to retry.",
+                            migrationRecords = records
+                        )
+                    )
+                    android.util.Log.w("AppointmentsActivity", "Appointment migration failed", error)
+                }
+        }
     }
 
     private fun buildDisplayRows(items: List<AgendaItem>): List<AgendaRow> {
+        val zone = TimeZone.getDefault()
         val todayStart = startOfLocalDay(System.currentTimeMillis())
-        val filtered = items.filter { item ->
-            val day = eventDayStart(item)
-            val selected = selectedDayMillis
-            if (selected != null) return@filter day == selected
-            if (monthFilter == MonthFilter.UPCOMING && day < todayStart) return@filter false
-            true
-        }
+        val filtered = AppointmentAgenda.visibleEntries(
+            entries = items.map { it.toEntry() },
+            monthWindow = if (monthFilter == MonthFilter.ALL) {
+                AppointmentAgenda.MonthWindow.ALL
+            } else {
+                AppointmentAgenda.MonthWindow.UPCOMING
+            },
+            source = if (sourceFilter == SourceFilter.CRM_ONLY) {
+                AppointmentAgenda.EventSource.CRM_ONLY
+            } else {
+                AppointmentAgenda.EventSource.ALL_EVENTS
+            },
+            selectedDayMillis = selectedDayMillis,
+            todayStartMillis = todayStart,
+            zone = zone
+        )
+        val visibleKeys = filtered.map { entryKey(it) }.toSet()
+        val shown = items.filter { entryKey(it.toEntry()) in visibleKeys }
         val rows = mutableListOf<AgendaRow>()
-        filtered.groupBy { eventDayStart(it) }.toSortedMap().forEach { (day, dayItems) ->
+        shown.groupBy { eventDayStart(it) }.toSortedMap().forEach { (day, dayItems) ->
             val isToday = day == todayStart
             val label = if (isToday) {
                 "TODAY • ${dayFormat.format(Date(day))}"
@@ -527,13 +649,21 @@ class AppointmentsActivity : AppCompatActivity() {
         }
     }
 
-    private fun bindDayStrip(items: List<AgendaItem>) {
-        dayCells = buildDayCells(items)
+    private fun bindDayStrip(items: List<AgendaItem>, snap: Boolean) {
+        val dotted = if (sourceFilter == SourceFilter.CRM_ONLY) items.filter { it.explicitCrm } else items
+        dayCells = buildDayCells(dotted)
         dayStripAdapter.submit(dayCells)
-        val index = dayCells.indexOfFirst { it.selected }.takeIf { it >= 0 }
-            ?: dayCells.indexOfFirst { it.isToday }
-        if (index >= 0) {
-            (dayStrip.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(index, dp(12))
+        if (!snap) return
+        val today = startOfLocalDay(System.currentTimeMillis())
+        val index = AppointmentAgenda.dayStripAnchorIndex(
+            dayCells.map { it.dayStartMillis },
+            today,
+            selectedDayMillis
+        )
+        dayStrip.stopScroll()
+        dayStrip.post {
+            if (isDestroyed || dayCells.isEmpty()) return@post
+            (dayStrip.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, dp(12))
         }
     }
 
@@ -561,24 +691,26 @@ class AppointmentsActivity : AppCompatActivity() {
 
     private fun onDayStripClicked(dayStart: Long) {
         selectedDayMillis = dayStart
+        snapDayStrip = true
         renderAgenda(scroll = true)
     }
 
     private fun styleFilterChips() {
-        val upcoming = findViewById<TextView>(R.id.btnFilterUpcoming)
-        val allMonth = findViewById<TextView>(R.id.btnFilterAllMonth)
         val primary = ContextCompat.getColor(this, R.color.textColorPrimary)
         val secondary = ContextCompat.getColor(this, R.color.textColorSecondary)
-        if (monthFilter == MonthFilter.UPCOMING) {
-            upcoming.setBackgroundResource(R.drawable.bg_neon_cyan_button)
-            upcoming.setTextColor(primary)
-            allMonth.setBackgroundResource(R.drawable.bg_frosted_pill_input)
-            allMonth.setTextColor(secondary)
+        styleChip(findViewById(R.id.btnFilterUpcoming), monthFilter == MonthFilter.UPCOMING, primary, secondary)
+        styleChip(findViewById(R.id.btnFilterAllMonth), monthFilter == MonthFilter.ALL, primary, secondary)
+        styleChip(findViewById(R.id.btnFilterAllEvents), sourceFilter == SourceFilter.ALL_EVENTS, primary, secondary)
+        styleChip(findViewById(R.id.btnFilterCrmOnly), sourceFilter == SourceFilter.CRM_ONLY, primary, secondary)
+    }
+
+    private fun styleChip(view: TextView, selected: Boolean, primary: Int, secondary: Int) {
+        if (selected) {
+            view.setBackgroundResource(R.drawable.bg_neon_cyan_button)
+            view.setTextColor(primary)
         } else {
-            allMonth.setBackgroundResource(R.drawable.bg_neon_cyan_button)
-            allMonth.setTextColor(primary)
-            upcoming.setBackgroundResource(R.drawable.bg_frosted_pill_input)
-            upcoming.setTextColor(secondary)
+            view.setBackgroundResource(R.drawable.bg_frosted_pill_input)
+            view.setTextColor(secondary)
         }
     }
 
@@ -599,14 +731,14 @@ class AppointmentsActivity : AppCompatActivity() {
         val dialog = glassDialog(dialogView)
 
         dialogView.findViewById<TextView>(R.id.tvEventActionTitle).text = item.title
-        val detail = buildString {
-            append(item.whenLabel)
-            if (item.meta.isNotBlank()) {
-                append("\n")
-                append(item.meta)
-            }
+        dialogView.findViewById<TextView>(R.id.tvEventActionWhen).text = item.whenLabel
+        val detailView = dialogView.findViewById<TextView>(R.id.tvEventActionDetail)
+        if (item.detailText.isBlank()) {
+            detailView.visibility = View.GONE
+        } else {
+            detailView.visibility = View.VISIBLE
+            detailView.text = item.detailText
         }
-        dialogView.findViewById<TextView>(R.id.tvEventActionWhen).text = detail
 
         dialogView.findViewById<View>(R.id.btnViewInGoogleCalendar).setOnClickListener {
             dialog.dismiss()
@@ -615,7 +747,7 @@ class AppointmentsActivity : AppCompatActivity() {
 
         val openLead = dialogView.findViewById<View>(R.id.btnOpenLeadInRcrm)
         val saveOrLink = dialogView.findViewById<View>(R.id.btnSaveOrLinkLead)
-        if (item.leadId.isNullOrBlank()) {
+        if (!item.explicitCrm || item.leadId.isNullOrBlank()) {
             openLead.visibility = View.GONE
             saveOrLink.visibility = View.VISIBLE
             saveOrLink.setOnClickListener {
@@ -628,6 +760,30 @@ class AppointmentsActivity : AppCompatActivity() {
             openLead.setOnClickListener {
                 dialog.dismiss()
                 openLeadInRcrm(item.leadId)
+            }
+        }
+
+        val outcomes = dialogView.findViewById<View>(R.id.outcomeActions)
+        val canRecordOutcome = item.explicitCrm && !item.appointmentId.isNullOrBlank() && !item.leadId.isNullOrBlank()
+        outcomes.visibility = if (canRecordOutcome) View.VISIBLE else View.GONE
+        if (canRecordOutcome) {
+            dialogView.findViewById<View>(R.id.btnOutcomeCompleted).setOnClickListener {
+                dialog.dismiss()
+                recordOutcome(item, AppointmentAgenda.Outcome.COMPLETED, null)
+            }
+            dialogView.findViewById<View>(R.id.btnOutcomeNoShow).setOnClickListener {
+                dialog.dismiss()
+                recordOutcome(item, AppointmentAgenda.Outcome.NO_SHOW, null)
+            }
+            dialogView.findViewById<View>(R.id.btnOutcomeCanceled).setOnClickListener {
+                dialog.dismiss()
+                recordOutcome(item, AppointmentAgenda.Outcome.CANCELED, null)
+            }
+            dialogView.findViewById<View>(R.id.btnOutcomeReschedule).setOnClickListener {
+                dialog.dismiss()
+                pickFollowUpDate { millis ->
+                    recordOutcome(item, null, millis)
+                }
             }
         }
 
@@ -998,20 +1154,14 @@ class AppointmentsActivity : AppCompatActivity() {
                 leadId = existing.id,
                 leadName = existing.name,
                 phone = existing.phone.ifBlank { phone },
-                item = AgendaItem(
+                item = blankAgendaItem(
                     title = name,
-                    whenLabel = "",
-                    meta = "",
                     startMillis = startMillis,
-                    endMillis = startMillis + 60L * 60L * 1000L,
-                    color = 0,
                     eventId = eventId,
                     leadId = existing.id,
                     leadName = existing.name,
                     phone = existing.phone.ifBlank { phone },
-                    location = location,
-                    allDay = false,
-                    accountName = ""
+                    location = location
                 ),
                 note = note,
                 onDone = { onCreated(existing.id) },
@@ -1020,6 +1170,16 @@ class AppointmentsActivity : AppCompatActivity() {
             return
         }
 
+        val now = System.currentTimeMillis()
+        val record = AppointmentAgenda.AppointmentRecord(
+            id = AppointmentAgenda.newAppointmentId(),
+            startMillis = startMillis,
+            location = location?.trim()?.takeIf { it.isNotEmpty() },
+            eventId = eventId?.takeIf { it > 0L },
+            status = AppointmentAgenda.AppointmentStatus.SCHEDULED,
+            originalInstanceTime = null,
+            updatedAtMillis = now
+        )
         val data = hashMapOf<String, Any>(
             "name" to name,
             "phone" to phone,
@@ -1030,34 +1190,30 @@ class AppointmentsActivity : AppCompatActivity() {
             "category" to getString(R.string.category_prospect),
             "targetMarket" to "",
             "notes" to NoteUtils.formatNewNote(note),
-            "appointmentDate" to Timestamp(Date(startMillis)),
             "timestamp" to Timestamp.now(),
             "ownerId" to userId,
             "source" to "google_calendar"
         )
-        if (!location.isNullOrBlank()) data["appointmentLocation"] = location
-        if (eventId != null && eventId > 0L) data["googleCalendarEventId"] = eventId
+        LeadAppointmentSync.fields(listOf(record), now, forUpdate = false).forEach { (key, value) ->
+            if (value != null) data[key] = value
+        }
 
         db.collection("leads").add(data)
             .addOnSuccessListener { ref ->
-                ReminderReceiver.scheduleReminder(
-                    this,
-                    "appt_${phone.ifBlank { ref.id }}",
-                    "Appointment: $name",
-                    startMillis
-                )
+                applyReminder(record, phone.ifBlank { ref.id }, name)
                 pushAppointmentToCalendar(
                     leadId = ref.id,
                     leadName = name,
                     phone = phone,
                     startMillis = startMillis,
                     location = location,
-                    existingEventId = eventId
+                    existingEventId = eventId,
+                    appointmentId = record.id
                 )
                 onCreated(ref.id)
             }
             .addOnFailureListener {
-                Toast.makeText(this, "Couldn't save lead", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Couldn't save lead. Nothing was added.", Toast.LENGTH_LONG).show()
                 onFailed()
             }
     }
@@ -1078,33 +1234,64 @@ class AppointmentsActivity : AppCompatActivity() {
                     onFailed()
                     return@addOnSuccessListener
                 }
-                val updates = mutableMapOf<String, Any>(
-                    "appointmentDate" to Timestamp(Date(item.startMillis)),
-                    "timestamp" to Timestamp.now(),
-                    "notes" to appendNote(doc.getString("notes").orEmpty(), note)
+                val ownerId = doc.getString("ownerId")
+                if (!AppointmentAgenda.ownerCanEdit(ownerId, auth.currentUser?.uid)) {
+                    Toast.makeText(this, "That lead belongs to another account.", Toast.LENGTH_LONG).show()
+                    onFailed()
+                    return@addOnSuccessListener
+                }
+                val now = System.currentTimeMillis()
+                val migrated = AppointmentAgenda.migrateAppointments(
+                    leadId = leadId,
+                    existing = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
+                    legacyStartMillis = doc.getTimestamp("appointmentDate")?.toDate()?.time,
+                    legacyLocation = doc.getString("appointmentLocation"),
+                    legacyEventId = GoogleCalendarManager.readStoredEventId(doc.get("googleCalendarEventId")),
+                    nowMillis = now
                 )
-                item.location?.takeIf { it.isNotBlank() }?.let { updates["appointmentLocation"] = it }
-                item.eventId?.takeIf { it > 0L }?.let { updates["googleCalendarEventId"] = it }
+                val matched = migrated.firstOrNull { record ->
+                    (item.appointmentId != null && record.id == item.appointmentId) ||
+                        (item.eventId != null && record.eventId == item.eventId)
+                }
+                val record = if (matched != null) {
+                    matched.copy(
+                        startMillis = item.startMillis,
+                        location = item.location?.takeIf { it.isNotBlank() } ?: matched.location,
+                        eventId = item.eventId ?: matched.eventId,
+                        status = AppointmentAgenda.AppointmentStatus.SCHEDULED,
+                        updatedAtMillis = now
+                    )
+                } else {
+                    AppointmentAgenda.AppointmentRecord(
+                        id = AppointmentAgenda.newAppointmentId(),
+                        startMillis = item.startMillis,
+                        location = item.location?.trim()?.takeIf { it.isNotEmpty() },
+                        eventId = item.eventId?.takeIf { it > 0L },
+                        status = AppointmentAgenda.AppointmentStatus.SCHEDULED,
+                        originalInstanceTime = null,
+                        updatedAtMillis = now
+                    )
+                }
+                val saved = AppointmentAgenda.upsertRecord(migrated, record)
+                val updates = LeadAppointmentSync.fields(saved, now, forUpdate = true).toMutableMap()
+                updates["timestamp"] = Timestamp.now()
+                updates["notes"] = appendNote(doc.getString("notes").orEmpty(), note)
                 doc.reference.update(updates)
                     .addOnSuccessListener {
-                        ReminderReceiver.scheduleReminder(
-                            this,
-                            "appt_${phone.ifBlank { leadId }}",
-                            "Appointment: $leadName",
-                            item.startMillis
-                        )
+                        applyReminder(record, phone.ifBlank { leadId }, leadName)
                         pushAppointmentToCalendar(
                             leadId = leadId,
                             leadName = leadName,
                             phone = phone,
                             startMillis = item.startMillis,
                             location = item.location,
-                            existingEventId = item.eventId
+                            existingEventId = record.eventId,
+                            appointmentId = record.id
                         )
                         onDone()
                     }
                     .addOnFailureListener {
-                        Toast.makeText(this, "Couldn't link that lead.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Couldn't link that lead. No duplicate was saved.", Toast.LENGTH_LONG).show()
                         onFailed()
                     }
             }
@@ -1168,8 +1355,11 @@ class AppointmentsActivity : AppCompatActivity() {
         phone: String,
         startMillis: Long,
         location: String?,
-        existingEventId: Long?
+        existingEventId: Long?,
+        appointmentId: String,
+        allowInsert: Boolean = true
     ) {
+        if (appointmentId.isBlank()) return
         if (!GoogleCalendarManager.hasCalendarPermissions(this)) {
             pendingCalendarSync = PendingCalendarSync(
                 leadId = leadId,
@@ -1177,7 +1367,21 @@ class AppointmentsActivity : AppCompatActivity() {
                 phone = phone,
                 startMillis = startMillis,
                 location = location,
-                existingEventId = existingEventId
+                existingEventId = existingEventId,
+                appointmentId = appointmentId
+            )
+            showSyncFailure(
+                FailedCalendarSync(
+                    leadId = leadId,
+                    appointmentId = appointmentId,
+                    leadName = leadName,
+                    phone = phone,
+                    startMillis = startMillis,
+                    location = location,
+                    eventId = existingEventId,
+                    message = "Appointment saved in RCRM. Allow calendar access, then tap to sync it.",
+                    migrationRecords = null
+                )
             )
             return
         }
@@ -1188,14 +1392,255 @@ class AppointmentsActivity : AppCompatActivity() {
             phone = phone.ifBlank { null },
             startMillis = startMillis,
             location = location,
-            existingEventId = existingEventId
+            existingEventId = existingEventId,
+            appointmentId = appointmentId,
+            allowInsert = allowInsert
         ) { result ->
-            if (result is GoogleCalendarManager.AppointmentSyncResult.Linked) {
-                db.collection("leads").document(leadId)
-                    .update("googleCalendarEventId", result.eventId)
-                if (!isDestroyed) loadAgenda()
+            if (isDestroyed) return@syncCrmAppointmentAsync
+            when (result) {
+                is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
+                    clearSyncFailure()
+                    storeLinkedEventId(leadId, appointmentId, result.eventId)
+                }
+                GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
+                    clearSyncFailure()
+                    loadAgenda()
+                }
+                GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
+                is GoogleCalendarManager.AppointmentSyncResult.Failed -> {
+                    showSyncFailure(
+                        FailedCalendarSync(
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            leadName = leadName,
+                            phone = phone,
+                            startMillis = startMillis,
+                            location = location,
+                            eventId = existingEventId,
+                            message = "${result.message} Tap to retry.",
+                            migrationRecords = null
+                        )
+                    )
+                }
             }
         }
+    }
+
+    private fun storeLinkedEventId(leadId: String, appointmentId: String, eventId: Long) {
+        db.collection("leads").document(leadId).get()
+            .addOnSuccessListener { doc ->
+                if (!doc.exists() || isDestroyed) return@addOnSuccessListener
+                val records = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS))
+                val updated = AppointmentAgenda.withEventId(records, appointmentId, eventId) ?: records
+                doc.reference.update(LeadAppointmentSync.fields(updated, System.currentTimeMillis(), forUpdate = true))
+                    .addOnSuccessListener { if (!isDestroyed) loadAgenda() }
+                    .addOnFailureListener {
+                        if (!isDestroyed) {
+                            showSyncFailure(
+                                FailedCalendarSync(
+                                    leadId = leadId,
+                                    appointmentId = appointmentId,
+                                    leadName = "",
+                                    phone = "",
+                                    startMillis = 0L,
+                                    location = null,
+                                    eventId = eventId,
+                                    message = "The calendar event was saved, but RCRM couldn't store its id. Tap to retry.",
+                                    migrationRecords = updated
+                                )
+                            )
+                        }
+                    }
+            }
+    }
+
+    private fun recordOutcome(
+        item: AgendaItem,
+        outcome: AppointmentAgenda.Outcome?,
+        newStartMillis: Long?
+    ) {
+        val leadId = item.leadId ?: return
+        val appointmentId = item.appointmentId ?: return
+        if (!item.explicitCrm) return
+        db.collection("leads").document(leadId).get()
+            .addOnSuccessListener { doc ->
+                if (!doc.exists()) {
+                    Toast.makeText(this, "That lead is no longer available.", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+                if (!AppointmentAgenda.ownerCanEdit(doc.getString("ownerId"), auth.currentUser?.uid)) {
+                    Toast.makeText(this, "That lead belongs to another account.", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+                val now = System.currentTimeMillis()
+                val migrated = AppointmentAgenda.migrateAppointments(
+                    leadId = leadId,
+                    existing = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
+                    legacyStartMillis = doc.getTimestamp("appointmentDate")?.toDate()?.time,
+                    legacyLocation = doc.getString("appointmentLocation"),
+                    legacyEventId = GoogleCalendarManager.readStoredEventId(doc.get("googleCalendarEventId")),
+                    nowMillis = now
+                )
+                if (migrated.none { it.id == appointmentId }) {
+                    Toast.makeText(this, "That appointment is no longer on the lead.", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
+                }
+                val updated = if (newStartMillis != null) {
+                    AppointmentAgenda.reschedule(
+                        migrated,
+                        appointmentId,
+                        newStartMillis,
+                        now,
+                        rememberInstance = item.recurringMaster
+                    )
+                } else if (outcome != null) {
+                    AppointmentAgenda.applyOutcome(migrated, appointmentId, outcome, now)
+                } else {
+                    migrated
+                }
+                doc.reference.update(LeadAppointmentSync.fields(updated, now, forUpdate = true))
+                    .addOnSuccessListener {
+                        val record = updated.first { it.id == appointmentId }
+                        applyReminder(record, item.phone?.ifBlank { leadId } ?: leadId, item.leadName ?: item.title)
+                        when {
+                            outcome == AppointmentAgenda.Outcome.CANCELED && item.eventId != null -> {
+                                val eventId = item.eventId
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    val cancelResult = GoogleCalendarManager.markEventCanceled(
+                                        this@AppointmentsActivity,
+                                        eventId
+                                    )
+                                    withContext(Dispatchers.Main) {
+                                        if (isDestroyed) return@withContext
+                                        if (cancelResult is GoogleCalendarManager.AppointmentSyncResult.Failed) {
+                                            showSyncFailure(
+                                                failedCopy(item, leadId, appointmentId, cancelResult.message)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            newStartMillis != null -> {
+                                val plan = AppointmentAgenda.planCalendarWrite(
+                                    eventId = record.eventId ?: item.eventId,
+                                    canWrite = item.canWrite,
+                                    recurringMaster = item.recurringMaster,
+                                    allowInsert = (record.eventId ?: item.eventId) == null
+                                )
+                                when (plan) {
+                                    is AppointmentAgenda.CalendarWritePlan.Blocked -> showSyncFailure(
+                                        failedCopy(item, leadId, appointmentId, plan.message)
+                                    )
+                                    else -> pushAppointmentToCalendar(
+                                        leadId = leadId,
+                                        leadName = item.leadName ?: item.title,
+                                        phone = item.phone.orEmpty(),
+                                        startMillis = record.startMillis,
+                                        location = record.location,
+                                        existingEventId = record.eventId ?: item.eventId,
+                                        appointmentId = record.id,
+                                        allowInsert = plan is AppointmentAgenda.CalendarWritePlan.InsertNew
+                                    )
+                                }
+                            }
+                        }
+                        Toast.makeText(this, "Appointment updated", Toast.LENGTH_SHORT).show()
+                        loadAgenda()
+                        showQuickNoteDialog(
+                            item.copy(
+                                startMillis = record.startMillis,
+                                leadId = leadId,
+                                appointmentId = appointmentId,
+                                explicitCrm = true
+                            )
+                        )
+                    }
+                    .addOnFailureListener {
+                        showSyncFailure(
+                            failedCopy(item, leadId, appointmentId, "Couldn't save that appointment. Tap to retry.")
+                        )
+                    }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Couldn't save that appointment.", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun failedCopy(
+        item: AgendaItem,
+        leadId: String,
+        appointmentId: String,
+        message: String
+    ): FailedCalendarSync {
+        return FailedCalendarSync(
+            leadId = leadId,
+            appointmentId = appointmentId,
+            leadName = item.leadName ?: item.title,
+            phone = item.phone.orEmpty(),
+            startMillis = item.startMillis,
+            location = item.location,
+            eventId = item.eventId,
+            message = message,
+            migrationRecords = null
+        )
+    }
+
+    private fun applyReminder(
+        record: AppointmentAgenda.AppointmentRecord,
+        phoneOrLeadId: String,
+        leadName: String
+    ) {
+        val change = AppointmentAgenda.reminderChange(
+            record,
+            AppointmentAgenda.legacyAppointmentReminderKey(phoneOrLeadId)
+        )
+        change.cancelKeys.forEach { key -> ReminderReceiver.cancelReminder(this, key) }
+        val whenMillis = change.scheduleAtMillis
+        val key = change.scheduleKey
+        if (key != null && whenMillis != null) {
+            ReminderReceiver.scheduleReminder(this, key, "Appointment: $leadName", whenMillis)
+        }
+    }
+
+    private fun showSyncFailure(failure: FailedCalendarSync) {
+        failedSync = failure
+        val view = findViewById<TextView>(R.id.tvSyncStatus)
+        view.text = failure.message
+        view.visibility = View.VISIBLE
+    }
+
+    private fun clearSyncFailure() {
+        failedSync = null
+        findViewById<TextView>(R.id.tvSyncStatus).visibility = View.GONE
+    }
+
+    private fun retryFailedSync() {
+        val pending = failedSync ?: return
+        val records = pending.migrationRecords
+        if (records != null) {
+            db.collection("leads").document(pending.leadId)
+                .update(LeadAppointmentSync.fields(records, System.currentTimeMillis(), forUpdate = true))
+                .addOnSuccessListener {
+                    clearSyncFailure()
+                    Toast.makeText(this, "Appointment history saved", Toast.LENGTH_SHORT).show()
+                    loadAgenda()
+                }
+                .addOnFailureListener {
+                    Toast.makeText(this, "Retry failed. The appointment was not duplicated.", Toast.LENGTH_LONG).show()
+                }
+            return
+        }
+        if (pending.appointmentId.isBlank() || pending.startMillis <= 0L) return
+        pushAppointmentToCalendar(
+            leadId = pending.leadId,
+            leadName = pending.leadName,
+            phone = pending.phone,
+            startMillis = pending.startMillis,
+            location = pending.location,
+            existingEventId = pending.eventId,
+            appointmentId = pending.appointmentId,
+            allowInsert = pending.eventId == null
+        )
     }
 
     private fun focusOnAppointment(startMillis: Long) {
@@ -1288,39 +1733,7 @@ class AppointmentsActivity : AppCompatActivity() {
             GoogleCalendarManager.openEventInGoogleCalendar(this, eventId, item.startMillis, item.endMillis)
             return
         }
-        val leadId = item.leadId
-        if (leadId.isNullOrBlank()) {
-            GoogleCalendarManager.openGoogleCalendarAtTime(this, item.startMillis)
-            return
-        }
-        if (!GoogleCalendarManager.hasCalendarPermissions(this)) {
-            pendingCalendarAction = PendingCalendarAction.OpenEvent(item)
-            requestCalendarPermissions()
-            return
-        }
-        GoogleCalendarManager.syncCrmAppointmentAsync(
-            context = this,
-            leadId = leadId,
-            leadName = item.leadName ?: item.title,
-            phone = item.phone,
-            startMillis = item.startMillis,
-            location = item.location,
-            existingEventId = null
-        ) { result ->
-            if (isDestroyed) return@syncCrmAppointmentAsync
-            if (result is GoogleCalendarManager.AppointmentSyncResult.Linked) {
-                db.collection("leads").document(leadId).update("googleCalendarEventId", result.eventId)
-                GoogleCalendarManager.openEventInGoogleCalendar(
-                    this,
-                    result.eventId,
-                    item.startMillis,
-                    item.endMillis
-                )
-                loadAgenda()
-            } else {
-                GoogleCalendarManager.openGoogleCalendarAtTime(this, item.startMillis)
-            }
-        }
+        GoogleCalendarManager.openGoogleCalendarAtTime(this, item.startMillis)
     }
 
     private fun showCalendarFilterDialog() {
@@ -1611,7 +2024,130 @@ class AppointmentsActivity : AppCompatActivity() {
         }
     }
 
+    private fun blankAgendaItem(
+        title: String,
+        startMillis: Long,
+        eventId: Long?,
+        leadId: String,
+        leadName: String,
+        phone: String,
+        location: String?
+    ): AgendaItem {
+        return AgendaItem(
+            title = title,
+            whenLabel = "",
+            meta = "",
+            startMillis = startMillis,
+            endMillis = startMillis + 60L * 60L * 1000L,
+            color = 0,
+            eventId = eventId,
+            leadId = leadId,
+            leadName = leadName,
+            phone = phone,
+            location = location,
+            allDay = false,
+            accountName = ""
+        )
+    }
+
+    private fun SyncedCalendarEvent.toCalendarRef(): AppointmentAgenda.CalendarEventRef {
+        return AppointmentAgenda.CalendarEventRef(
+            eventId = eventId,
+            title = title,
+            startMillis = startMillis,
+            endMillis = endMillis,
+            allDay = allDay,
+            calendarDisplayName = calendarDisplayName,
+            accountName = accountName,
+            color = calendarColor,
+            canWrite = canWrite,
+            recurring = recurring,
+            originalInstanceTime = originalInstanceTime,
+            originalEventId = originalEventId,
+            explicitLeadId = leadId,
+            explicitAppointmentId = explicitAppointmentId,
+            canceled = canceled
+        )
+    }
+
+    private fun AppointmentAgenda.AgendaEntry.toAgendaItem(): AgendaItem {
+        val statusText = AppointmentAgenda.statusLabel(status)
+        val whenText = buildString {
+            append(formatWhen(startMillis, endMillis, allDay))
+            if (statusText != null) {
+                append(" · ")
+                append(statusText)
+            }
+        }
+        val storedLabel = storedStartMillis?.let { followUpFormat.format(Date(it)) }
+        return AgendaItem(
+            title = title,
+            whenLabel = whenText,
+            meta = AppointmentAgenda.shortCalendarLabel(calendarDisplayName, explicitCrm),
+            startMillis = startMillis,
+            endMillis = endMillis,
+            color = color,
+            eventId = eventId,
+            leadId = leadId,
+            leadName = leadName,
+            phone = phone,
+            location = location,
+            allDay = allDay,
+            accountName = accountName,
+            explicitCrm = explicitCrm,
+            appointmentId = appointmentId,
+            suggestedLeadId = suggestedLeadId,
+            detailText = AppointmentAgenda.eventDetail(this, storedLabel),
+            canWrite = canWrite,
+            recurring = recurring,
+            recurringMaster = recurringMaster,
+            status = status,
+            ownerId = ownerId,
+            timeDrifted = timeDrifted,
+            storedStartMillis = storedStartMillis,
+            calendarDisplayName = calendarDisplayName
+        )
+    }
+
+    private fun AgendaItem.toEntry(): AppointmentAgenda.AgendaEntry {
+        return AppointmentAgenda.AgendaEntry(
+            title = title,
+            startMillis = startMillis,
+            endMillis = endMillis,
+            allDay = allDay,
+            color = color,
+            eventId = eventId,
+            leadId = leadId,
+            ownerId = ownerId,
+            appointmentId = appointmentId,
+            leadName = leadName,
+            phone = phone,
+            location = location,
+            explicitCrm = explicitCrm,
+            suggestedLeadId = suggestedLeadId,
+            calendarDisplayName = calendarDisplayName,
+            accountName = accountName,
+            canWrite = canWrite,
+            recurring = recurring,
+            recurringMaster = recurringMaster,
+            storedStartMillis = storedStartMillis,
+            timeDrifted = timeDrifted,
+            status = status
+        )
+    }
+
+    private fun entryKey(entry: AppointmentAgenda.AgendaEntry): String {
+        return listOf(
+            entry.appointmentId.orEmpty(),
+            entry.eventId?.toString().orEmpty(),
+            entry.startMillis.toString(),
+            entry.title
+        ).joinToString("|")
+    }
+
     private enum class MonthFilter { UPCOMING, ALL }
+
+    private enum class SourceFilter { ALL_EVENTS, CRM_ONLY }
 
     private data class PendingCalendarSync(
         val leadId: String,
@@ -1619,7 +2155,20 @@ class AppointmentsActivity : AppCompatActivity() {
         val phone: String,
         val startMillis: Long,
         val location: String?,
-        val existingEventId: Long?
+        val existingEventId: Long?,
+        val appointmentId: String
+    )
+
+    private data class FailedCalendarSync(
+        val leadId: String,
+        val appointmentId: String,
+        val leadName: String,
+        val phone: String,
+        val startMillis: Long,
+        val location: String?,
+        val eventId: Long?,
+        val message: String,
+        val migrationRecords: List<AppointmentAgenda.AppointmentRecord>?
     )
 
     private data class LeadChoice(
@@ -1641,7 +2190,19 @@ class AppointmentsActivity : AppCompatActivity() {
         val phone: String?,
         val location: String?,
         val allDay: Boolean,
-        val accountName: String
+        val accountName: String,
+        val explicitCrm: Boolean = false,
+        val appointmentId: String? = null,
+        val suggestedLeadId: String? = null,
+        val detailText: String = "",
+        val canWrite: Boolean = true,
+        val recurring: Boolean = false,
+        val recurringMaster: Boolean = false,
+        val status: AppointmentAgenda.AppointmentStatus? = null,
+        val ownerId: String? = null,
+        val timeDrifted: Boolean = false,
+        val storedStartMillis: Long? = null,
+        val calendarDisplayName: String = ""
     )
 
     private data class DayCell(
@@ -1716,6 +2277,10 @@ class AppointmentsActivity : AppCompatActivity() {
                 title.text = item.title
                 whenLabel.text = item.whenLabel
                 meta.text = item.meta
+                meta.visibility = if (item.meta.isBlank()) View.GONE else View.VISIBLE
+                itemView.contentDescription = listOf(item.title, item.whenLabel, item.meta)
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
                 itemView.setOnClickListener { showEventActions(item) }
             }
         }
@@ -1828,6 +2393,7 @@ class AppointmentsActivity : AppCompatActivity() {
         private const val STATE_FILTER = "appointments_filter"
         private const val STATE_DAY = "appointments_day"
         private const val STATE_HAS_DAY = "appointments_has_day"
+        private const val STATE_SOURCE = "appointments_source"
 
         private fun zeroTime(calendar: Calendar) {
             calendar.set(Calendar.HOUR_OF_DAY, 0)
