@@ -327,26 +327,35 @@ object GoogleCalendarManager {
         location: String?,
         existingEventId: Long?,
         appointmentId: String? = null,
-        allowInsert: Boolean = true
+        allowInsert: Boolean = true,
+        soleAppointmentForLead: Boolean = false
     ): AppointmentSyncResult {
         if (!hasCalendarPermissions(context) || leadId.isBlank()) {
             return AppointmentSyncResult.Skipped
         }
         if (startMillis == null || startMillis <= 0L) {
-            return clearLinkedEvent(context, existingEventId)
+            return clearLinkedEvent(
+                context,
+                existingEventId,
+                leadId,
+                appointmentId,
+                soleAppointmentForLead
+            )
         }
         val preferred = existingEventId?.takeIf { it > 0L }?.let { lookupEvent(context, it) }
-        val preferredResult = preferred?.let {
-            updateLinkedEvent(context, it, leadId, leadName, phone, startMillis, location, appointmentId)
-        }
-        if (preferredResult is AppointmentSyncResult.Linked || preferredResult is AppointmentSyncResult.Failed) {
-            return preferredResult
+        if (preferred != null && linkedToAppointment(preferred, leadId, appointmentId, soleAppointmentForLead)) {
+            val preferredResult = updateLinkedEvent(
+                context, preferred, leadId, leadName, phone, startMillis, location, appointmentId
+            )
+            if (preferredResult is AppointmentSyncResult.Linked || preferredResult is AppointmentSyncResult.Failed) {
+                return preferredResult
+            }
         }
 
         val foundId = findExistingLinkedEventId(context, leadId, appointmentId, startMillis, preferred?.eventId)
         if (foundId != null && foundId != preferred?.eventId) {
             val found = lookupEvent(context, foundId)
-            if (found != null) {
+            if (found != null && linkedToAppointment(found, leadId, appointmentId, soleAppointmentForLead)) {
                 val updated = updateLinkedEvent(
                     context, found, leadId, leadName, phone, startMillis, location, appointmentId
                 )
@@ -371,6 +380,7 @@ object GoogleCalendarManager {
         existingEventId: Long?,
         appointmentId: String? = null,
         allowInsert: Boolean = true,
+        soleAppointmentForLead: Boolean = false,
         onResult: (AppointmentSyncResult) -> Unit
     ) {
         val appContext = context.applicationContext
@@ -389,7 +399,8 @@ object GoogleCalendarManager {
                     location = location,
                     existingEventId = existingEventId,
                     appointmentId = appointmentId,
-                    allowInsert = allowInsert
+                    allowInsert = allowInsert,
+                    soleAppointmentForLead = soleAppointmentForLead
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Calendar sync failed", e)
@@ -399,10 +410,21 @@ object GoogleCalendarManager {
         }.start()
     }
 
-    fun markEventCanceled(context: Context, eventId: Long): AppointmentSyncResult {
+    fun markEventCanceled(
+        context: Context,
+        eventId: Long,
+        leadId: String,
+        appointmentId: String?,
+        soleAppointmentForLead: Boolean = false
+    ): AppointmentSyncResult {
         if (!hasCalendarPermissions(context) || eventId <= 0L) return AppointmentSyncResult.Skipped
         val existing = lookupEvent(context, eventId)
-            ?: return AppointmentSyncResult.Failed("The calendar event is no longer on this device.")
+            ?: return AppointmentSyncResult.Cleared
+        if (!linkedToAppointment(existing, leadId, appointmentId, soleAppointmentForLead)) {
+            return AppointmentSyncResult.Failed(
+                "That saved event id belongs to a different calendar event on this device, so it was left unchanged."
+            )
+        }
         if (existing.recurring && existing.originalInstanceTime == null) {
             return AppointmentSyncResult.Failed(
                 "This event repeats. Cancel that occurrence in Google Calendar so the rest of the series is left alone."
@@ -563,9 +585,34 @@ object GoogleCalendarManager {
         )
     }
 
-    private fun clearLinkedEvent(context: Context, existingEventId: Long?): AppointmentSyncResult {
+    private fun linkedToAppointment(
+        event: SyncedCalendarEvent,
+        leadId: String,
+        appointmentId: String?,
+        soleAppointmentForLead: Boolean
+    ): Boolean {
+        return AppointmentAgenda.eventIdentityAllows(
+            eventLeadId = event.leadId,
+            eventAppointmentId = event.explicitAppointmentId,
+            expectedLeadId = leadId,
+            expectedAppointmentId = appointmentId,
+            soleAppointmentForLead = soleAppointmentForLead,
+            recurringMaster = false
+        )
+    }
+
+    private fun clearLinkedEvent(
+        context: Context,
+        existingEventId: Long?,
+        leadId: String,
+        appointmentId: String?,
+        soleAppointmentForLead: Boolean
+    ): AppointmentSyncResult {
         if (existingEventId == null || existingEventId <= 0L) return AppointmentSyncResult.Skipped
         val existing = lookupEvent(context, existingEventId) ?: return AppointmentSyncResult.Cleared
+        if (!linkedToAppointment(existing, leadId, appointmentId, soleAppointmentForLead)) {
+            return AppointmentSyncResult.Cleared
+        }
         if (existing.recurring && existing.originalInstanceTime == null) {
             return AppointmentSyncResult.Failed(
                 "This event repeats. RCRM left the series on the calendar."
@@ -717,7 +764,12 @@ object GoogleCalendarManager {
                     canceled = event.canceled
                 )
             }
-        return AppointmentAgenda.selectRetryTarget(candidates, appointmentId, leadId, preferredEventId = null)
+        return AppointmentAgenda.selectRetryTarget(
+            candidates,
+            appointmentId,
+            leadId,
+            preferredEventId = null
+        )
     }
 
     private fun rememberAppointmentId(context: Context, eventId: Long, appointmentId: String?) {

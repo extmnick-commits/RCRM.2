@@ -1167,56 +1167,95 @@ class SmartLogActivity : AppCompatActivity() {
                         "timestamp" to Timestamp.now()
                     )
                     followUpDate?.let { update["followUpDate"] = Timestamp(it) }
-                    val editedAppointmentId = if (appointmentDate != null) {
-                        val edited = AppointmentAgenda.applySingleAppointmentEdit(
-                            leadId = docId,
-                            existing = LeadAppointmentSync.readRecords(existingLead.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
-                            previousStartMillis = existingLead.getTimestamp("appointmentDate")?.toDate()?.time,
-                            previousLocation = existingLead.getString("appointmentLocation"),
-                            previousEventId = GoogleCalendarManager.readStoredEventId(existingLead.get("googleCalendarEventId")),
-                            newStartMillis = appointmentDate!!.time,
-                            newLocation = appointmentLocation,
-                            newEventId = GoogleCalendarManager.readStoredEventId(existingLead.get("googleCalendarEventId")),
-                            nowMillis = System.currentTimeMillis(),
-                            createdId = AppointmentAgenda.newAppointmentId()
-                        )
-                        update.putAll(LeadAppointmentSync.fields(edited, System.currentTimeMillis(), forUpdate = true))
-                        AppointmentAgenda.legacyMirror(edited, System.currentTimeMillis()).appointmentId
-                    } else {
-                        null
+                    val previousStart = existingLead.getTimestamp("appointmentDate")?.toDate()?.time
+                    val previousLocation = existingLead.getString("appointmentLocation")
+                    val previousEventId = GoogleCalendarManager.readStoredEventId(existingLead.get("googleCalendarEventId"))
+                    val createdAppointmentForEdit = if (appointmentDate != null) AppointmentAgenda.newAppointmentId() else null
+                    if (createdAppointmentForEdit == null) {
+                        db.collection("leads").document(docId).update(update)
+                            .addOnSuccessListener {
+                                finishSmartLogSave(docId, noteText, null, null, onSuccess)
+                            }
+                        return@addOnSuccessListener
                     }
-                    
-                    
-                    db.collection("leads").document(docId).update(update)
-                        .addOnSuccessListener { 
-                            if (noteText.isNotEmpty()) {
-                                incrementDailyStat("followup_count")
-                            }
-                            val phoneToNotify = phoneNumber.ifEmpty { contactName }
-                            if (appointmentDate != null && editedAppointmentId != null) {
-                                ReminderReceiver.scheduleReminder(
-                                    this,
-                                    AppointmentAgenda.appointmentReminderKey(editedAppointmentId),
-                                    "Appointment: $contactName",
-                                    appointmentDate!!.time
-                                )
-                                syncSmartLogAppointment(
-                                    docId,
-                                    GoogleCalendarManager.readStoredEventId(existingLead.get("googleCalendarEventId")),
-                                    editedAppointmentId
-                                )
-                            } else if (followUpDate != null) {
-                                ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
-                            } else {
-                                ReminderReceiver.cancelReminder(this, phoneToNotify)
-                            }
-                            onSuccess() 
+                    LeadAppointmentWriter.commit(
+                        db = db,
+                        leadId = docId,
+                        mutationFor = { fresh, _, _, _ ->
+                            val preview = AppointmentAgenda.describeSingleAppointmentEdit(
+                                leadId = docId,
+                                existing = fresh,
+                                previousStartMillis = previousStart,
+                                previousLocation = previousLocation,
+                                previousEventId = previousEventId,
+                                newStartMillis = appointmentDate!!.time,
+                                newLocation = appointmentLocation,
+                                newEventId = previousEventId,
+                                nowMillis = System.currentTimeMillis(),
+                                createdId = createdAppointmentForEdit
+                            )
+                            val baseUpdatedAt = fresh.firstOrNull { it.id == preview.editedId }?.updatedAtMillis ?: 0L
+                            AppointmentSync.AppointmentMutation.SingleEdit(
+                                previousStartMillis = previousStart,
+                                previousLocation = previousLocation,
+                                previousEventId = previousEventId,
+                                newStartMillis = appointmentDate!!.time,
+                                newLocation = appointmentLocation,
+                                newEventId = previousEventId,
+                                nowMillis = System.currentTimeMillis(),
+                                createdId = createdAppointmentForEdit,
+                                baseUpdatedAtMillis = baseUpdatedAt
+                            )
+                        },
+                        extras = { _ -> update },
+                        onSuccess = { result ->
+                            val target = result.records.firstOrNull { it.id == result.targetId }
+                            finishSmartLogSave(
+                                docId,
+                                noteText,
+                                if (result.keptNewer) null else target?.id,
+                                target?.eventId ?: previousEventId,
+                                onSuccess
+                            )
+                        },
+                        onFailure = {
+                            Toast.makeText(this, "Failed to save lead", Toast.LENGTH_SHORT).show()
                         }
+                    )
                 }
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Error checking for existing lead", e)
             }
+    }
+
+    private fun finishSmartLogSave(
+        leadId: String,
+        noteText: String,
+        editedAppointmentId: String?,
+        existingEventId: Long?,
+        onSuccess: () -> Unit
+    ) {
+        if (noteText.isNotEmpty()) {
+            incrementDailyStat("followup_count")
+        }
+        val phoneToNotify = phoneNumber.ifEmpty { contactName }
+        if (appointmentDate != null && editedAppointmentId != null) {
+            ReminderReceiver.scheduleReminder(
+                this,
+                AppointmentAgenda.appointmentReminderKey(editedAppointmentId),
+                "Appointment: $contactName",
+                appointmentDate!!.time
+            )
+            syncSmartLogAppointment(leadId, existingEventId, editedAppointmentId)
+        } else if (appointmentDate != null) {
+            Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
+        } else if (followUpDate != null) {
+            ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
+        } else {
+            ReminderReceiver.cancelReminder(this, phoneToNotify)
+        }
+        onSuccess()
     }
 
     private fun syncSmartLogAppointment(leadId: String, existingEventId: Long?, appointmentId: String) {
@@ -1235,20 +1274,21 @@ class SmartLogActivity : AppCompatActivity() {
             ) { result ->
                 when (result) {
                     is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
-                        db.collection("leads").document(leadId).get().addOnSuccessListener { doc ->
-                            val updated = AppointmentAgenda.withEventId(
-                                LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
-                                appointmentId,
-                                result.eventId
-                            )
-                            if (updated != null) {
-                                doc.reference.update(
-                                    LeadAppointmentSync.fields(updated, System.currentTimeMillis(), forUpdate = true)
-                                )
-                            } else {
-                                doc.reference.update("googleCalendarEventId", result.eventId)
+                        LeadAppointmentWriter.commit(
+                            db = db,
+                            leadId = leadId,
+                            mutationFor = { _, _, _, _ ->
+                                AppointmentSync.AppointmentMutation.SetEventId(appointmentId, result.eventId)
+                            },
+                            onSuccess = { },
+                            onFailure = {
+                                Toast.makeText(
+                                    this,
+                                    "The calendar event was saved, but RCRM couldn't store its id.",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
-                        }
+                        )
                     }
                     is GoogleCalendarManager.AppointmentSyncResult.Failed -> {
                         Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()

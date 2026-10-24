@@ -1217,12 +1217,28 @@ class FollowUpActivity : AppCompatActivity() {
             if (cbTmHomeowner?.isChecked == true) tmList.add("Homeowner")
             if (cbTmOccupation?.isChecked == true) tmList.add("Occupation")
 
-            val appointmentEdits = editedAppointmentRecords(
+            val previousStart = (lead?.get("appointmentDate") as? Timestamp)?.toDate()?.time
+            val previousLocation = lead?.get("appointmentLocation") as? String
+            val previousEventId = GoogleCalendarManager.readStoredEventId(lead?.get("googleCalendarEventId"))
+            val priorRecords = LeadAppointmentSync.readRecords(lead?.get(AppointmentAgenda.FIELD_APPOINTMENTS))
+            val appointmentEdit = AppointmentAgenda.describeSingleAppointmentEdit(
                 leadId = docId,
-                lead = lead,
+                existing = priorRecords,
+                previousStartMillis = previousStart,
+                previousLocation = previousLocation,
+                previousEventId = previousEventId,
                 newStartMillis = appointmentDate?.time,
-                newLocation = appointmentLocation
+                newLocation = appointmentLocation,
+                newEventId = previousEventId,
+                nowMillis = System.currentTimeMillis(),
+                createdId = pendingCreatedAppointmentId
+                    ?: AppointmentAgenda.newAppointmentId().also { pendingCreatedAppointmentId = it }
             )
+            val appointmentChanged = appointmentDate?.time != previousStart ||
+                appointmentLocation.orEmpty().trim() != previousLocation.orEmpty().trim()
+            val editedBaseUpdatedAt = priorRecords
+                .firstOrNull { it.id == appointmentEdit.editedId }
+                ?.updatedAtMillis ?: 0L
             val updates: MutableMap<String, Any?> = hashMapOf(
                 "name" to editName?.text.toString(),
                 "phone" to editPhone?.text.toString(),
@@ -1234,9 +1250,6 @@ class FollowUpActivity : AppCompatActivity() {
                 "notes" to updatedNotes,
                 "targetMarket" to tmList.joinToString(", "),
                 "followUpDate" to selectedFollowUpDate?.let { Timestamp(it) }
-            )
-            updates.putAll(
-                LeadAppointmentSync.fields(appointmentEdits, System.currentTimeMillis(), forUpdate = true)
             )
             updates["insCarrier"] = editInsCarrier?.text.toString()
             updates["insPolicyType"] = spinnerInsPolicyType?.selectedItem?.toString()?.takeIf { it != "Select Policy Type..." }
@@ -1252,52 +1265,79 @@ class FollowUpActivity : AppCompatActivity() {
             updates["invMonthlyContribution"] = editInvMonthlyContribution?.text.toString()
             updates["invAccountStatus"] = spinnerInvStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." }
             
-            // Instantly update the local item in memory so the UI is fresh if reopened quickly
             if (lead is MutableMap<*, *>) {
                 @Suppress("UNCHECKED_CAST")
-                (lead as MutableMap<String, Any?>).putAll(updates)
+                LeadAppointmentSync.applyLocal(lead as MutableMap<String, Any?>, updates)
             }
 
-            db.collection("leads").document(docId).update(updates).addOnSuccessListener {
-                if (notesList.size > originalNotesCount) {
-                    incrementDailyStat("followup_count")
-                }
-                
-                val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
-                
-                if (selectedFollowUpDate != null) {
-                    ReminderReceiver.scheduleReminder(this, phoneToNotify, editName?.text.toString(), selectedFollowUpDate!!.time)
-                } else {
-                    ReminderReceiver.cancelReminder(this, phoneToNotify)
-                }
-                
-                val previousStart = (lead["appointmentDate"] as? Timestamp)?.toDate()?.time
-                val previousLocation = lead["appointmentLocation"] as? String
-                val appointmentChanged = appointmentDate?.time != previousStart ||
-                    appointmentLocation != previousLocation
-                if (appointmentChanged) {
-                    scheduleAppointmentReminders(
-                        records = appointmentEdits,
-                        phoneOrLeadId = phoneToNotify,
-                        leadName = editName?.text.toString()
+            val createdId = pendingCreatedAppointmentId
+                ?: AppointmentAgenda.newAppointmentId().also { pendingCreatedAppointmentId = it }
+            LeadAppointmentWriter.commit(
+                db = db,
+                leadId = docId,
+                mutationFor = { _, _, _, _ ->
+                    AppointmentSync.AppointmentMutation.SingleEdit(
+                        previousStartMillis = previousStart,
+                        previousLocation = previousLocation,
+                        previousEventId = previousEventId,
+                        newStartMillis = appointmentDate?.time,
+                        newLocation = appointmentLocation,
+                        newEventId = previousEventId,
+                        nowMillis = System.currentTimeMillis(),
+                        createdId = createdId,
+                        baseUpdatedAtMillis = editedBaseUpdatedAt
                     )
-                    val mirror = AppointmentAgenda.legacyMirror(appointmentEdits, System.currentTimeMillis())
-                    syncAppointmentAndStore(
-                        leadId = docId,
-                        leadName = editName?.text?.toString().orEmpty(),
-                        phone = editPhone?.text?.toString(),
-                        startMillis = mirror.startMillis,
-                        location = mirror.location,
-                        existingEventId = mirror.eventId
-                            ?: GoogleCalendarManager.readStoredEventId(lead["googleCalendarEventId"]),
-                        appointmentId = mirror.appointmentId,
-                        leadMap = lead
-                    )
+                },
+                extras = { _ -> updates },
+                onSuccess = { result ->
+                    if (notesList.size > originalNotesCount) {
+                        incrementDailyStat("followup_count")
+                    }
+                    val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
+                    val leadName = editName?.text.toString()
+                    if (selectedFollowUpDate != null) {
+                        ReminderReceiver.scheduleReminder(this, phoneToNotify, leadName, selectedFollowUpDate!!.time)
+                    } else {
+                        ReminderReceiver.cancelReminder(this, phoneToNotify)
+                    }
+                    if (appointmentChanged && result.keptNewer) {
+                        Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
+                    } else if (appointmentChanged) {
+                        if (lead is MutableMap<*, *>) {
+                            @Suppress("UNCHECKED_CAST")
+                            LeadAppointmentSync.applyLocal(
+                                lead as MutableMap<String, Any?>,
+                                LeadAppointmentSync.fields(result.records, System.currentTimeMillis(), forUpdate = true)
+                            )
+                        }
+                        scheduleAppointmentReminders(
+                            records = result.records,
+                            phoneOrLeadId = phoneToNotify,
+                            leadName = leadName
+                        )
+                        val target = result.records.firstOrNull { it.id == result.targetId }
+                        if (target != null) {
+                            val clearing = target.status != AppointmentAgenda.AppointmentStatus.SCHEDULED
+                            syncAppointmentAndStore(
+                                leadId = docId,
+                                leadName = leadName,
+                                phone = editPhone?.text?.toString(),
+                                startMillis = if (clearing) null else target.startMillis,
+                                location = target.location,
+                                existingEventId = target.eventId ?: previousEventId,
+                                appointmentId = target.id,
+                                leadMap = lead,
+                                soleAppointment = result.records.size == 1
+                            )
+                        }
+                    }
+                    Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                },
+                onFailure = {
+                    Toast.makeText(this, "Couldn't save that lead.", Toast.LENGTH_LONG).show()
                 }
-                
-                Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
+            )
         }
 
         btnAddCalendar?.setOnClickListener {
@@ -1509,51 +1549,78 @@ class FollowUpActivity : AppCompatActivity() {
                         val combinedNotes = if (oldNotes.isEmpty()) "[$dateTag]: [Voice Log]: $newNotes" else "$oldNotes\n\n[$dateTag]: [Voice Log]: $newNotes"
                         updates["notes"] = combinedNotes
                         val spokenAppointment = updates["appointmentDate"] as? Timestamp
-                        val voiceRecords = if (spokenAppointment != null) {
-                            editedAppointmentRecords(
+                        updates.remove("appointmentDate")
+                        val spokenLocation = (updates.remove("appointmentLocation") as? String)
+                            ?: doc.getString("appointmentLocation")
+                        val previousStart = doc.getTimestamp("appointmentDate")?.toDate()?.time
+                        val previousLocation = doc.getString("appointmentLocation")
+                        val previousEventId = GoogleCalendarManager.readStoredEventId(doc.get("googleCalendarEventId"))
+                        val createdId = AppointmentAgenda.newAppointmentId()
+                        if (spokenAppointment != null) {
+                            LeadAppointmentWriter.commit(
+                                db = db,
                                 leadId = leadId,
-                                lead = doc.data,
-                                newStartMillis = spokenAppointment.toDate().time,
-                                newLocation = (updates["appointmentLocation"] as? String)
-                                    ?: doc.getString("appointmentLocation")
+                                mutationFor = { fresh, _, _, _ ->
+                                    val preview = AppointmentAgenda.describeSingleAppointmentEdit(
+                                        leadId = leadId,
+                                        existing = fresh,
+                                        previousStartMillis = previousStart,
+                                        previousLocation = previousLocation,
+                                        previousEventId = previousEventId,
+                                        newStartMillis = spokenAppointment.toDate().time,
+                                        newLocation = spokenLocation,
+                                        newEventId = previousEventId,
+                                        nowMillis = System.currentTimeMillis(),
+                                        createdId = createdId
+                                    )
+                                    val baseUpdatedAt = fresh.firstOrNull { it.id == preview.editedId }?.updatedAtMillis ?: 0L
+                                    AppointmentSync.AppointmentMutation.SingleEdit(
+                                        previousStartMillis = previousStart,
+                                        previousLocation = previousLocation,
+                                        previousEventId = previousEventId,
+                                        newStartMillis = spokenAppointment.toDate().time,
+                                        newLocation = spokenLocation,
+                                        newEventId = previousEventId,
+                                        nowMillis = System.currentTimeMillis(),
+                                        createdId = createdId,
+                                        baseUpdatedAtMillis = baseUpdatedAt
+                                    )
+                                },
+                                extras = { _ -> updates },
+                                onSuccess = { result ->
+                                    Toast.makeText(this@FollowUpActivity, "Lead updated via Voice!", Toast.LENGTH_SHORT).show()
+                                    incrementDailyStat("followup_count")
+                                    val target = result.records.firstOrNull { it.id == result.targetId }
+                                    if (target != null && !result.keptNewer) {
+                                        val phoneToNotify = ((updates["phone"] as? String) ?: doc.getString("phone"))
+                                            .orEmpty()
+                                            .ifBlank { leadId }
+                                        scheduleAppointmentReminders(
+                                            records = result.records,
+                                            phoneOrLeadId = phoneToNotify,
+                                            leadName = doc.getString("name").orEmpty()
+                                        )
+                                        syncAppointmentAndStore(
+                                            leadId = leadId,
+                                            leadName = doc.getString("name").orEmpty(),
+                                            phone = (updates["phone"] as? String) ?: doc.getString("phone"),
+                                            startMillis = target.startMillis,
+                                            location = target.location,
+                                            existingEventId = target.eventId ?: previousEventId,
+                                            appointmentId = target.id,
+                                            leadMap = null,
+                                            soleAppointment = result.records.size == 1
+                                        )
+                                    }
+                                },
+                                onFailure = {
+                                    Toast.makeText(this@FollowUpActivity, "Couldn't save that lead.", Toast.LENGTH_LONG).show()
+                                }
                             )
                         } else {
-                            emptyList()
-                        }
-                        if (voiceRecords.isNotEmpty()) {
-                            updates.putAll(
-                                LeadAppointmentSync.fields(
-                                    voiceRecords,
-                                    System.currentTimeMillis(),
-                                    forUpdate = true
-                                )
-                            )
-                        }
-
-                        db.collection("leads").document(leadId).update(updates).addOnSuccessListener {
-                            Toast.makeText(this@FollowUpActivity, "Lead updated via Voice!", Toast.LENGTH_SHORT).show()
-                            incrementDailyStat("followup_count")
-                            if (voiceRecords.isNotEmpty()) {
-                                scheduleAppointmentReminders(
-                                    records = voiceRecords,
-                                    phoneOrLeadId = ((updates["phone"] as? String) ?: doc.getString("phone")).orEmpty()
-                                        .ifBlank { leadId },
-                                    leadName = doc.getString("name").orEmpty()
-                                )
-                                val voiceMirror = AppointmentAgenda.legacyMirror(
-                                    voiceRecords,
-                                    System.currentTimeMillis()
-                                )
-                                syncAppointmentAndStore(
-                                    leadId = leadId,
-                                    leadName = doc.getString("name").orEmpty(),
-                                    phone = (updates["phone"] as? String) ?: doc.getString("phone"),
-                                    startMillis = voiceMirror.startMillis,
-                                    location = voiceMirror.location,
-                                    existingEventId = voiceMirror.eventId,
-                                    appointmentId = voiceMirror.appointmentId,
-                                    leadMap = null
-                                )
+                            db.collection("leads").document(leadId).update(updates).addOnSuccessListener {
+                                Toast.makeText(this@FollowUpActivity, "Lead updated via Voice!", Toast.LENGTH_SHORT).show()
+                                incrementDailyStat("followup_count")
                             }
                         }
                     }
@@ -1595,28 +1662,6 @@ class FollowUpActivity : AppCompatActivity() {
         }
     }
 
-    private fun editedAppointmentRecords(
-        leadId: String,
-        lead: Map<String, Any>?,
-        newStartMillis: Long?,
-        newLocation: String?
-    ): List<AppointmentAgenda.AppointmentRecord> {
-        val createdId = pendingCreatedAppointmentId
-            ?: AppointmentAgenda.newAppointmentId().also { pendingCreatedAppointmentId = it }
-        return AppointmentAgenda.applySingleAppointmentEdit(
-            leadId = leadId,
-            existing = LeadAppointmentSync.readRecords(lead?.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
-            previousStartMillis = (lead?.get("appointmentDate") as? Timestamp)?.toDate()?.time,
-            previousLocation = lead?.get("appointmentLocation") as? String,
-            previousEventId = GoogleCalendarManager.readStoredEventId(lead?.get("googleCalendarEventId")),
-            newStartMillis = newStartMillis,
-            newLocation = newLocation,
-            newEventId = GoogleCalendarManager.readStoredEventId(lead?.get("googleCalendarEventId")),
-            nowMillis = System.currentTimeMillis(),
-            createdId = createdId
-        )
-    }
-
     private fun scheduleAppointmentReminders(
         records: List<AppointmentAgenda.AppointmentRecord>,
         phoneOrLeadId: String,
@@ -1642,7 +1687,8 @@ class FollowUpActivity : AppCompatActivity() {
         location: String?,
         existingEventId: Long?,
         appointmentId: String? = null,
-        leadMap: Map<String, Any>?
+        leadMap: Map<String, Any>?,
+        soleAppointment: Boolean = false
     ) {
         if (leadId.isBlank()) return
         if ((startMillis == null || startMillis <= 0L) && existingEventId == null) return
@@ -1655,16 +1701,21 @@ class FollowUpActivity : AppCompatActivity() {
                 startMillis = startMillis,
                 location = location,
                 existingEventId = existingEventId,
-                appointmentId = appointmentId
+                appointmentId = appointmentId,
+                soleAppointmentForLead = soleAppointment
             ) { result ->
                 when (result) {
                     is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
                         storeSyncedEventId(leadId, appointmentId, result.eventId, leadMap)
                     }
                     GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
-                        db.collection("leads").document(leadId)
-                            .update("googleCalendarEventId", FieldValue.delete())
-                        (leadMap as? MutableMap<String, Any?>)?.remove("googleCalendarEventId")
+                        if (!appointmentId.isNullOrBlank()) {
+                            storeSyncedEventId(leadId, appointmentId, null, leadMap)
+                        } else {
+                            db.collection("leads").document(leadId)
+                                .update("googleCalendarEventId", FieldValue.delete())
+                            (leadMap as? MutableMap<String, Any?>)?.remove("googleCalendarEventId")
+                        }
                     }
                     GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
                     is GoogleCalendarManager.AppointmentSyncResult.Failed -> {
@@ -1696,25 +1747,36 @@ class FollowUpActivity : AppCompatActivity() {
     private fun storeSyncedEventId(
         leadId: String,
         appointmentId: String?,
-        eventId: Long,
+        eventId: Long?,
         leadMap: Map<String, Any>?
     ) {
-        db.collection("leads").document(leadId).get().addOnSuccessListener { doc ->
-            val records = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS))
-            val updated = if (appointmentId.isNullOrBlank()) {
-                records
-            } else {
-                AppointmentAgenda.withEventId(records, appointmentId, eventId) ?: records
+        if (appointmentId.isNullOrBlank()) {
+            if (eventId != null && eventId > 0L) {
+                db.collection("leads").document(leadId).update("googleCalendarEventId", eventId)
+                (leadMap as? MutableMap<String, Any?>)?.put("googleCalendarEventId", eventId)
             }
-            val fields = LeadAppointmentSync.fields(updated, System.currentTimeMillis(), forUpdate = true)
-                .toMutableMap()
-            if (updated.isEmpty()) {
-                fields.clear()
-                fields["googleCalendarEventId"] = eventId
-            }
-            doc.reference.update(fields)
-            (leadMap as? MutableMap<String, Any?>)?.put("googleCalendarEventId", eventId)
+            return
         }
+        LeadAppointmentWriter.commit(
+            db = db,
+            leadId = leadId,
+            mutationFor = { _, _, _, _ ->
+                AppointmentSync.AppointmentMutation.SetEventId(appointmentId, eventId)
+            },
+            onSuccess = { result ->
+                val mirror = AppointmentAgenda.legacyMirror(result.records, System.currentTimeMillis())
+                val local = leadMap as? MutableMap<String, Any?> ?: return@commit
+                if (mirror.eventId != null) local["googleCalendarEventId"] = mirror.eventId
+                else local.remove("googleCalendarEventId")
+                if (mirror.startMillis != null) local["appointmentDate"] = Timestamp(Date(mirror.startMillis))
+                else local.remove("appointmentDate")
+                if (!mirror.location.isNullOrBlank()) local["appointmentLocation"] = mirror.location
+                else local.remove("appointmentLocation")
+            },
+            onFailure = {
+                Toast.makeText(this, "The calendar changed, but RCRM couldn't store the event link.", Toast.LENGTH_LONG).show()
+            }
+        )
     }
 
     override fun onDestroy() {

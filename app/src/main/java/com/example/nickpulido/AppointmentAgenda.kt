@@ -344,6 +344,12 @@ object AppointmentAgenda {
         )
     }
 
+    data class SingleEditResult(
+        val records: List<AppointmentRecord>,
+        val editedId: String?,
+        val keptNewer: Boolean = false
+    )
+
     fun applySingleAppointmentEdit(
         leadId: String,
         existing: List<AppointmentRecord>,
@@ -356,6 +362,38 @@ object AppointmentAgenda {
         nowMillis: Long,
         createdId: String
     ): List<AppointmentRecord> {
+        return describeSingleAppointmentEdit(
+            leadId = leadId,
+            existing = existing,
+            previousStartMillis = previousStartMillis,
+            previousLocation = previousLocation,
+            previousEventId = previousEventId,
+            newStartMillis = newStartMillis,
+            newLocation = newLocation,
+            newEventId = newEventId,
+            nowMillis = nowMillis,
+            createdId = createdId
+        ).records
+    }
+
+    /**
+     * The appointment the user actually edited. Callers must pass the start,
+     * location, and event id from before the local lead map is updated.
+     * [baseUpdatedAtMillis] is that record's saved timestamp; a newer write wins.
+     */
+    fun describeSingleAppointmentEdit(
+        leadId: String,
+        existing: List<AppointmentRecord>,
+        previousStartMillis: Long?,
+        previousLocation: String?,
+        previousEventId: Long?,
+        newStartMillis: Long?,
+        newLocation: String?,
+        newEventId: Long?,
+        nowMillis: Long,
+        createdId: String,
+        baseUpdatedAtMillis: Long = Long.MAX_VALUE
+    ): SingleEditResult {
         val base = migrateAppointments(
             leadId = leadId,
             existing = existing,
@@ -365,28 +403,39 @@ object AppointmentAgenda {
             nowMillis = nowMillis
         )
         val index = findEditedIndex(base, leadId, previousStartMillis, previousEventId)
+        if (index >= 0 && keptNewerEdit(base[index], newStartMillis, newLocation, nowMillis, baseUpdatedAtMillis)) {
+            return SingleEditResult(base, base[index].id, keptNewer = true)
+        }
         if (newStartMillis == null || newStartMillis <= 0L) {
-            if (index < 0) return base
+            if (index < 0) return SingleEditResult(base, null)
             val current = base[index]
-            if (current.status == AppointmentStatus.CANCELED) return base
-            return base.replacing(
-                index,
-                current.copy(status = AppointmentStatus.CANCELED, updatedAtMillis = nowMillis)
+            if (current.status == AppointmentStatus.CANCELED) {
+                return SingleEditResult(base, current.id)
+            }
+            return SingleEditResult(
+                base.replacing(
+                    index,
+                    current.copy(status = AppointmentStatus.CANCELED, updatedAtMillis = nowMillis)
+                ),
+                current.id
             )
         }
         val location = newLocation?.trim()?.takeIf { it.isNotEmpty() }
         val eventId = newEventId?.takeIf { it > 0L }
         if (index >= 0) {
             val current = base[index]
-            return base.replacing(
-                index,
-                current.copy(
-                    startMillis = newStartMillis,
-                    location = location ?: current.location,
-                    eventId = eventId ?: current.eventId,
-                    status = AppointmentStatus.SCHEDULED,
-                    updatedAtMillis = nowMillis
-                )
+            return SingleEditResult(
+                base.replacing(
+                    index,
+                    current.copy(
+                        startMillis = newStartMillis,
+                        location = location ?: current.location,
+                        eventId = eventId ?: current.eventId,
+                        status = AppointmentStatus.SCHEDULED,
+                        updatedAtMillis = nowMillis
+                    )
+                ),
+                current.id
             )
         }
         val id = createdId.trim().ifEmpty { newAppointmentId() }
@@ -399,7 +448,7 @@ object AppointmentAgenda {
             originalInstanceTime = null,
             updatedAtMillis = nowMillis
         )
-        return upsertRecord(base, created)
+        return SingleEditResult(upsertRecord(base, created), id)
     }
 
     fun addAppointment(
@@ -419,12 +468,21 @@ object AppointmentAgenda {
         appointmentId: String,
         eventId: Long
     ): List<AppointmentRecord>? {
-        if (appointmentId.isBlank() || eventId <= 0L) return null
+        return withEventLink(records, appointmentId, eventId)
+    }
+
+    fun withEventLink(
+        records: List<AppointmentRecord>,
+        appointmentId: String,
+        eventId: Long?
+    ): List<AppointmentRecord>? {
+        if (appointmentId.isBlank()) return null
         val index = records.indexOfFirst { it.id == appointmentId }
         if (index < 0) return null
+        val stored = eventId?.takeIf { it > 0L }
         val current = records[index]
-        if (current.eventId == eventId) return records
-        return records.replacing(index, current.copy(eventId = eventId))
+        if (current.eventId == stored) return records
+        return records.replacing(index, current.copy(eventId = stored))
     }
 
     fun applyOutcome(
@@ -518,6 +576,24 @@ object AppointmentAgenda {
         rangeEnd: Long,
         zone: TimeZone
     ): List<AgendaEntry> {
+        return applyMonthBoundary(
+            matchAgenda(appointments, events, suggestedLeadIdsByEventId),
+            rangeStart,
+            rangeEnd,
+            zone
+        )
+    }
+
+    /**
+     * Pair CRM appointments with calendar events, including events that were
+     * fetched outside the visible month so a move can be recognized.
+     * The effective time of a match is the calendar event time.
+     */
+    fun matchAgenda(
+        appointments: List<CrmAppointmentRef>,
+        events: List<CalendarEventRef>,
+        suggestedLeadIdsByEventId: Map<Long, String>
+    ): List<AgendaEntry> {
         val used = mutableSetOf<Int>()
         val rows = mutableListOf<AgendaEntry>()
         appointments.forEach { appointment ->
@@ -525,13 +601,12 @@ object AppointmentAgenda {
             if (match != null) {
                 used += match
                 rows += mergedEntry(appointment, events[match])
-            } else if (inRange(appointment.startMillis, allDay = false, rangeStart, rangeEnd, zone)) {
+            } else {
                 rows += crmOnlyEntry(appointment)
             }
         }
         events.forEachIndexed { index, event ->
             if (index in used || event.canceled) return@forEachIndexed
-            if (!inRange(event.startMillis, event.allDay, rangeStart, rangeEnd, zone)) return@forEachIndexed
             val suggestion = if (event.explicitLeadId.isNullOrBlank() && event.explicitAppointmentId.isNullOrBlank()) {
                 suggestedLeadIdsByEventId[event.eventId]
             } else {
@@ -540,6 +615,17 @@ object AppointmentAgenda {
             rows += eventEntry(event, suggestion)
         }
         return rows.sortedWith(compareBy<AgendaEntry> { it.startMillis }.thenBy { it.title.lowercase(Locale.US) })
+    }
+
+    fun applyMonthBoundary(
+        entries: List<AgendaEntry>,
+        rangeStart: Long,
+        rangeEnd: Long,
+        zone: TimeZone
+    ): List<AgendaEntry> {
+        return entries
+            .filter { entry -> inRange(entry.startMillis, entry.allDay, rangeStart, rangeEnd, zone) }
+            .sortedWith(compareBy<AgendaEntry> { it.startMillis }.thenBy { it.title.lowercase(Locale.US) })
     }
 
     fun visibleEntries(
@@ -655,18 +741,63 @@ object AppointmentAgenda {
         }
     }
 
+    /**
+     * A device-local event id is only the same event when the description still
+     * carries this appointment or an unambiguous legacy lead link.
+     * Recurring series masters are not safe write targets.
+     */
+    fun eventIdentityAllows(
+        eventLeadId: String?,
+        eventAppointmentId: String?,
+        expectedLeadId: String,
+        expectedAppointmentId: String?,
+        soleAppointmentForLead: Boolean,
+        recurringMaster: Boolean = false
+    ): Boolean {
+        if (recurringMaster || expectedLeadId.isBlank()) return false
+        val eventAppointment = eventAppointmentId?.trim()?.takeIf { it.isNotEmpty() }
+        val eventLead = eventLeadId?.trim()?.takeIf { it.isNotEmpty() }
+        if (eventAppointment != null) {
+            if (eventAppointment != expectedAppointmentId) return false
+            if (eventLead != null && eventLead != expectedLeadId) return false
+            return !expectedAppointmentId.isNullOrBlank()
+        }
+        if (eventLead != null) {
+            if (eventLead != expectedLeadId) return false
+            if (expectedAppointmentId.isNullOrBlank()) return true
+            if (expectedAppointmentId == legacyAppointmentId(expectedLeadId)) return true
+            return soleAppointmentForLead
+        }
+        return false
+    }
+
     fun selectRetryTarget(
         candidates: List<CalendarEventRef>,
         appointmentId: String?,
         leadId: String,
-        preferredEventId: Long?
+        preferredEventId: Long?,
+        soleAppointmentForLead: Boolean = false
     ): Long? {
-        if (preferredEventId != null && preferredEventId > 0L && candidates.any { it.eventId == preferredEventId }) {
-            return preferredEventId
+        if (preferredEventId != null && preferredEventId > 0L) {
+            val preferred = candidates.firstOrNull { event ->
+                event.eventId == preferredEventId || event.originalEventId == preferredEventId
+            }
+            if (preferred != null && eventIdentityAllows(
+                    eventLeadId = preferred.explicitLeadId,
+                    eventAppointmentId = preferred.explicitAppointmentId,
+                    expectedLeadId = leadId,
+                    expectedAppointmentId = appointmentId,
+                    soleAppointmentForLead = soleAppointmentForLead
+                )
+            ) {
+                return preferred.eventId
+            }
         }
         if (!appointmentId.isNullOrBlank()) {
             val matches = candidates
-                .filter { it.explicitAppointmentId == appointmentId }
+                .filter { it.explicitAppointmentId == appointmentId && it.explicitLeadId.let { lead ->
+                    lead.isNullOrBlank() || lead == leadId
+                } }
                 .map { it.eventId }
                 .distinct()
             if (matches.isNotEmpty()) return matches.first()
@@ -676,7 +807,11 @@ object AppointmentAgenda {
                 .filter { it.explicitLeadId == leadId && it.explicitAppointmentId == null }
                 .map { it.eventId }
                 .distinct()
-            if (leadMatches.size == 1) return leadMatches.first()
+            if (leadMatches.size == 1 &&
+                (appointmentId.isNullOrBlank() || appointmentId == legacyAppointmentId(leadId) || soleAppointmentForLead)
+            ) {
+                return leadMatches.first()
+            }
         }
         return null
     }
@@ -712,10 +847,19 @@ object AppointmentAgenda {
 
         val eventId = appointment.eventId
         if (eventId != null && eventId > 0L) {
+            val sole = appointments.count { it.leadId == appointment.leadId } == 1
             pick(
                 open.filter { index ->
                     val event = events[index]
-                    event.eventId == eventId || event.originalEventId == eventId
+                    val idHit = event.eventId == eventId || event.originalEventId == eventId
+                    idHit && eventIdentityAllows(
+                        eventLeadId = event.explicitLeadId,
+                        eventAppointmentId = event.explicitAppointmentId,
+                        expectedLeadId = appointment.leadId,
+                        expectedAppointmentId = appointment.appointmentId,
+                        soleAppointmentForLead = sole,
+                        recurringMaster = false
+                    )
                 }
             )?.let { return it }
         }
@@ -766,7 +910,7 @@ object AppointmentAgenda {
             endMillis = end,
             allDay = false,
             color = CRM_COLOR,
-            eventId = appointment.eventId,
+            eventId = null,
             leadId = appointment.leadId,
             ownerId = appointment.ownerId,
             appointmentId = appointment.appointmentId,
@@ -826,6 +970,23 @@ object AppointmentAgenda {
             return day >= rangeStart && day < rangeEnd
         }
         return startMillis >= rangeStart && startMillis < rangeEnd
+    }
+
+    private fun keptNewerEdit(
+        current: AppointmentRecord,
+        newStartMillis: Long?,
+        newLocation: String?,
+        nowMillis: Long,
+        baseUpdatedAtMillis: Long
+    ): Boolean {
+        if (current.updatedAtMillis <= baseUpdatedAtMillis) return false
+        if (current.updatedAtMillis == nowMillis) return false
+        val clearing = newStartMillis == null || newStartMillis <= 0L
+        val location = newLocation?.trim()?.takeIf { it.isNotEmpty() }
+        val startDiffers = !clearing && !sameInstant(current.startMillis, newStartMillis ?: 0L)
+        val locationDiffers = location != null && location != current.location
+        val clearDiffers = clearing && current.status != AppointmentStatus.CANCELED
+        return startDiffers || locationDiffers || clearDiffers
     }
 
     private fun findEditedIndex(

@@ -30,6 +30,22 @@ object LeadAppointmentSync {
         return values
     }
 
+    fun applyLocal(lead: MutableMap<String, Any?>, updates: Map<String, Any?>) {
+        val split = AppointmentSync.splitLocalLeadUpdate(
+            updates,
+            isDeleteSentinel = { value -> isDeleteSentinel(value) },
+            isServerValue = { value -> value is FieldValue }
+        )
+        split.remove.forEach { key -> lead.remove(key) }
+        split.put.forEach { (key, value) ->
+            if (value != null) lead[key] = value
+        }
+    }
+
+    fun isDeleteSentinel(value: Any?): Boolean {
+        return value is FieldValue && value.javaClass.simpleName.contains("Delete", ignoreCase = true)
+    }
+
     private fun putMirror(values: MutableMap<String, Any?>, key: String, value: Any?, forUpdate: Boolean) {
         if (value != null) {
             values[key] = value

@@ -338,30 +338,42 @@ class MainActivity : AppCompatActivity() {
             ) { result ->
                 when (result) {
                     is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
-                        val recordsUpdate = appointmentId?.let { id ->
-                            db.collection("leads").document(leadId).get().addOnSuccessListener { doc ->
-                                val updated = AppointmentAgenda.withEventId(
-                                    LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
-                                    id,
-                                    result.eventId
-                                )
-                                if (updated != null) {
-                                    doc.reference.update(
-                                        LeadAppointmentSync.fields(updated, System.currentTimeMillis(), forUpdate = true)
-                                    )
-                                } else {
-                                    doc.reference.update("googleCalendarEventId", result.eventId)
-                                }
-                            }
-                        }
-                        if (recordsUpdate == null) {
+                        if (appointmentId.isNullOrBlank()) {
                             db.collection("leads").document(leadId)
                                 .update("googleCalendarEventId", result.eventId)
+                        } else {
+                            LeadAppointmentWriter.commit(
+                                db = db,
+                                leadId = leadId,
+                                mutationFor = { _, _, _, _ ->
+                                    AppointmentSync.AppointmentMutation.SetEventId(appointmentId, result.eventId)
+                                },
+                                onSuccess = { },
+                                onFailure = {
+                                    Toast.makeText(
+                                        this,
+                                        "The calendar event was saved, but RCRM couldn't store its id.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            )
                         }
                     }
                     GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
-                        db.collection("leads").document(leadId)
-                            .update("googleCalendarEventId", FieldValue.delete())
+                        if (appointmentId.isNullOrBlank()) {
+                            db.collection("leads").document(leadId)
+                                .update("googleCalendarEventId", FieldValue.delete())
+                        } else {
+                            LeadAppointmentWriter.commit(
+                                db = db,
+                                leadId = leadId,
+                                mutationFor = { _, _, _, _ ->
+                                    AppointmentSync.AppointmentMutation.SetEventId(appointmentId, null)
+                                },
+                                onSuccess = { },
+                                onFailure = { }
+                            )
+                        }
                     }
                     GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
                     is GoogleCalendarManager.AppointmentSyncResult.Failed -> {

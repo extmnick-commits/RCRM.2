@@ -84,11 +84,11 @@ class AppointmentsActivity : AppCompatActivity() {
     private var sourceFilter = SourceFilter.ALL_EVENTS
     private var selectedDayMillis: Long? = null
     private var snapDayStrip = true
-    private var failedSync: FailedCalendarSync? = null
+    private var failedSync: AppointmentSync.SyncOperation? = null
 
     private var contactNameTarget: EditText? = null
     private var contactPhoneTarget: EditText? = null
-    private var pendingCalendarSync: PendingCalendarSync? = null
+    private var pendingCalendarSync: AppointmentSync.SyncOperation? = null
 
     private sealed interface PendingCalendarAction {
         data object ShowFilter : PendingCalendarAction
@@ -108,7 +108,7 @@ class AppointmentsActivity : AppCompatActivity() {
         val waitingSync = pendingCalendarSync
         if (!granted) {
             pendingCalendarSync = null
-            if (pending != null) {
+            if (pending != null || waitingSync != null) {
                 Toast.makeText(
                     this,
                     "Calendar permission is needed to read and sync Google Calendar.",
@@ -124,10 +124,13 @@ class AppointmentsActivity : AppCompatActivity() {
                 leadId = waitingSync.leadId,
                 leadName = waitingSync.leadName,
                 phone = waitingSync.phone,
-                startMillis = waitingSync.startMillis,
+                startMillis = waitingSync.intendedStartMillis,
                 location = waitingSync.location,
-                existingEventId = waitingSync.existingEventId,
-                appointmentId = waitingSync.appointmentId
+                existingEventId = waitingSync.eventId,
+                appointmentId = waitingSync.appointmentId,
+                allowInsert = waitingSync.eventId == null,
+                soleAppointment = waitingSync.soleAppointment,
+                retry = waitingSync
             )
         }
         when (pending) {
@@ -521,8 +524,9 @@ class AppointmentsActivity : AppCompatActivity() {
             }
         }
         if (migrations.isNotEmpty()) {
+            val migratedLeadIds = migrations.map { it.first }
             withContext(Dispatchers.Main) {
-                if (!isDestroyed) persistMigrations(migrations, now)
+                if (!isDestroyed) persistMigrations(migratedLeadIds, now)
             }
         }
 
@@ -562,29 +566,35 @@ class AppointmentsActivity : AppCompatActivity() {
     }
 
     private fun persistMigrations(
-        migrations: List<Pair<String, List<AppointmentAgenda.AppointmentRecord>>>,
-        nowMillis: Long
+        leadIds: List<String>,
+        nowMillis: Long,
+        onSaved: () -> Unit = {}
     ) {
-        migrations.forEach { (leadId, records) ->
-            db.collection("leads").document(leadId)
-                .update(LeadAppointmentSync.fields(records, nowMillis, forUpdate = true))
-                .addOnFailureListener { error ->
-                    if (isDestroyed) return@addOnFailureListener
+        leadIds.distinct().forEach { leadId ->
+            LeadAppointmentWriter.commit(
+                db = db,
+                leadId = leadId,
+                mutationFor = { _, start, location, eventId ->
+                    AppointmentSync.AppointmentMutation.Migrate(
+                        legacyStartMillis = start,
+                        legacyLocation = location,
+                        legacyEventId = eventId,
+                        nowMillis = nowMillis
+                    )
+                },
+                onSuccess = { if (!isDestroyed) onSaved() },
+                onFailure = { error ->
+                    if (isDestroyed) return@commit
                     showSyncFailure(
-                        FailedCalendarSync(
+                        AppointmentSync.operation(
+                            kind = AppointmentSync.SyncOperation.Kind.MIGRATE_HISTORY,
                             leadId = leadId,
-                            appointmentId = records.firstOrNull()?.id.orEmpty(),
-                            leadName = "",
-                            phone = "",
-                            startMillis = records.firstOrNull()?.startMillis ?: 0L,
-                            location = null,
-                            eventId = records.firstOrNull()?.eventId,
-                            message = "Couldn't save appointment history. Tap to retry.",
-                            migrationRecords = records
+                            message = "Couldn't save appointment history. Tap to retry."
                         )
                     )
                     android.util.Log.w("AppointmentsActivity", "Appointment migration failed", error)
                 }
+            )
         }
     }
 
@@ -1208,7 +1218,19 @@ class AppointmentsActivity : AppCompatActivity() {
                     startMillis = startMillis,
                     location = location,
                     existingEventId = eventId,
-                    appointmentId = record.id
+                    appointmentId = record.id,
+                    soleAppointment = true,
+                    retry = calendarRetry(
+                        leadId = ref.id,
+                        appointmentId = record.id,
+                        leadName = name,
+                        phone = phone,
+                        startMillis = startMillis,
+                        location = location,
+                        eventId = eventId,
+                        baseUpdatedAtMillis = record.updatedAtMillis,
+                        soleAppointment = true
+                    )
                 )
                 onCreated(ref.id)
             }
@@ -1227,32 +1249,26 @@ class AppointmentsActivity : AppCompatActivity() {
         onDone: () -> Unit,
         onFailed: () -> Unit = {}
     ) {
-        db.collection("leads").document(leadId).get()
-            .addOnSuccessListener { doc ->
-                if (!doc.exists()) {
-                    Toast.makeText(this, "That lead is no longer available.", Toast.LENGTH_LONG).show()
-                    onFailed()
-                    return@addOnSuccessListener
-                }
-                val ownerId = doc.getString("ownerId")
-                if (!AppointmentAgenda.ownerCanEdit(ownerId, auth.currentUser?.uid)) {
-                    Toast.makeText(this, "That lead belongs to another account.", Toast.LENGTH_LONG).show()
-                    onFailed()
-                    return@addOnSuccessListener
-                }
-                val now = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        val createdId = item.appointmentId?.takeIf { it.isNotBlank() } ?: AppointmentAgenda.newAppointmentId()
+        LeadAppointmentWriter.commit(
+            db = db,
+            leadId = leadId,
+            mutationFor = { fresh, legacyStart, legacyLocation, legacyEventId ->
                 val migrated = AppointmentAgenda.migrateAppointments(
                     leadId = leadId,
-                    existing = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
-                    legacyStartMillis = doc.getTimestamp("appointmentDate")?.toDate()?.time,
-                    legacyLocation = doc.getString("appointmentLocation"),
-                    legacyEventId = GoogleCalendarManager.readStoredEventId(doc.get("googleCalendarEventId")),
+                    existing = fresh,
+                    legacyStartMillis = legacyStart,
+                    legacyLocation = legacyLocation,
+                    legacyEventId = legacyEventId,
                     nowMillis = now
                 )
-                val matched = migrated.firstOrNull { record ->
-                    (item.appointmentId != null && record.id == item.appointmentId) ||
-                        (item.eventId != null && record.eventId == item.eventId)
+                val matched = if (!item.appointmentId.isNullOrBlank()) {
+                    migrated.firstOrNull { it.id == item.appointmentId }
+                } else {
+                    migrated.filter { item.eventId != null && it.eventId == item.eventId }.singleOrNull()
                 }
+                val baseUpdatedAt = matched?.updatedAtMillis ?: 0L
                 val record = if (matched != null) {
                     matched.copy(
                         startMillis = item.startMillis,
@@ -1263,7 +1279,7 @@ class AppointmentsActivity : AppCompatActivity() {
                     )
                 } else {
                     AppointmentAgenda.AppointmentRecord(
-                        id = AppointmentAgenda.newAppointmentId(),
+                        id = createdId,
                         startMillis = item.startMillis,
                         location = item.location?.trim()?.takeIf { it.isNotEmpty() },
                         eventId = item.eventId?.takeIf { it > 0L },
@@ -1272,33 +1288,62 @@ class AppointmentsActivity : AppCompatActivity() {
                         updatedAtMillis = now
                     )
                 }
-                val saved = AppointmentAgenda.upsertRecord(migrated, record)
-                val updates = LeadAppointmentSync.fields(saved, now, forUpdate = true).toMutableMap()
-                updates["timestamp"] = Timestamp.now()
-                updates["notes"] = appendNote(doc.getString("notes").orEmpty(), note)
-                doc.reference.update(updates)
-                    .addOnSuccessListener {
-                        applyReminder(record, phone.ifBlank { leadId }, leadName)
-                        pushAppointmentToCalendar(
-                            leadId = leadId,
-                            leadName = leadName,
-                            phone = phone,
-                            startMillis = item.startMillis,
-                            location = item.location,
-                            existingEventId = record.eventId,
-                            appointmentId = record.id
-                        )
-                        onDone()
-                    }
-                    .addOnFailureListener {
-                        Toast.makeText(this, "Couldn't link that lead. No duplicate was saved.", Toast.LENGTH_LONG).show()
-                        onFailed()
-                    }
-            }
-            .addOnFailureListener {
-                Toast.makeText(this, "Couldn't link that lead.", Toast.LENGTH_LONG).show()
+                AppointmentSync.AppointmentMutation.Upsert(record, baseUpdatedAt)
+            },
+            extras = { data ->
+                val ownerId = data["ownerId"] as? String
+                if (!AppointmentAgenda.ownerCanEdit(ownerId, auth.currentUser?.uid)) {
+                    throw IllegalStateException("That lead belongs to another account.")
+                }
+                mapOf(
+                    "timestamp" to Timestamp.now(),
+                    "notes" to appendNote((data["notes"] as? String).orEmpty(), note)
+                )
+            },
+            onSuccess = { result ->
+                if (isDestroyed) return@commit
+                if (result.keptNewer) {
+                    Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
+                    onFailed()
+                    return@commit
+                }
+                val record = result.records.firstOrNull { it.id == result.targetId }
+                if (record == null) {
+                    Toast.makeText(this, "Couldn't link that lead. No duplicate was saved.", Toast.LENGTH_LONG).show()
+                    onFailed()
+                    return@commit
+                }
+                applyReminder(record, phone.ifBlank { leadId }, leadName)
+                pushAppointmentToCalendar(
+                    leadId = leadId,
+                    leadName = leadName,
+                    phone = phone,
+                    startMillis = record.startMillis,
+                    location = record.location,
+                    existingEventId = record.eventId,
+                    appointmentId = record.id,
+                    soleAppointment = result.records.size == 1,
+                    retry = calendarRetry(
+                        leadId = leadId,
+                        appointmentId = record.id,
+                        leadName = leadName,
+                        phone = phone,
+                        startMillis = record.startMillis,
+                        location = record.location,
+                        eventId = record.eventId,
+                        baseUpdatedAtMillis = record.updatedAtMillis,
+                        soleAppointment = result.records.size == 1
+                    )
+                )
+                onDone()
+            },
+            onFailure = { error ->
+                val message = error.message?.takeIf { it.contains("another account") }
+                    ?: "Couldn't link that lead. No duplicate was saved."
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 onFailed()
             }
+        )
     }
 
     private fun saveQuickNote(
@@ -1357,31 +1402,26 @@ class AppointmentsActivity : AppCompatActivity() {
         location: String?,
         existingEventId: Long?,
         appointmentId: String,
-        allowInsert: Boolean = true
+        allowInsert: Boolean = true,
+        soleAppointment: Boolean = false,
+        retry: AppointmentSync.SyncOperation
     ) {
         if (appointmentId.isBlank()) return
+        val operation = retry.copy(
+            kind = AppointmentSync.SyncOperation.Kind.RESCHEDULE,
+            leadId = leadId,
+            appointmentId = appointmentId,
+            leadName = leadName,
+            phone = phone,
+            intendedStartMillis = startMillis,
+            location = location,
+            eventId = existingEventId,
+            soleAppointment = soleAppointment
+        )
         if (!GoogleCalendarManager.hasCalendarPermissions(this)) {
-            pendingCalendarSync = PendingCalendarSync(
-                leadId = leadId,
-                leadName = leadName,
-                phone = phone,
-                startMillis = startMillis,
-                location = location,
-                existingEventId = existingEventId,
-                appointmentId = appointmentId
-            )
+            pendingCalendarSync = operation
             showSyncFailure(
-                FailedCalendarSync(
-                    leadId = leadId,
-                    appointmentId = appointmentId,
-                    leadName = leadName,
-                    phone = phone,
-                    startMillis = startMillis,
-                    location = location,
-                    eventId = existingEventId,
-                    message = "Appointment saved in RCRM. Allow calendar access, then tap to sync it.",
-                    migrationRecords = null
-                )
+                operation.copy(message = "Appointment saved in RCRM. Allow calendar access, then tap to sync it.")
             )
             return
         }
@@ -1394,13 +1434,14 @@ class AppointmentsActivity : AppCompatActivity() {
             location = location,
             existingEventId = existingEventId,
             appointmentId = appointmentId,
-            allowInsert = allowInsert
+            allowInsert = allowInsert,
+            soleAppointmentForLead = soleAppointment
         ) { result ->
             if (isDestroyed) return@syncCrmAppointmentAsync
             when (result) {
                 is GoogleCalendarManager.AppointmentSyncResult.Linked -> {
                     clearSyncFailure()
-                    storeLinkedEventId(leadId, appointmentId, result.eventId)
+                    storeLinkedEventId(leadId, appointmentId, result.eventId, leadName, phone)
                 }
                 GoogleCalendarManager.AppointmentSyncResult.Cleared -> {
                     clearSyncFailure()
@@ -1408,50 +1449,59 @@ class AppointmentsActivity : AppCompatActivity() {
                 }
                 GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
                 is GoogleCalendarManager.AppointmentSyncResult.Failed -> {
-                    showSyncFailure(
-                        FailedCalendarSync(
-                            leadId = leadId,
-                            appointmentId = appointmentId,
-                            leadName = leadName,
-                            phone = phone,
-                            startMillis = startMillis,
-                            location = location,
-                            eventId = existingEventId,
-                            message = "${result.message} Tap to retry.",
-                            migrationRecords = null
-                        )
-                    )
+                    showSyncFailure(operation.copy(message = "${result.message} Tap to retry."))
                 }
             }
         }
     }
 
-    private fun storeLinkedEventId(leadId: String, appointmentId: String, eventId: Long) {
-        db.collection("leads").document(leadId).get()
-            .addOnSuccessListener { doc ->
-                if (!doc.exists() || isDestroyed) return@addOnSuccessListener
-                val records = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS))
-                val updated = AppointmentAgenda.withEventId(records, appointmentId, eventId) ?: records
-                doc.reference.update(LeadAppointmentSync.fields(updated, System.currentTimeMillis(), forUpdate = true))
-                    .addOnSuccessListener { if (!isDestroyed) loadAgenda() }
-                    .addOnFailureListener {
-                        if (!isDestroyed) {
-                            showSyncFailure(
-                                FailedCalendarSync(
-                                    leadId = leadId,
-                                    appointmentId = appointmentId,
-                                    leadName = "",
-                                    phone = "",
-                                    startMillis = 0L,
-                                    location = null,
-                                    eventId = eventId,
-                                    message = "The calendar event was saved, but RCRM couldn't store its id. Tap to retry.",
-                                    migrationRecords = updated
-                                )
-                            )
-                        }
-                    }
+    private fun storeLinkedEventId(
+        leadId: String,
+        appointmentId: String,
+        eventId: Long,
+        leadName: String,
+        phone: String
+    ) {
+        LeadAppointmentWriter.commit(
+            db = db,
+            leadId = leadId,
+            mutationFor = { _, _, _, _ ->
+                AppointmentSync.AppointmentMutation.SetEventId(appointmentId, eventId)
+            },
+            onSuccess = { result ->
+                if (isDestroyed) return@commit
+                if (result.targetId == null) {
+                    showSyncFailure(
+                        AppointmentSync.operation(
+                            kind = AppointmentSync.SyncOperation.Kind.SAVE_EVENT_LINK,
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            leadName = leadName,
+                            phone = phone,
+                            eventId = eventId,
+                            message = "The calendar event was saved, but that appointment is no longer on the lead. Tap to retry."
+                        )
+                    )
+                    return@commit
+                }
+                loadAgenda()
+            },
+            onFailure = {
+                if (!isDestroyed) {
+                    showSyncFailure(
+                        AppointmentSync.operation(
+                            kind = AppointmentSync.SyncOperation.Kind.SAVE_EVENT_LINK,
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            leadName = leadName,
+                            phone = phone,
+                            eventId = eventId,
+                            message = "The calendar event was saved, but RCRM couldn't store its id. Tap to retry."
+                        )
+                    )
+                }
             }
+        )
     }
 
     private fun recordOutcome(
@@ -1462,126 +1512,216 @@ class AppointmentsActivity : AppCompatActivity() {
         val leadId = item.leadId ?: return
         val appointmentId = item.appointmentId ?: return
         if (!item.explicitCrm) return
-        db.collection("leads").document(leadId).get()
-            .addOnSuccessListener { doc ->
-                if (!doc.exists()) {
-                    Toast.makeText(this, "That lead is no longer available.", Toast.LENGTH_LONG).show()
-                    return@addOnSuccessListener
-                }
-                if (!AppointmentAgenda.ownerCanEdit(doc.getString("ownerId"), auth.currentUser?.uid)) {
-                    Toast.makeText(this, "That lead belongs to another account.", Toast.LENGTH_LONG).show()
-                    return@addOnSuccessListener
-                }
-                val now = System.currentTimeMillis()
+        if (outcome == null && newStartMillis == null) return
+        val now = System.currentTimeMillis()
+        val readUpdatedAt = longArrayOf(0L)
+        LeadAppointmentWriter.commit(
+            db = db,
+            leadId = leadId,
+            mutationFor = { fresh, legacyStart, legacyLocation, legacyEventId ->
                 val migrated = AppointmentAgenda.migrateAppointments(
                     leadId = leadId,
-                    existing = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
-                    legacyStartMillis = doc.getTimestamp("appointmentDate")?.toDate()?.time,
-                    legacyLocation = doc.getString("appointmentLocation"),
-                    legacyEventId = GoogleCalendarManager.readStoredEventId(doc.get("googleCalendarEventId")),
+                    existing = fresh,
+                    legacyStartMillis = legacyStart,
+                    legacyLocation = legacyLocation,
+                    legacyEventId = legacyEventId,
                     nowMillis = now
                 )
-                if (migrated.none { it.id == appointmentId }) {
-                    Toast.makeText(this, "That appointment is no longer on the lead.", Toast.LENGTH_LONG).show()
-                    return@addOnSuccessListener
-                }
-                val updated = if (newStartMillis != null) {
-                    AppointmentAgenda.reschedule(
-                        migrated,
-                        appointmentId,
-                        newStartMillis,
-                        now,
-                        rememberInstance = item.recurringMaster
+                val current = migrated.firstOrNull { it.id == appointmentId }
+                    ?: throw IllegalStateException("That appointment is no longer on the lead.")
+                readUpdatedAt[0] = current.updatedAtMillis
+                if (newStartMillis != null) {
+                    AppointmentSync.AppointmentMutation.Reschedule(
+                        appointmentId = appointmentId,
+                        newStartMillis = newStartMillis,
+                        nowMillis = now,
+                        rememberInstance = item.recurringMaster,
+                        baseUpdatedAtMillis = current.updatedAtMillis
                     )
-                } else if (outcome != null) {
-                    AppointmentAgenda.applyOutcome(migrated, appointmentId, outcome, now)
                 } else {
-                    migrated
+                    AppointmentSync.AppointmentMutation.SaveOutcome(
+                        appointmentId = appointmentId,
+                        outcome = outcome ?: throw IllegalStateException("Couldn't save that appointment."),
+                        nowMillis = now,
+                        baseUpdatedAtMillis = current.updatedAtMillis
+                    )
                 }
-                doc.reference.update(LeadAppointmentSync.fields(updated, now, forUpdate = true))
-                    .addOnSuccessListener {
-                        val record = updated.first { it.id == appointmentId }
-                        applyReminder(record, item.phone?.ifBlank { leadId } ?: leadId, item.leadName ?: item.title)
-                        when {
-                            outcome == AppointmentAgenda.Outcome.CANCELED && item.eventId != null -> {
-                                val eventId = item.eventId
-                                lifecycleScope.launch(Dispatchers.IO) {
-                                    val cancelResult = GoogleCalendarManager.markEventCanceled(
-                                        this@AppointmentsActivity,
-                                        eventId
-                                    )
-                                    withContext(Dispatchers.Main) {
-                                        if (isDestroyed) return@withContext
-                                        if (cancelResult is GoogleCalendarManager.AppointmentSyncResult.Failed) {
-                                            showSyncFailure(
-                                                failedCopy(item, leadId, appointmentId, cancelResult.message)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            newStartMillis != null -> {
-                                val plan = AppointmentAgenda.planCalendarWrite(
-                                    eventId = record.eventId ?: item.eventId,
+            },
+            extras = { data ->
+                if (!AppointmentAgenda.ownerCanEdit(data["ownerId"] as? String, auth.currentUser?.uid)) {
+                    throw IllegalStateException("That lead belongs to another account.")
+                }
+                emptyMap()
+            },
+            onSuccess = { result ->
+                if (isDestroyed) return@commit
+                val record = result.records.firstOrNull { it.id == appointmentId }
+                if (record == null) {
+                    Toast.makeText(this, "That appointment is no longer on the lead.", Toast.LENGTH_LONG).show()
+                    return@commit
+                }
+                if (result.keptNewer || (newStartMillis != null && record.startMillis != newStartMillis)) {
+                    Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
+                    loadAgenda()
+                    return@commit
+                }
+                val leadName = item.leadName ?: item.title
+                val phone = item.phone.orEmpty()
+                applyReminder(record, phone.ifBlank { leadId }, leadName)
+                val baseUpdatedAt = record.updatedAtMillis
+                when {
+                    outcome == AppointmentAgenda.Outcome.CANCELED -> {
+                        val eventId = record.eventId ?: item.eventId
+                        if (eventId != null) {
+                            cancelCalendarEvent(
+                                AppointmentSync.operation(
+                                    kind = AppointmentSync.SyncOperation.Kind.CANCEL_CALENDAR_EVENT,
+                                    leadId = leadId,
+                                    appointmentId = appointmentId,
+                                    leadName = leadName,
+                                    phone = phone,
+                                    location = record.location,
+                                    eventId = eventId,
+                                    outcome = outcome,
+                                    baseUpdatedAtMillis = baseUpdatedAt,
                                     canWrite = item.canWrite,
                                     recurringMaster = item.recurringMaster,
-                                    allowInsert = (record.eventId ?: item.eventId) == null
-                                )
-                                when (plan) {
-                                    is AppointmentAgenda.CalendarWritePlan.Blocked -> showSyncFailure(
-                                        failedCopy(item, leadId, appointmentId, plan.message)
-                                    )
-                                    else -> pushAppointmentToCalendar(
-                                        leadId = leadId,
-                                        leadName = item.leadName ?: item.title,
-                                        phone = item.phone.orEmpty(),
-                                        startMillis = record.startMillis,
-                                        location = record.location,
-                                        existingEventId = record.eventId ?: item.eventId,
-                                        appointmentId = record.id,
-                                        allowInsert = plan is AppointmentAgenda.CalendarWritePlan.InsertNew
-                                    )
-                                }
-                            }
-                        }
-                        Toast.makeText(this, "Appointment updated", Toast.LENGTH_SHORT).show()
-                        loadAgenda()
-                        showQuickNoteDialog(
-                            item.copy(
-                                startMillis = record.startMillis,
-                                leadId = leadId,
-                                appointmentId = appointmentId,
-                                explicitCrm = true
+                                    soleAppointment = result.records.size == 1,
+                                    message = "Couldn't cancel the calendar event. Tap to retry."
+                                ),
+                                eventId
                             )
-                        )
+                        }
                     }
-                    .addOnFailureListener {
-                        showSyncFailure(
-                            failedCopy(item, leadId, appointmentId, "Couldn't save that appointment. Tap to retry.")
+                    newStartMillis != null -> {
+                        val eventId = record.eventId ?: item.eventId
+                        val plan = AppointmentAgenda.planCalendarWrite(
+                            eventId = eventId,
+                            canWrite = item.canWrite,
+                            recurringMaster = item.recurringMaster,
+                            allowInsert = eventId == null
                         )
+                        val retry = calendarRetry(
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            leadName = leadName,
+                            phone = phone,
+                            startMillis = newStartMillis,
+                            location = record.location,
+                            eventId = eventId,
+                            baseUpdatedAtMillis = baseUpdatedAt,
+                            canWrite = item.canWrite,
+                            recurringMaster = item.recurringMaster,
+                            rememberInstance = item.recurringMaster,
+                            soleAppointment = result.records.size == 1
+                        )
+                        when (plan) {
+                            is AppointmentAgenda.CalendarWritePlan.Blocked -> showSyncFailure(
+                                retry.copy(message = plan.message)
+                            )
+                            else -> pushAppointmentToCalendar(
+                                leadId = leadId,
+                                leadName = leadName,
+                                phone = phone,
+                                startMillis = newStartMillis,
+                                location = record.location,
+                                existingEventId = eventId,
+                                appointmentId = appointmentId,
+                                allowInsert = plan is AppointmentAgenda.CalendarWritePlan.InsertNew,
+                                soleAppointment = result.records.size == 1,
+                                retry = retry
+                            )
+                        }
                     }
+                }
+                Toast.makeText(this, "Appointment updated", Toast.LENGTH_SHORT).show()
+                loadAgenda()
+                showQuickNoteDialog(
+                    item.copy(
+                        startMillis = record.startMillis,
+                        leadId = leadId,
+                        appointmentId = appointmentId,
+                        explicitCrm = true
+                    )
+                )
+            },
+            onFailure = { error ->
+                val message = error.message.orEmpty()
+                if (message.contains("no longer") || message.contains("another account")) {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                    return@commit
+                }
+                val leadName = item.leadName ?: item.title
+                val phone = item.phone.orEmpty()
+                if (newStartMillis != null) {
+                    showSyncFailure(
+                        calendarRetry(
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            leadName = leadName,
+                            phone = phone,
+                            startMillis = newStartMillis,
+                            location = item.location,
+                            eventId = item.eventId,
+                            baseUpdatedAtMillis = readUpdatedAt[0],
+                            canWrite = item.canWrite,
+                            recurringMaster = item.recurringMaster,
+                            rememberInstance = item.recurringMaster,
+                            message = "Couldn't save that appointment. Tap to retry."
+                        )
+                    )
+                } else if (outcome != null) {
+                    showSyncFailure(
+                        AppointmentSync.operation(
+                            kind = AppointmentSync.SyncOperation.Kind.SAVE_OUTCOME,
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            leadName = leadName,
+                            phone = phone,
+                            location = item.location,
+                            eventId = item.eventId,
+                            outcome = outcome,
+                            baseUpdatedAtMillis = readUpdatedAt[0],
+                            canWrite = item.canWrite,
+                            recurringMaster = item.recurringMaster,
+                            message = "Couldn't save that appointment. Tap to retry."
+                        )
+                    )
+                }
             }
-            .addOnFailureListener {
-                Toast.makeText(this, "Couldn't save that appointment.", Toast.LENGTH_LONG).show()
-            }
+        )
     }
 
-    private fun failedCopy(
-        item: AgendaItem,
+    private fun calendarRetry(
         leadId: String,
         appointmentId: String,
-        message: String
-    ): FailedCalendarSync {
-        return FailedCalendarSync(
+        leadName: String,
+        phone: String,
+        startMillis: Long,
+        location: String?,
+        eventId: Long?,
+        baseUpdatedAtMillis: Long,
+        canWrite: Boolean = true,
+        recurringMaster: Boolean = false,
+        rememberInstance: Boolean = false,
+        soleAppointment: Boolean = false,
+        message: String = "Couldn't update the calendar event. Tap to retry."
+    ): AppointmentSync.SyncOperation {
+        return AppointmentSync.operation(
+            kind = AppointmentSync.SyncOperation.Kind.RESCHEDULE,
             leadId = leadId,
             appointmentId = appointmentId,
-            leadName = item.leadName ?: item.title,
-            phone = item.phone.orEmpty(),
-            startMillis = item.startMillis,
-            location = item.location,
-            eventId = item.eventId,
-            message = message,
-            migrationRecords = null
+            leadName = leadName,
+            phone = phone,
+            intendedStartMillis = startMillis,
+            location = location,
+            eventId = eventId,
+            baseUpdatedAtMillis = baseUpdatedAtMillis,
+            canWrite = canWrite,
+            recurringMaster = recurringMaster,
+            rememberInstance = rememberInstance,
+            soleAppointment = soleAppointment,
+            message = message
         )
     }
 
@@ -1602,7 +1742,7 @@ class AppointmentsActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSyncFailure(failure: FailedCalendarSync) {
+    private fun showSyncFailure(failure: AppointmentSync.SyncOperation) {
         failedSync = failure
         val view = findViewById<TextView>(R.id.tvSyncStatus)
         view.text = failure.message
@@ -1616,31 +1756,180 @@ class AppointmentsActivity : AppCompatActivity() {
 
     private fun retryFailedSync() {
         val pending = failedSync ?: return
-        val records = pending.migrationRecords
-        if (records != null) {
-            db.collection("leads").document(pending.leadId)
-                .update(LeadAppointmentSync.fields(records, System.currentTimeMillis(), forUpdate = true))
-                .addOnSuccessListener {
-                    clearSyncFailure()
-                    Toast.makeText(this, "Appointment history saved", Toast.LENGTH_SHORT).show()
-                    loadAgenda()
+        db.collection("leads").document(pending.leadId).get()
+            .addOnSuccessListener { doc ->
+                if (isDestroyed) return@addOnSuccessListener
+                if (!doc.exists()) {
+                    Toast.makeText(this, "That lead is no longer available.", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
                 }
-                .addOnFailureListener {
-                    Toast.makeText(this, "Retry failed. The appointment was not duplicated.", Toast.LENGTH_LONG).show()
+                val fresh = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS))
+                when (val directive = AppointmentSync.retryDirective(pending, fresh)) {
+                    is AppointmentSync.RetryDirective.CancelEvent ->
+                        cancelCalendarEvent(pending, directive.eventId)
+                    is AppointmentSync.RetryDirective.PushCalendar -> pushAppointmentToCalendar(
+                        leadId = pending.leadId,
+                        leadName = pending.leadName,
+                        phone = pending.phone,
+                        startMillis = directive.startMillis,
+                        location = pending.location,
+                        existingEventId = directive.eventId,
+                        appointmentId = pending.appointmentId,
+                        allowInsert = directive.allowInsert,
+                        soleAppointment = pending.soleAppointment,
+                        retry = pending.copy(
+                            intendedStartMillis = directive.startMillis,
+                            eventId = directive.eventId
+                        )
+                    )
+                    AppointmentSync.RetryDirective.Remigrate -> persistMigrations(
+                        listOf(pending.leadId),
+                        System.currentTimeMillis()
+                    ) {
+                        clearSyncFailure()
+                        Toast.makeText(this, "Appointment history saved", Toast.LENGTH_SHORT).show()
+                        loadAgenda()
+                    }
+                    AppointmentSync.RetryDirective.NothingToDo -> {
+                        clearSyncFailure()
+                        loadAgenda()
+                    }
+                    is AppointmentSync.RetryDirective.Apply -> LeadAppointmentWriter.commit(
+                        db = db,
+                        leadId = pending.leadId,
+                        mutationFor = { _, start, location, eventId ->
+                            val mutation = directive.mutation
+                            if (mutation is AppointmentSync.AppointmentMutation.Migrate) {
+                                AppointmentSync.AppointmentMutation.Migrate(
+                                    legacyStartMillis = start,
+                                    legacyLocation = location,
+                                    legacyEventId = eventId,
+                                    nowMillis = System.currentTimeMillis()
+                                )
+                            } else {
+                                mutation
+                            }
+                        },
+                        onSuccess = { result -> handleRetryWrite(pending, result) },
+                        onFailure = {
+                            Toast.makeText(
+                                this,
+                                "Retry failed. The appointment was not duplicated.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    )
                 }
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Retry failed. The appointment was not duplicated.", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun handleRetryWrite(pending: AppointmentSync.SyncOperation, result: AppointmentSync.MutationResult) {
+        if (isDestroyed) return
+        if (result.keptNewer) {
+            clearSyncFailure()
+            Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
+            loadAgenda()
             return
         }
-        if (pending.appointmentId.isBlank() || pending.startMillis <= 0L) return
-        pushAppointmentToCalendar(
-            leadId = pending.leadId,
-            leadName = pending.leadName,
-            phone = pending.phone,
-            startMillis = pending.startMillis,
-            location = pending.location,
-            existingEventId = pending.eventId,
-            appointmentId = pending.appointmentId,
-            allowInsert = pending.eventId == null
+        val record = result.records.firstOrNull { it.id == pending.appointmentId }
+        when (pending.kind) {
+            AppointmentSync.SyncOperation.Kind.RESCHEDULE -> {
+                val start = pending.intendedStartMillis
+                if (record != null && record.startMillis != start) {
+                    clearSyncFailure()
+                    loadAgenda()
+                    return
+                }
+                if (record != null) {
+                    applyReminder(record, pending.phone.ifBlank { pending.leadId }, pending.leadName)
+                }
+                pushAppointmentToCalendar(
+                    leadId = pending.leadId,
+                    leadName = pending.leadName,
+                    phone = pending.phone,
+                    startMillis = start,
+                    location = record?.location ?: pending.location,
+                    existingEventId = record?.eventId ?: pending.eventId,
+                    appointmentId = pending.appointmentId,
+                    allowInsert = (record?.eventId ?: pending.eventId) == null,
+                    soleAppointment = result.records.size == 1,
+                    retry = pending.copy(intendedStartMillis = start, eventId = record?.eventId ?: pending.eventId)
+                )
+            }
+            AppointmentSync.SyncOperation.Kind.SAVE_OUTCOME -> {
+                if (pending.outcome == AppointmentAgenda.Outcome.CANCELED) {
+                    val eventId = record?.eventId ?: pending.eventId
+                    if (eventId != null) {
+                        cancelCalendarEvent(
+                            pending.copy(
+                                kind = AppointmentSync.SyncOperation.Kind.CANCEL_CALENDAR_EVENT,
+                                eventId = eventId,
+                                intendedStartMillis = 0L
+                            ),
+                            eventId
+                        )
+                        return
+                    }
+                }
+                clearSyncFailure()
+                Toast.makeText(this, "Appointment updated", Toast.LENGTH_SHORT).show()
+                loadAgenda()
+            }
+            AppointmentSync.SyncOperation.Kind.MIGRATE_HISTORY -> {
+                clearSyncFailure()
+                Toast.makeText(this, "Appointment history saved", Toast.LENGTH_SHORT).show()
+                loadAgenda()
+            }
+            AppointmentSync.SyncOperation.Kind.SAVE_EVENT_LINK -> {
+                if (result.targetId == null) {
+                    showSyncFailure(
+                        pending.copy(message = "The calendar event was saved, but that appointment is no longer on the lead.")
+                    )
+                } else {
+                    clearSyncFailure()
+                    loadAgenda()
+                }
+            }
+            AppointmentSync.SyncOperation.Kind.CANCEL_CALENDAR_EVENT -> {
+                clearSyncFailure()
+                loadAgenda()
+            }
+        }
+    }
+
+    private fun cancelCalendarEvent(pending: AppointmentSync.SyncOperation, eventId: Long) {
+        val operation = pending.copy(
+            kind = AppointmentSync.SyncOperation.Kind.CANCEL_CALENDAR_EVENT,
+            eventId = eventId,
+            intendedStartMillis = 0L
         )
+        if (!GoogleCalendarManager.hasCalendarPermissions(this)) {
+            showSyncFailure(
+                operation.copy(message = "Appointment saved in RCRM. Allow calendar access, then tap to cancel the calendar event.")
+            )
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val cancelResult = GoogleCalendarManager.markEventCanceled(
+                context = this@AppointmentsActivity,
+                eventId = eventId,
+                leadId = operation.leadId,
+                appointmentId = operation.appointmentId,
+                soleAppointmentForLead = operation.soleAppointment
+            )
+            withContext(Dispatchers.Main) {
+                if (isDestroyed) return@withContext
+                if (cancelResult is GoogleCalendarManager.AppointmentSyncResult.Failed) {
+                    showSyncFailure(operation.copy(message = "${cancelResult.message} Tap to retry."))
+                } else {
+                    clearSyncFailure()
+                    loadAgenda()
+                }
+            }
+        }
     }
 
     private fun focusOnAppointment(startMillis: Long) {
@@ -2148,28 +2437,6 @@ class AppointmentsActivity : AppCompatActivity() {
     private enum class MonthFilter { UPCOMING, ALL }
 
     private enum class SourceFilter { ALL_EVENTS, CRM_ONLY }
-
-    private data class PendingCalendarSync(
-        val leadId: String,
-        val leadName: String,
-        val phone: String,
-        val startMillis: Long,
-        val location: String?,
-        val existingEventId: Long?,
-        val appointmentId: String
-    )
-
-    private data class FailedCalendarSync(
-        val leadId: String,
-        val appointmentId: String,
-        val leadName: String,
-        val phone: String,
-        val startMillis: Long,
-        val location: String?,
-        val eventId: Long?,
-        val message: String,
-        val migrationRecords: List<AppointmentAgenda.AppointmentRecord>?
-    )
 
     private data class LeadChoice(
         val id: String,

@@ -135,7 +135,7 @@ class AppointmentAgendaTest {
             title = "Office Work",
             start = moved,
             end = moved + 5L * 60L * 60L * 1000L
-        )
+        ).copy(explicitAppointmentId = "appt-1", explicitLeadId = "lead-1")
 
         val rows = AppointmentAgenda.reconcile(
             appointments = listOf(appointment),
@@ -165,7 +165,12 @@ class AppointmentAgendaTest {
         val moved = stored + 10L * 60L * 1000L
         val rows = AppointmentAgenda.reconcile(
             appointments = listOf(appointment(start = stored, eventId = 10, appointmentId = "appt-1")),
-            events = listOf(calendarEvent(10, "Office Work", moved, moved + 3_600_000L)),
+            events = listOf(
+                calendarEvent(10, "Office Work", moved, moved + 3_600_000L).copy(
+                    explicitAppointmentId = "appt-1",
+                    explicitLeadId = "lead-1"
+                )
+            ),
             suggestedLeadIdsByEventId = emptyMap(),
             rangeStart = range.first,
             rangeEnd = range.second,
@@ -201,7 +206,11 @@ class AppointmentAgendaTest {
         val weekOne = local(2026, Calendar.OCTOBER, 6, 10, 0)
         val weeks = (0 until 4).map { weekOne + it * 7L * 24L * 60L * 60L * 1000L }
         val instances = weeks.map { start ->
-            calendarEvent(10, "Office Work", start, start + 3_600_000L).copy(recurring = true)
+            calendarEvent(10, "Office Work", start, start + 3_600_000L).copy(
+                recurring = true,
+                explicitAppointmentId = if (start == weekOne) "appt-1" else null,
+                explicitLeadId = if (start == weekOne) "lead-1" else null
+            )
         }
         val rows = AppointmentAgenda.reconcile(
             appointments = listOf(appointment(start = weekOne, eventId = 10, appointmentId = "appt-1")),
@@ -284,6 +293,166 @@ class AppointmentAgendaTest {
             zone = zone
         )
         assertEquals(4, ambiguous.size)
+    }
+
+    @Test
+    fun collidingEventIdOnAnotherDeviceIsNotTheSameAppointment() {
+        val range = monthRange(2026, Calendar.OCTOBER)
+        val start = local(2026, Calendar.OCTOBER, 26, 9, 0)
+        val foreign = calendarEvent(10, "Dentist", start, start + 3_600_000L).copy(
+            explicitLeadId = "someone-else",
+            explicitAppointmentId = "other-appt"
+        )
+        val unlabeled = calendarEvent(10, "Dentist", start, start + 3_600_000L)
+        val appointment = appointment(start = start, eventId = 10, appointmentId = "appt-1")
+
+        val foreignRows = AppointmentAgenda.reconcile(
+            appointments = listOf(appointment),
+            events = listOf(foreign),
+            suggestedLeadIdsByEventId = emptyMap(),
+            rangeStart = range.first,
+            rangeEnd = range.second,
+            zone = zone
+        )
+        assertEquals(2, foreignRows.size)
+        assertTrue(foreignRows.any { it.appointmentId == "appt-1" && it.title == "Alex" })
+        assertTrue(foreignRows.any { it.title == "Dentist" && it.appointmentId == "other-appt" })
+
+        val unlabeledRows = AppointmentAgenda.reconcile(
+            appointments = listOf(appointment),
+            events = listOf(unlabeled),
+            suggestedLeadIdsByEventId = emptyMap(),
+            rangeStart = range.first,
+            rangeEnd = range.second,
+            zone = zone
+        )
+        assertEquals(2, unlabeledRows.size)
+        assertTrue(unlabeledRows.any { it.appointmentId == "appt-1" && it.title == "Alex" })
+        assertTrue(unlabeledRows.any { it.title == "Dentist" && it.appointmentId == null })
+        assertNull(
+            AppointmentAgenda.selectRetryTarget(
+                candidates = listOf(unlabeled),
+                appointmentId = "appt-1",
+                leadId = "lead-1",
+                preferredEventId = 10L
+            )
+        )
+        assertFalse(
+            AppointmentAgenda.eventIdentityAllows(
+                eventLeadId = null,
+                eventAppointmentId = null,
+                expectedLeadId = "lead-1",
+                expectedAppointmentId = "appt-1",
+                soleAppointmentForLead = true
+            )
+        )
+        assertFalse(
+            AppointmentAgenda.eventIdentityAllows(
+                eventLeadId = "lead-1",
+                eventAppointmentId = "appt-1",
+                expectedLeadId = "lead-1",
+                expectedAppointmentId = "appt-1",
+                soleAppointmentForLead = true,
+                recurringMaster = true
+            )
+        )
+        assertTrue(
+            AppointmentAgenda.eventIdentityAllows(
+                eventLeadId = "lead-1",
+                eventAppointmentId = null,
+                expectedLeadId = "lead-1",
+                expectedAppointmentId = AppointmentAgenda.legacyAppointmentId("lead-1"),
+                soleAppointmentForLead = false
+            )
+        )
+    }
+
+    @Test
+    fun movedEventAppearsOnlyInTheMonthOfItsEffectiveDate() {
+        val october = monthRange(2026, Calendar.OCTOBER)
+        val november = monthRange(2026, Calendar.NOVEMBER)
+        val stored = local(2026, Calendar.OCTOBER, 26, 9, 0)
+        val moved = local(2026, Calendar.NOVEMBER, 3, 11, 0)
+        val appointment = appointment(start = stored, eventId = 10, appointmentId = "appt-1")
+        val event = calendarEvent(10, "Office Work", moved, moved + 3_600_000L).copy(
+            explicitAppointmentId = "appt-1",
+            explicitLeadId = "lead-1"
+        )
+        val matched = AppointmentAgenda.matchAgenda(
+            appointments = listOf(appointment),
+            events = listOf(event),
+            suggestedLeadIdsByEventId = emptyMap()
+        )
+        assertEquals(1, matched.size)
+        assertEquals(moved, matched[0].startMillis)
+
+        val inOctober = AppointmentAgenda.applyMonthBoundary(matched, october.first, october.second, zone)
+        assertTrue(inOctober.isEmpty())
+
+        val inNovember = AppointmentAgenda.reconcile(
+            appointments = listOf(appointment),
+            events = listOf(event),
+            suggestedLeadIdsByEventId = emptyMap(),
+            rangeStart = november.first,
+            rangeEnd = november.second,
+            zone = zone
+        )
+        assertEquals(1, inNovember.size)
+        assertEquals(moved, inNovember[0].startMillis)
+        assertEquals("appt-1", inNovember[0].appointmentId)
+        assertEquals(10L, inNovember[0].eventId)
+    }
+
+    @Test
+    fun followUpEditSyncsTheEditedAppointmentNotTheLegacyMirror() {
+        val now = local(2026, Calendar.OCTOBER, 22, 12, 0)
+        val soonerStart = local(2026, Calendar.OCTOBER, 23, 9, 0)
+        val laterStart = local(2026, Calendar.OCTOBER, 30, 15, 0)
+        val newStart = local(2026, Calendar.OCTOBER, 31, 16, 0)
+        val sooner = AppointmentAgenda.AppointmentRecord(
+            id = "appt-soon",
+            startMillis = soonerStart,
+            location = "Office",
+            eventId = 4L,
+            status = AppointmentAgenda.AppointmentStatus.SCHEDULED,
+            originalInstanceTime = null,
+            updatedAtMillis = now
+        )
+        val later = sooner.copy(id = "appt-later", startMillis = laterStart, eventId = 8L, location = "Client")
+        val edit = AppointmentAgenda.describeSingleAppointmentEdit(
+            leadId = "lead-1",
+            existing = listOf(sooner, later),
+            previousStartMillis = laterStart,
+            previousLocation = "Client",
+            previousEventId = 8L,
+            newStartMillis = newStart,
+            newLocation = "Client site",
+            newEventId = 8L,
+            nowMillis = now + 1,
+            createdId = "should-not-be-used"
+        )
+        assertEquals("appt-later", edit.editedId)
+        assertEquals(newStart, edit.records.first { it.id == "appt-later" }.startMillis)
+        assertEquals(soonerStart, edit.records.first { it.id == "appt-soon" }.startMillis)
+        val mirror = AppointmentAgenda.legacyMirror(edit.records, now)
+        assertEquals("appt-soon", mirror.appointmentId)
+        assertTrue(mirror.appointmentId != edit.editedId)
+
+        val cleared = AppointmentAgenda.describeSingleAppointmentEdit(
+            leadId = "lead-1",
+            existing = edit.records,
+            previousStartMillis = newStart,
+            previousLocation = "Client site",
+            previousEventId = 8L,
+            newStartMillis = null,
+            newLocation = null,
+            newEventId = 8L,
+            nowMillis = now + 2,
+            createdId = "new"
+        )
+        assertEquals("appt-later", cleared.editedId)
+        assertEquals(AppointmentAgenda.AppointmentStatus.CANCELED, cleared.records.first { it.id == "appt-later" }.status)
+        assertEquals("appt-soon", AppointmentAgenda.legacyMirror(cleared.records, now).appointmentId)
     }
 
     @Test
