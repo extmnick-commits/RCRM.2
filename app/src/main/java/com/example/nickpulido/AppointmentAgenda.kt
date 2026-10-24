@@ -1,6 +1,7 @@
 package com.nickpulido.rcrm
 
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
@@ -15,8 +16,20 @@ object AppointmentAgenda {
     const val FIELD_APPOINTMENTS = "appointments"
     const val SAME_INSTANT_TOLERANCE_MS = 60_000L
     const val CRM_COLOR = 0xFF4C8DFF.toInt()
+    const val UP_NEXT_WINDOW_MS = 24L * 60L * 60L * 1000L
+    const val UP_NEXT_GRACE_MS = 10L * 60L * 1000L
+
+    private const val MINUTE_MS = 60_000L
+    private const val SLOT_ROUNDING_MS = 15L * MINUTE_MS
 
     private val APPOINTMENT_LINK = Regex("""rcrm://appointment/(\S+)""")
+    private val LABELED_PHONE = Regex(
+        """(?i)\b(?:phone|tel|cell|mobile|call|text)\b[ \t]*[:#-]?[ \t]*(\+?[\d \t().-]{7,22}\d)(?![\d:])"""
+    )
+    private val LOOSE_PHONE = Regex("""(?<![\w/=])\+?\(?\d[\d \t().-]{8,20}\d(?![\w/:])""")
+    private val NOT_A_PHONE_LINE = Regex(
+        """(?i)://|,,|#|meeting id|conference id|passcode|access code|\bpin\b|one tap|dial[- ]?in|zoom|meet\.google|teams"""
+    )
 
     enum class MonthWindow { UPCOMING, ALL }
 
@@ -130,6 +143,20 @@ object AppointmentAgenda {
         data class Update(val eventId: Long) : ResolvedWrite()
         data object Insert : ResolvedWrite()
         data class Fail(val message: String) : ResolvedWrite()
+    }
+
+    data class OpenTimeSlot(
+        val startMillis: Long,
+        val endMillis: Long,
+        val durationMinutes: Int
+    )
+
+    data class BusyBlock(val startMillis: Long, val endMillis: Long)
+
+    enum class VisitOutcome(val label: String) {
+        COMPLETED("Completed ✅"),
+        RESCHEDULED("Rescheduled 📅"),
+        NO_SHOW("No-Show ⚠️")
     }
 
     fun startOfDay(millis: Long, zone: TimeZone): Long {
@@ -814,6 +841,217 @@ object AppointmentAgenda {
             }
         }
         return null
+    }
+
+    /**
+     * Free windows inside working hours on one local day. All-day banners
+     * (holidays, birthdays) and canceled events never block time.
+     */
+    fun findOpenSlotsForDay(
+        events: List<SyncedCalendarEvent>,
+        dayStartMillis: Long,
+        workStartHour: Int = 9,
+        workEndHour: Int = 18,
+        minSlotMinutes: Int = 60,
+        zone: TimeZone = TimeZone.getDefault(),
+        notBeforeMillis: Long? = null
+    ): List<OpenTimeSlot> {
+        val busy = events
+            .filter { !it.allDay && !it.canceled }
+            .map { BusyBlock(it.startMillis, it.endMillis) }
+        return findOpenSlots(busy, dayStartMillis, workStartHour, workEndHour, minSlotMinutes, zone, notBeforeMillis)
+    }
+
+    /**
+     * [notBeforeMillis] hides time that has already passed; the first slot then
+     * starts on the next quarter hour so the booking time is a clean one.
+     */
+    fun findOpenSlots(
+        busy: List<BusyBlock>,
+        dayStartMillis: Long,
+        workStartHour: Int = 9,
+        workEndHour: Int = 18,
+        minSlotMinutes: Int = 60,
+        zone: TimeZone = TimeZone.getDefault(),
+        notBeforeMillis: Long? = null
+    ): List<OpenTimeSlot> {
+        val startHour = workStartHour.coerceIn(0, 24)
+        val endHour = workEndHour.coerceIn(0, 24)
+        if (endHour <= startHour) return emptyList()
+        val day = startOfDay(dayStartMillis, zone)
+        val workStart = atHour(day, startHour, zone)
+        val workEnd = atHour(day, endHour, zone)
+        val windowStart = if (notBeforeMillis == null) {
+            workStart
+        } else {
+            maxOf(workStart, roundUpToQuarterHour(notBeforeMillis))
+        }
+        if (windowStart >= workEnd) return emptyList()
+        val minMillis = minSlotMinutes.coerceAtLeast(1) * MINUTE_MS
+        val slots = mutableListOf<OpenTimeSlot>()
+        fun emit(from: Long, to: Long) {
+            if (to - from >= minMillis) {
+                slots += OpenTimeSlot(from, to, ((to - from) / MINUTE_MS).toInt())
+            }
+        }
+        var cursor = windowStart
+        busy
+            .filter { it.endMillis > it.startMillis && it.endMillis > windowStart && it.startMillis < workEnd }
+            .sortedBy { it.startMillis }
+            .forEach { block ->
+                if (cursor >= workEnd) return@forEach
+                if (block.startMillis > cursor) emit(cursor, minOf(block.startMillis, workEnd))
+                cursor = maxOf(cursor, block.endMillis)
+            }
+        if (cursor < workEnd) emit(cursor, workEnd)
+        return slots
+    }
+
+    fun durationLabel(minutes: Int): String {
+        val safe = minutes.coerceAtLeast(0)
+        val hours = safe / 60
+        val rest = safe % 60
+        return when {
+            hours == 0 -> "${rest}m"
+            rest == 0 -> "${hours}h"
+            else -> "${hours}h ${rest}m"
+        }
+    }
+
+    /**
+     * A dialable number from free text. Labeled numbers ("Phone: …") win; an
+     * unlabeled number needs at least 10 digits so dates and short codes are
+     * skipped. Video-call dial-in lines are ignored.
+     */
+    fun extractPhone(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        val lines = text.lineSequence().filterNot { NOT_A_PHONE_LINE.containsMatchIn(it) }.toList()
+        lines.forEach { line ->
+            LABELED_PHONE.findAll(line).forEach { match ->
+                normalizePhone(match.groupValues[1], minDigits = 7)?.let { return it }
+            }
+        }
+        lines.forEach { line ->
+            LOOSE_PHONE.findAll(line).forEach { match ->
+                normalizePhone(match.value, minDigits = 10)?.let { return it }
+            }
+        }
+        return null
+    }
+
+    fun firstName(fullName: String?): String? {
+        val token = fullName?.trim()?.split(Regex("\\s+"))?.firstOrNull()?.trim(',', '.', ';', ':')
+        return token?.takeIf { it.isNotEmpty() && it.any(Char::isLetter) }
+    }
+
+    fun confirmationText(
+        leadName: String?,
+        eventTitle: String,
+        dateLabel: String,
+        timeLabel: String?
+    ): String {
+        val first = firstName(leadName) ?: "there"
+        val title = eventTitle.trim().ifEmpty { "Appointment" }
+        val whenText = if (timeLabel.isNullOrBlank()) "on $dateLabel" else "on $dateLabel at $timeLabel"
+        return "Hi $first, confirming our upcoming appointment ($title) $whenText. Reply here if you need anything!"
+    }
+
+    fun outcomeNote(
+        outcome: VisitOutcome?,
+        eventTitle: String,
+        whenLabel: String,
+        note: String
+    ): String {
+        val extra = note.trim()
+        if (outcome == null) return extra
+        val head = buildString {
+            append("Outcome: ").append(outcome.label)
+            val title = eventTitle.trim()
+            if (title.isNotEmpty()) append(" — ").append(title)
+            val whenText = whenLabel.trim()
+            if (whenText.isNotEmpty()) append(" (").append(whenText).append(")")
+        }
+        return if (extra.isEmpty()) head else "$head\n$extra"
+    }
+
+    /** Rescheduling only leaves a note; moving the appointment has its own flow. */
+    fun appointmentOutcomeFor(outcome: VisitOutcome): Outcome? {
+        return when (outcome) {
+            VisitOutcome.COMPLETED -> Outcome.COMPLETED
+            VisitOutcome.NO_SHOW -> Outcome.NO_SHOW
+            VisitOutcome.RESCHEDULED -> null
+        }
+    }
+
+    /**
+     * The next timed event within [windowMillis]. An event that began less than
+     * [graceMillis] ago still counts so a just-started meeting stays on screen.
+     */
+    fun pickUpNext(
+        events: List<SyncedCalendarEvent>,
+        nowMillis: Long,
+        windowMillis: Long = UP_NEXT_WINDOW_MS,
+        graceMillis: Long = UP_NEXT_GRACE_MS
+    ): SyncedCalendarEvent? {
+        return events
+            .filter { !it.allDay && !it.canceled && it.endMillis > nowMillis }
+            .filter { it.startMillis >= nowMillis - graceMillis && it.startMillis < nowMillis + windowMillis }
+            .minWithOrNull(compareBy<SyncedCalendarEvent> { it.startMillis }.thenBy { it.title.lowercase(Locale.US) })
+    }
+
+    fun countdownLabel(startMillis: Long, nowMillis: Long, zone: TimeZone, locale: Locale): String {
+        val diff = startMillis - nowMillis
+        if (diff <= 0L) return "Now"
+        val minutes = ((diff + MINUTE_MS - 1) / MINUTE_MS).toInt()
+        if (minutes < 60) return "In ${minutes}m"
+        if (minutes < 180) return "In ${durationLabel(minutes)}"
+        val time = java.text.SimpleDateFormat("h:mm a", locale).apply { timeZone = zone }.format(Date(startMillis))
+        val day = startOfDay(startMillis, zone)
+        val today = startOfDay(nowMillis, zone)
+        return when (day) {
+            today -> "Today at $time"
+            nextDayStart(today, zone) -> "Tomorrow at $time"
+            else -> {
+                val dow = java.text.SimpleDateFormat("EEE", locale).apply { timeZone = zone }.format(Date(startMillis))
+                "$dow at $time"
+            }
+        }
+    }
+
+    fun upNextHeadline(startMillis: Long, nowMillis: Long, zone: TimeZone): String {
+        if (startMillis <= nowMillis) return "Happening Now"
+        return if (startOfDay(startMillis, zone) == startOfDay(nowMillis, zone)) "Up Next Today" else "Up Next Tomorrow"
+    }
+
+    private fun normalizePhone(raw: String, minDigits: Int): String? {
+        val digits = raw.filter { it.isDigit() }
+        if (digits.length < minDigits || digits.length > 15) return null
+        return if (raw.trimStart().startsWith("+")) "+$digits" else digits
+    }
+
+    private fun roundUpToQuarterHour(millis: Long): Long {
+        val remainder = Math.floorMod(millis, SLOT_ROUNDING_MS)
+        return if (remainder == 0L) millis else millis - remainder + SLOT_ROUNDING_MS
+    }
+
+    private fun atHour(dayStartMillis: Long, hour: Int, zone: TimeZone): Long {
+        return Calendar.getInstance(zone).apply {
+            timeInMillis = dayStartMillis
+            zero(this)
+            if (hour >= 24) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            } else {
+                set(Calendar.HOUR_OF_DAY, hour)
+            }
+        }.timeInMillis
+    }
+
+    private fun nextDayStart(dayStartMillis: Long, zone: TimeZone): Long {
+        return Calendar.getInstance(zone).apply {
+            timeInMillis = dayStartMillis
+            add(Calendar.DAY_OF_MONTH, 1)
+            zero(this)
+        }.timeInMillis
     }
 
     private fun matchEventIndex(

@@ -95,7 +95,10 @@ fun DashboardScreen(
     onLeadClick: (String) -> Unit,
     onCallLead: (String) -> Unit,
     onCompleteLead: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    upNext: UpNextUi? = null,
+    onUpNextOpenAgenda: () -> Unit = {},
+    onUpNextConfirm: () -> Unit = {}
 ) {
     Box(
         modifier = modifier
@@ -181,6 +184,16 @@ fun DashboardScreen(
                 }
             }
             item { Spacer(modifier = Modifier.height(18.dp)) }
+            if (upNext != null) {
+                item {
+                    UpNextBanner(
+                        upNext = upNext,
+                        onOpenAgenda = onUpNextOpenAgenda,
+                        onConfirmPrep = onUpNextConfirm
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
             item {
                 FollowUpTabs(
                     selectedTab = selectedTab,
@@ -514,7 +527,15 @@ private fun DashboardScreenPreview() {
             ),
             onLeadClick = {},
             onCallLead = {},
-            onCompleteLead = {}
+            onCompleteLead = {},
+            upNext = UpNextUi(
+                headline = "Up Next Today",
+                title = "Appointment: Dylan Reyes",
+                countdown = "In 45m",
+                timeRange = "3:00 PM – 4:00 PM",
+                calendarLabel = "Work",
+                calendarColor = 0xFF4C8DFF.toInt()
+            )
         )
     }
 }

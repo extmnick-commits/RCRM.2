@@ -15,6 +15,13 @@ object NoteUtils {
         return "[$timestamp]: $content"
     }
 
+    fun prependNote(existing: String, content: String): String {
+        val trimmed = content.trim()
+        if (trimmed.isEmpty()) return existing
+        val formatted = formatNewNote(trimmed)
+        return if (existing.isBlank()) formatted else "$formatted\n\n$existing"
+    }
+
     fun wrapVoiceLog(originalNotes: String, newVoiceText: String): String {
         return if (originalNotes.isEmpty()) newVoiceText else "$originalNotes\n\n[Voice Log]: $newVoiceText"
     }

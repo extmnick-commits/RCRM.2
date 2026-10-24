@@ -247,6 +247,28 @@
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Show RCRM appointments only" />
+
+        <TextView
+            android:id="@+id/btnToggleOpenSlots"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.2"
+            android:layout_marginStart="8dp"
+            android:minHeight="48dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="⚡ Show Open Slots"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Show open time slots between events" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

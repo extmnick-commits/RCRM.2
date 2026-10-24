@@ -85,6 +85,9 @@ class AppointmentsActivity : AppCompatActivity() {
     private var selectedDayMillis: Long? = null
     private var snapDayStrip = true
     private var failedSync: AppointmentSync.SyncOperation? = null
+    private var showOpenSlots = false
+    private var pendingFocusEventId: Long? = null
+    private var pendingFocusStartMillis: Long? = null
 
     private var contactNameTarget: EditText? = null
     private var contactPhoneTarget: EditText? = null
@@ -189,7 +192,10 @@ class AppointmentsActivity : AppCompatActivity() {
             if (savedInstanceState.getBoolean(STATE_HAS_DAY)) {
                 selectedDayMillis = savedInstanceState.getLong(STATE_DAY)
             }
+        } else {
+            readFocusRequest(intent)
         }
+        showOpenSlots = getSharedPreferences(VIEW_PREFS, MODE_PRIVATE).getBoolean(KEY_SHOW_OPEN_SLOTS, false)
 
         db = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
@@ -246,6 +252,14 @@ class AppointmentsActivity : AppCompatActivity() {
             styleFilterChips()
             renderAgenda(scroll = false)
         }
+        findViewById<View>(R.id.btnToggleOpenSlots).setOnClickListener {
+            showOpenSlots = !showOpenSlots
+            getSharedPreferences(VIEW_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(KEY_SHOW_OPEN_SLOTS, showOpenSlots)
+                .apply()
+            styleFilterChips()
+            renderAgenda(scroll = false)
+        }
         findViewById<View>(R.id.tvSyncStatus).setOnClickListener { retryFailedSync() }
         applyWindowInsets()
         findViewById<View>(R.id.btnShowFullMonth).setOnClickListener {
@@ -278,6 +292,35 @@ class AppointmentsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadAgenda()
+    }
+
+    private fun readFocusRequest(source: Intent?) {
+        val eventId = source?.getLongExtra(EXTRA_FOCUS_EVENT_ID, -1L)?.takeIf { it > 0L } ?: return
+        val start = source.getLongExtra(EXTRA_FOCUS_START_MILLIS, -1L).takeIf { it > 0L } ?: return
+        pendingFocusEventId = eventId
+        pendingFocusStartMillis = start
+        val day = startOfLocalDay(start)
+        visibleMonth.timeInMillis = day
+        visibleMonth.set(Calendar.DAY_OF_MONTH, 1)
+        zeroTime(visibleMonth)
+        selectedDayMillis = day
+        snapDayStrip = true
+    }
+
+    private fun consumeFocusRequest() {
+        val eventId = pendingFocusEventId ?: return
+        val start = pendingFocusStartMillis ?: return
+        pendingFocusEventId = null
+        pendingFocusStartMillis = null
+        val match = monthItems.firstOrNull { item ->
+            item.eventId == eventId &&
+                kotlin.math.abs(item.startMillis - start) <= AppointmentAgenda.SAME_INSTANT_TOLERANCE_MS
+        } ?: monthItems.firstOrNull { it.eventId == eventId }
+        if (match != null) {
+            showEventActions(match)
+        } else {
+            Toast.makeText(this, "That event is no longer on your visible calendars.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun requestCalendarPermissions() {
@@ -426,6 +469,7 @@ class AppointmentsActivity : AppCompatActivity() {
                         progressBar.visibility = View.GONE
                         monthItems = items
                         renderAgenda(scroll = true)
+                        consumeFocusRequest()
                     }
                 }
             }
@@ -483,6 +527,7 @@ class AppointmentsActivity : AppCompatActivity() {
         val nameToId = LinkedHashMap<String, String>()
         val appointments = mutableListOf<AppointmentAgenda.CrmAppointmentRef>()
         val migrations = mutableListOf<Pair<String, List<AppointmentAgenda.AppointmentRecord>>>()
+        val leadContacts = HashMap<String, LeadChoice>()
         leads.forEach { lead ->
             val name = (lead["name"] as? String)?.trim().orEmpty()
             val leadId = lead["__docId"] as? String ?: return@forEach
@@ -508,6 +553,7 @@ class AppointmentsActivity : AppCompatActivity() {
                 migrations += leadId to migrated
             }
             val phone = (lead["phone"] as? String)?.trim().orEmpty()
+            leadContacts[leadId] = LeadChoice(id = leadId, name = name.ifBlank { "Lead" }, phone = phone)
             migrated.forEach { record ->
                 appointments += AppointmentAgenda.CrmAppointmentRef(
                     leadId = leadId,
@@ -562,7 +608,24 @@ class AppointmentsActivity : AppCompatActivity() {
             rangeEnd = endMillis,
             zone = zone
         )
-        return reconciled.map { entry -> entry.toAgendaItem() }
+        val phonesByEventId = HashMap<Long, String>()
+        events.forEach { event ->
+            val found = AppointmentAgenda.extractPhone(event.description)
+                ?: AppointmentAgenda.extractPhone(event.title)
+            if (found != null) phonesByEventId.putIfAbsent(event.eventId, found)
+        }
+        return reconciled.map { entry ->
+            val lead = entry.leadId?.let { leadContacts[it] }
+            val filled = if (lead == null) {
+                entry
+            } else {
+                entry.copy(
+                    leadName = entry.leadName ?: lead.name,
+                    phone = entry.phone?.takeIf { it.isNotBlank() } ?: lead.phone.takeIf { it.isNotBlank() }
+                )
+            }
+            filled.toAgendaItem().copy(eventPhone = entry.eventId?.let { phonesByEventId[it] })
+        }
     }
 
     private fun persistMigrations(
@@ -619,8 +682,10 @@ class AppointmentsActivity : AppCompatActivity() {
         )
         val visibleKeys = filtered.map { entryKey(it) }.toSet()
         val shown = items.filter { entryKey(it.toEntry()) in visibleKeys }
+        val eventsByDay = shown.groupBy { eventDayStart(it) }
+        val slotsByDay = if (showOpenSlots) openSlotsByDay(items, todayStart) else emptyMap()
         val rows = mutableListOf<AgendaRow>()
-        shown.groupBy { eventDayStart(it) }.toSortedMap().forEach { (day, dayItems) ->
+        (eventsByDay.keys + slotsByDay.keys).toSortedSet().forEach { day ->
             val isToday = day == todayStart
             val label = if (isToday) {
                 "TODAY • ${dayFormat.format(Date(day))}"
@@ -628,9 +693,51 @@ class AppointmentsActivity : AppCompatActivity() {
                 dayFormat.format(Date(day))
             }
             rows += AgendaRow.DayHeader(day, label, isToday)
-            dayItems.sortedBy { it.startMillis }.forEach { rows += AgendaRow.Event(it) }
+            val timed = eventsByDay[day].orEmpty().map { it.startMillis to AgendaRow.Event(it) } +
+                slotsByDay[day].orEmpty().map { slot ->
+                    slot.startMillis to AgendaRow.OpenSlotItem(slot.startMillis, slot.endMillis, slot.durationMinutes)
+                }
+            timed.sortedWith(
+                compareBy<Pair<Long, AgendaRow>> { it.first }.thenBy { if (it.second is AgendaRow.OpenSlotItem) 1 else 0 }
+            ).forEach { rows += it.second }
         }
         return rows
+    }
+
+    /**
+     * Busy time comes from every loaded item, not just the visible source filter,
+     * so a personal event still blocks a slot while viewing CRM-only.
+     */
+    private fun openSlotsByDay(
+        items: List<AgendaItem>,
+        todayStart: Long
+    ): Map<Long, List<AppointmentAgenda.OpenTimeSlot>> {
+        val zone = TimeZone.getDefault()
+        val now = System.currentTimeMillis()
+        val busy = items
+            .filter { !it.allDay && it.status != AppointmentAgenda.AppointmentStatus.CANCELED }
+            .map { AppointmentAgenda.BusyBlock(it.startMillis, it.endMillis) }
+        return openSlotDays(todayStart)
+            .associateWith { day ->
+                AppointmentAgenda.findOpenSlots(busy, day, zone = zone, notBeforeMillis = now)
+            }
+            .filterValues { it.isNotEmpty() }
+    }
+
+    private fun openSlotDays(todayStart: Long): List<Long> {
+        val selected = selectedDayMillis
+        if (selected != null) return if (selected >= todayStart) listOf(selected) else emptyList()
+        val (monthStart, monthEnd) = monthRange()
+        val cursor = Calendar.getInstance().apply {
+            timeInMillis = maxOf(monthStart, todayStart)
+            zeroTime(this)
+        }
+        val days = mutableListOf<Long>()
+        while (cursor.timeInMillis < monthEnd) {
+            days += cursor.timeInMillis
+            cursor.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        return days
     }
 
     private fun scrollTargetMillis(): Long? {
@@ -652,6 +759,7 @@ class AppointmentsActivity : AppCompatActivity() {
             when (row) {
                 is AgendaRow.DayHeader -> row.dayStartMillis == dayMillis
                 is AgendaRow.Event -> eventDayStart(row.item) == dayMillis
+                is AgendaRow.OpenSlotItem -> startOfLocalDay(row.startMillis) == dayMillis
             }
         }
         if (index >= 0) {
@@ -712,6 +820,15 @@ class AppointmentsActivity : AppCompatActivity() {
         styleChip(findViewById(R.id.btnFilterAllMonth), monthFilter == MonthFilter.ALL, primary, secondary)
         styleChip(findViewById(R.id.btnFilterAllEvents), sourceFilter == SourceFilter.ALL_EVENTS, primary, secondary)
         styleChip(findViewById(R.id.btnFilterCrmOnly), sourceFilter == SourceFilter.CRM_ONLY, primary, secondary)
+        val slotsChip = findViewById<TextView>(R.id.btnToggleOpenSlots)
+        slotsChip.isSelected = showOpenSlots
+        if (showOpenSlots) {
+            slotsChip.setBackgroundResource(R.drawable.bg_neon_green_button)
+            slotsChip.setTextColor(primary)
+        } else {
+            slotsChip.setBackgroundResource(R.drawable.bg_frosted_pill_input)
+            slotsChip.setTextColor(secondary)
+        }
     }
 
     private fun styleChip(view: TextView, selected: Boolean, primary: Int, secondary: Int) {
@@ -750,6 +867,33 @@ class AppointmentsActivity : AppCompatActivity() {
             detailView.text = item.detailText
         }
 
+        val leadPhone = leadPhoneFor(item)
+        val contactPhone = leadPhone ?: item.eventPhone
+        val phoneLabel = dialogView.findViewById<TextView>(R.id.tvEventActionPhone)
+        val contactRow = dialogView.findViewById<View>(R.id.rowClientContact)
+        if (contactPhone == null) {
+            phoneLabel.visibility = View.GONE
+            contactRow.visibility = View.GONE
+        } else {
+            phoneLabel.visibility = View.VISIBLE
+            phoneLabel.text = if (leadPhone != null) "Lead phone: $contactPhone" else "Phone in event: $contactPhone"
+            contactRow.visibility = View.VISIBLE
+            val callButton = dialogView.findViewById<TextView>(R.id.btnCallLead)
+            callButton.text = if (item.leadId.isNullOrBlank()) "📞 Call" else "📞 Call Lead"
+            callButton.setOnClickListener {
+                dialog.dismiss()
+                dialPhone(contactPhone)
+            }
+            dialogView.findViewById<View>(R.id.btnSendConfirmationText).setOnClickListener {
+                dialog.dismiss()
+                sendConfirmationText(item, contactPhone)
+            }
+        }
+        dialogView.findViewById<View>(R.id.btnLogOutcome).setOnClickListener {
+            dialog.dismiss()
+            showQuickNoteDialog(item, outcomeMode = true)
+        }
+
         dialogView.findViewById<View>(R.id.btnViewInGoogleCalendar).setOnClickListener {
             dialog.dismiss()
             openInGoogleCalendar(item)
@@ -762,7 +906,7 @@ class AppointmentsActivity : AppCompatActivity() {
             saveOrLink.visibility = View.VISIBLE
             saveOrLink.setOnClickListener {
                 dialog.dismiss()
-                showSaveLeadDialog(item, thenNote = false)
+                showSaveLeadDialog(item, AfterLink.NONE)
             }
         } else {
             openLead.visibility = View.VISIBLE
@@ -774,7 +918,7 @@ class AppointmentsActivity : AppCompatActivity() {
         }
 
         val outcomes = dialogView.findViewById<View>(R.id.outcomeActions)
-        val canRecordOutcome = item.explicitCrm && !item.appointmentId.isNullOrBlank() && !item.leadId.isNullOrBlank()
+        val canRecordOutcome = canRecordOutcome(item)
         outcomes.visibility = if (canRecordOutcome) View.VISIBLE else View.GONE
         if (canRecordOutcome) {
             dialogView.findViewById<View>(R.id.btnOutcomeCompleted).setOnClickListener {
@@ -799,11 +943,7 @@ class AppointmentsActivity : AppCompatActivity() {
 
         dialogView.findViewById<View>(R.id.btnQuickNoteFollowUp).setOnClickListener {
             dialog.dismiss()
-            if (item.leadId.isNullOrBlank()) {
-                showSaveLeadDialog(item, thenNote = true)
-            } else {
-                showQuickNoteDialog(item)
-            }
+            showQuickNoteDialog(item)
         }
         dialogView.findViewById<View>(R.id.btnCloseEventActions).setOnClickListener { dialog.dismiss() }
 
@@ -811,15 +951,65 @@ class AppointmentsActivity : AppCompatActivity() {
         sizeDialog(dialog)
     }
 
-    private fun showSaveLeadDialog(item: AgendaItem, thenNote: Boolean) {
+    private fun canRecordOutcome(item: AgendaItem): Boolean {
+        return item.explicitCrm && !item.appointmentId.isNullOrBlank() && !item.leadId.isNullOrBlank()
+    }
+
+    private fun leadPhoneFor(item: AgendaItem): String? {
+        return item.phone?.trim()?.takeIf { phone -> phone.count { it.isDigit() } >= 7 }
+    }
+
+    private fun dialablePhone(phone: String): String {
+        val digits = phone.filter { it.isDigit() }
+        return if (phone.trim().startsWith("+")) "+$digits" else digits
+    }
+
+    private fun sendConfirmationText(item: AgendaItem, phone: String) {
+        val start = Date(item.startMillis)
+        val dateLabel = if (item.allDay) dayFormat.format(Date(eventDayStart(item))) else dayFormat.format(start)
+        val timeLabel = if (item.allDay) null else timeFormat.format(start)
+        val message = AppointmentAgenda.confirmationText(item.leadName, item.title, dateLabel, timeLabel)
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${dialablePhone(phone)}")).apply {
+            putExtra("sms_body", message)
+        }
+        launchExternal(intent, "No messaging app is available on this device.")
+    }
+
+    private fun dialPhone(phone: String) {
+        launchExternal(
+            Intent(Intent.ACTION_DIAL, Uri.parse("tel:${dialablePhone(phone)}")),
+            "No phone app is available on this device."
+        )
+    }
+
+    private fun launchExternal(intent: Intent, unavailableMessage: String) {
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, unavailableMessage, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun continueAfterLink(linked: AgendaItem, after: AfterLink) {
+        when (after) {
+            AfterLink.NONE -> loadAgenda()
+            AfterLink.NOTE -> showQuickNoteDialog(linked)
+            AfterLink.OUTCOME -> showQuickNoteDialog(linked, outcomeMode = true)
+        }
+    }
+
+    private fun showSaveLeadDialog(item: AgendaItem, after: AfterLink) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_save_calendar_lead, null)
         val dialog = glassDialog(dialogView)
         val nameInput = dialogView.findViewById<EditText>(R.id.etSaveLeadName)
         val phoneInput = dialogView.findViewById<EditText>(R.id.etSaveLeadPhone)
         nameInput.setText(suggestedLeadName(item.title))
-        if (thenNote) {
-            dialogView.findViewById<TextView>(R.id.tvSaveLeadSubtitle).text =
+        when (after) {
+            AfterLink.NOTE -> dialogView.findViewById<TextView>(R.id.tvSaveLeadSubtitle).text =
                 "Save this event as a lead first, then add the note or follow-up."
+            AfterLink.OUTCOME -> dialogView.findViewById<TextView>(R.id.tvSaveLeadSubtitle).text =
+                "Save this event as a lead first, then log the outcome."
+            AfterLink.NONE -> Unit
         }
         contactNameTarget = nameInput
         contactPhoneTarget = phoneInput
@@ -836,7 +1026,7 @@ class AppointmentsActivity : AppCompatActivity() {
         dialogView.findViewById<View>(R.id.btnCancelSaveLead).setOnClickListener { dialog.dismiss() }
         dialogView.findViewById<View>(R.id.btnLinkExistingLead).setOnClickListener {
             dialog.dismiss()
-            showLinkExistingLeadDialog(item, thenNote)
+            showLinkExistingLeadDialog(item, after)
         }
         val saveButton = dialogView.findViewById<View>(R.id.btnSaveNewLead)
         saveButton.setOnClickListener {
@@ -858,7 +1048,7 @@ class AppointmentsActivity : AppCompatActivity() {
                     dialog.dismiss()
                     val linked = item.copy(leadId = leadId, leadName = name, phone = phone)
                     Toast.makeText(this, "Lead saved", Toast.LENGTH_SHORT).show()
-                    if (thenNote) showQuickNoteDialog(linked) else loadAgenda()
+                    continueAfterLink(linked, after)
                 },
                 onFailed = { saveButton.isEnabled = true }
             )
@@ -868,7 +1058,7 @@ class AppointmentsActivity : AppCompatActivity() {
         sizeDialog(dialog)
     }
 
-    private fun showLinkExistingLeadDialog(item: AgendaItem, thenNote: Boolean) {
+    private fun showLinkExistingLeadDialog(item: AgendaItem, after: AfterLink) {
         val leads = leadChoices()
         if (leads.isEmpty()) {
             Toast.makeText(this, "No RCRM leads to link yet.", Toast.LENGTH_LONG).show()
@@ -889,7 +1079,7 @@ class AppointmentsActivity : AppCompatActivity() {
                 onDone = {
                     val linked = item.copy(leadId = choice.id, leadName = choice.name, phone = choice.phone)
                     Toast.makeText(this, "Linked to ${choice.name}", Toast.LENGTH_SHORT).show()
-                    if (thenNote) showQuickNoteDialog(linked) else loadAgenda()
+                    continueAfterLink(linked, after)
                 }
             )
         }
@@ -916,10 +1106,10 @@ class AppointmentsActivity : AppCompatActivity() {
         sizeDialog(dialog)
     }
 
-    private fun showQuickNoteDialog(item: AgendaItem) {
+    private fun showQuickNoteDialog(item: AgendaItem, outcomeMode: Boolean = false) {
         val leadId = item.leadId
         if (leadId.isNullOrBlank()) {
-            showSaveLeadDialog(item, thenNote = true)
+            showSaveLeadDialog(item, if (outcomeMode) AfterLink.OUTCOME else AfterLink.NOTE)
             return
         }
         val dialogView = layoutInflater.inflate(R.layout.dialog_quick_note_followup, null)
@@ -927,6 +1117,36 @@ class AppointmentsActivity : AppCompatActivity() {
         dialogView.findViewById<TextView>(R.id.tvQuickNoteEvent).text = "${item.title}\n${item.whenLabel}"
         val noteInput = dialogView.findViewById<EditText>(R.id.etQuickNote)
         val followUpLabel = dialogView.findViewById<TextView>(R.id.tvFollowUpSelection)
+        var selectedOutcome: AppointmentAgenda.VisitOutcome? = null
+        if (outcomeMode) {
+            dialogView.findViewById<TextView>(R.id.tvQuickNoteTitle).text = "✅ Log Outcome"
+            noteInput.hint = "Outcome details (optional)"
+            dialogView.findViewById<View>(R.id.rowOutcomeChips).visibility = View.VISIBLE
+            val chips = listOf(
+                Triple(AppointmentAgenda.VisitOutcome.COMPLETED, R.id.chipOutcomeCompleted, R.drawable.bg_neon_green_button),
+                Triple(AppointmentAgenda.VisitOutcome.RESCHEDULED, R.id.chipOutcomeRescheduled, R.drawable.bg_neon_cyan_button),
+                Triple(AppointmentAgenda.VisitOutcome.NO_SHOW, R.id.chipOutcomeNoShow, R.drawable.bg_neon_purple_button)
+            ).map { (outcome, id, selectedBackground) ->
+                Triple(outcome, dialogView.findViewById<TextView>(id), selectedBackground)
+            }
+            val primary = ContextCompat.getColor(this, R.color.textColorPrimary)
+            val secondary = ContextCompat.getColor(this, R.color.textColorSecondary)
+            fun renderChips() {
+                chips.forEach { (outcome, chip, selectedBackground) ->
+                    val selected = outcome == selectedOutcome
+                    chip.isSelected = selected
+                    chip.setBackgroundResource(if (selected) selectedBackground else R.drawable.bg_frosted_pill_input)
+                    chip.setTextColor(if (selected) primary else secondary)
+                }
+            }
+            chips.forEach { (outcome, chip, _) ->
+                chip.setOnClickListener {
+                    selectedOutcome = if (selectedOutcome == outcome) null else outcome
+                    renderChips()
+                }
+            }
+            renderChips()
+        }
         var followUpMillis: Long? = null
         followUpLabel.setOnClickListener {
             if (followUpMillis != null) {
@@ -943,10 +1163,26 @@ class AppointmentsActivity : AppCompatActivity() {
         dialogView.findViewById<View>(R.id.btnCancelQuickNote).setOnClickListener { dialog.dismiss() }
         val saveButton = dialogView.findViewById<View>(R.id.btnSaveQuickNote)
         saveButton.setOnClickListener {
-            val note = noteInput.text.toString().trim()
+            val typed = noteInput.text.toString().trim()
+            val outcome = selectedOutcome
+            val note = if (outcomeMode) {
+                AppointmentAgenda.outcomeNote(
+                    outcome = outcome,
+                    eventTitle = item.title,
+                    whenLabel = formatWhen(item.startMillis, item.endMillis, item.allDay),
+                    note = typed
+                )
+            } else {
+                typed
+            }
             val followUp = followUpMillis
             if (note.isEmpty() && followUp == null) {
-                Toast.makeText(this, "Add a note or set a follow-up.", Toast.LENGTH_SHORT).show()
+                val hint = if (outcomeMode) {
+                    "Pick an outcome, add a note, or set a follow-up."
+                } else {
+                    "Add a note or set a follow-up."
+                }
+                Toast.makeText(this, hint, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             saveButton.isEnabled = false
@@ -956,7 +1192,15 @@ class AppointmentsActivity : AppCompatActivity() {
                 phone = item.phone.orEmpty(),
                 note = note,
                 followUpMillis = followUp,
-                onDone = { dialog.dismiss() },
+                prepend = outcomeMode,
+                savedMessage = if (outcomeMode) "Outcome logged" else "Saved",
+                onDone = {
+                    dialog.dismiss()
+                    val status = outcome?.let(AppointmentAgenda::appointmentOutcomeFor)
+                    if (status != null && canRecordOutcome(item) && item.status != statusFor(status)) {
+                        recordOutcome(item, status, null, openNoteAfter = false)
+                    }
+                },
                 onFailed = { saveButton.isEnabled = true }
             )
         }
@@ -964,12 +1208,12 @@ class AppointmentsActivity : AppCompatActivity() {
         sizeDialog(dialog)
     }
 
-    private fun showNewAppointmentDialog() {
+    private fun showNewAppointmentDialog(presetStartMillis: Long? = null) {
         val prefs = getSharedPreferences("user_settings", MODE_PRIVATE)
         var officeAddress = prefs.getString("default_office_address", "") ?: ""
         val dialogView = layoutInflater.inflate(R.layout.dialog_appointment, null)
         val root = dialogView as LinearLayout
-        (root.getChildAt(0) as? TextView)?.text = "+ New Appointment"
+        (root.getChildAt(0) as? TextView)?.text = if (presetStartMillis != null) "✨ Book Open Slot" else "+ New Appointment"
         val nameInput = pillField("Lead name", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         val phoneInput = pillField("Phone (optional)", InputType.TYPE_CLASS_PHONE)
         root.addView(nameInput, 1)
@@ -989,7 +1233,9 @@ class AppointmentsActivity : AppCompatActivity() {
         val btnCancelAppt = dialogView.findViewById<Button>(R.id.btnCancelAppt)
         val btnSaveAppt = dialogView.findViewById<Button>(R.id.btnSaveAppt)
 
-        var tempCal: Calendar? = defaultAppointmentCalendar()
+        var tempCal: Calendar? = presetStartMillis?.let { start ->
+            Calendar.getInstance().apply { timeInMillis = start }
+        } ?: defaultAppointmentCalendar()
         val sdfDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
         val sdfTime = SimpleDateFormat("h:mm a", Locale.getDefault())
 
@@ -1352,6 +1598,8 @@ class AppointmentsActivity : AppCompatActivity() {
         phone: String,
         note: String,
         followUpMillis: Long?,
+        prepend: Boolean = false,
+        savedMessage: String = "Saved",
         onDone: () -> Unit,
         onFailed: () -> Unit = {}
     ) {
@@ -1364,7 +1612,8 @@ class AppointmentsActivity : AppCompatActivity() {
                 }
                 val updates = mutableMapOf<String, Any>("timestamp" to Timestamp.now())
                 if (note.isNotBlank()) {
-                    updates["notes"] = appendNote(doc.getString("notes").orEmpty(), note)
+                    val existing = doc.getString("notes").orEmpty()
+                    updates["notes"] = if (prepend) NoteUtils.prependNote(existing, note) else appendNote(existing, note)
                 }
                 if (followUpMillis != null) {
                     updates["followUpDate"] = Timestamp(Date(followUpMillis))
@@ -1379,7 +1628,7 @@ class AppointmentsActivity : AppCompatActivity() {
                                 followUpMillis
                             )
                         }
-                        Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, savedMessage, Toast.LENGTH_SHORT).show()
                         loadAgenda()
                         onDone()
                     }
@@ -1504,10 +1753,19 @@ class AppointmentsActivity : AppCompatActivity() {
         )
     }
 
+    private fun statusFor(outcome: AppointmentAgenda.Outcome): AppointmentAgenda.AppointmentStatus {
+        return when (outcome) {
+            AppointmentAgenda.Outcome.COMPLETED -> AppointmentAgenda.AppointmentStatus.COMPLETED
+            AppointmentAgenda.Outcome.NO_SHOW -> AppointmentAgenda.AppointmentStatus.NO_SHOW
+            AppointmentAgenda.Outcome.CANCELED -> AppointmentAgenda.AppointmentStatus.CANCELED
+        }
+    }
+
     private fun recordOutcome(
         item: AgendaItem,
         outcome: AppointmentAgenda.Outcome?,
-        newStartMillis: Long?
+        newStartMillis: Long?,
+        openNoteAfter: Boolean = true
     ) {
         val leadId = item.leadId ?: return
         val appointmentId = item.appointmentId ?: return
@@ -1636,14 +1894,16 @@ class AppointmentsActivity : AppCompatActivity() {
                 }
                 Toast.makeText(this, "Appointment updated", Toast.LENGTH_SHORT).show()
                 loadAgenda()
-                showQuickNoteDialog(
-                    item.copy(
-                        startMillis = record.startMillis,
-                        leadId = leadId,
-                        appointmentId = appointmentId,
-                        explicitCrm = true
+                if (openNoteAfter) {
+                    showQuickNoteDialog(
+                        item.copy(
+                            startMillis = record.startMillis,
+                            leadId = leadId,
+                            appointmentId = appointmentId,
+                            explicitCrm = true
+                        )
                     )
-                )
+                }
             },
             onFailure = { error ->
                 val message = error.message.orEmpty()
@@ -2438,6 +2698,8 @@ class AppointmentsActivity : AppCompatActivity() {
 
     private enum class SourceFilter { ALL_EVENTS, CRM_ONLY }
 
+    private enum class AfterLink { NONE, NOTE, OUTCOME }
+
     private data class LeadChoice(
         val id: String,
         val name: String,
@@ -2469,7 +2731,8 @@ class AppointmentsActivity : AppCompatActivity() {
         val ownerId: String? = null,
         val timeDrifted: Boolean = false,
         val storedStartMillis: Long? = null,
-        val calendarDisplayName: String = ""
+        val calendarDisplayName: String = "",
+        val eventPhone: String? = null
     )
 
     private data class DayCell(
@@ -2489,21 +2752,31 @@ class AppointmentsActivity : AppCompatActivity() {
         ) : AgendaRow()
 
         data class Event(val item: AgendaItem) : AgendaRow()
+
+        data class OpenSlotItem(
+            val startMillis: Long,
+            val endMillis: Long,
+            val durationMinutes: Int
+        ) : AgendaRow()
     }
 
     private inner class AgendaAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         override fun getItemCount(): Int = displayRows.size
 
         override fun getItemViewType(position: Int): Int {
-            return if (displayRows[position] is AgendaRow.DayHeader) VIEW_HEADER else VIEW_EVENT
+            return when (displayRows[position]) {
+                is AgendaRow.DayHeader -> VIEW_HEADER
+                is AgendaRow.Event -> VIEW_EVENT
+                is AgendaRow.OpenSlotItem -> VIEW_OPEN_SLOT
+            }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val inflater = LayoutInflater.from(parent.context)
-            return if (viewType == VIEW_HEADER) {
-                HeaderHolder(inflater.inflate(R.layout.item_agenda_day_header, parent, false))
-            } else {
-                EventHolder(inflater.inflate(R.layout.item_calendar_event, parent, false))
+            return when (viewType) {
+                VIEW_HEADER -> HeaderHolder(inflater.inflate(R.layout.item_agenda_day_header, parent, false))
+                VIEW_OPEN_SLOT -> OpenSlotHolder(inflater.inflate(R.layout.item_open_slot, parent, false))
+                else -> EventHolder(inflater.inflate(R.layout.item_calendar_event, parent, false))
             }
         }
 
@@ -2511,6 +2784,21 @@ class AppointmentsActivity : AppCompatActivity() {
             when (val row = displayRows[position]) {
                 is AgendaRow.DayHeader -> (holder as HeaderHolder).bind(row)
                 is AgendaRow.Event -> (holder as EventHolder).bind(row.item)
+                is AgendaRow.OpenSlotItem -> (holder as OpenSlotHolder).bind(row)
+            }
+        }
+
+        private inner class OpenSlotHolder(view: View) : RecyclerView.ViewHolder(view) {
+            private val title: TextView = view.findViewById(R.id.tvOpenSlotTitle)
+            private val duration: TextView = view.findViewById(R.id.tvOpenSlotDuration)
+
+            fun bind(row: AgendaRow.OpenSlotItem) {
+                val range = "${timeFormat.format(Date(row.startMillis))} – ${timeFormat.format(Date(row.endMillis))}"
+                val length = AppointmentAgenda.durationLabel(row.durationMinutes)
+                title.text = "✨ Free Slot: $range • Tap to Book"
+                duration.text = "$length open"
+                itemView.contentDescription = "Free slot $range, $length open. Tap to book."
+                itemView.setOnClickListener { showNewAppointmentDialog(presetStartMillis = row.startMillis) }
             }
         }
 
@@ -2654,8 +2942,13 @@ class AppointmentsActivity : AppCompatActivity() {
     }
 
     companion object {
+        const val EXTRA_FOCUS_EVENT_ID = "focus_event_id"
+        const val EXTRA_FOCUS_START_MILLIS = "focus_event_start_millis"
         private const val VIEW_HEADER = 0
         private const val VIEW_EVENT = 1
+        private const val VIEW_OPEN_SLOT = 2
+        private const val VIEW_PREFS = "appointments_view"
+        private const val KEY_SHOW_OPEN_SLOTS = "show_open_slots"
         private const val STATE_MONTH = "appointments_month"
         private const val STATE_FILTER = "appointments_filter"
         private const val STATE_DAY = "appointments_day"

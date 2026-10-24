@@ -704,6 +704,214 @@ class AppointmentAgendaTest {
         assertFalse(AppointmentAgenda.shortCalendarLabel("Family", true).contains("extmnick"))
     }
 
+    @Test
+    fun openSlotsFillTheGapsBetweenTimedEvents() {
+        val day = AppointmentAgenda.startOfDay(local(2026, Calendar.OCTOBER, 26), zone)
+        val holiday = synced(
+            id = 1,
+            title = "Holiday",
+            start = utcMidnight(2026, Calendar.OCTOBER, 26),
+            end = utcMidnight(2026, Calendar.OCTOBER, 27),
+            allDay = true
+        )
+        val events = listOf(
+            synced(id = 2, title = "Client call", start = at(26, 10), end = at(26, 11)),
+            synced(id = 3, title = "Canceled lunch", start = at(26, 12), end = at(26, 13), canceled = true),
+            synced(id = 4, title = "Review", start = at(26, 14), end = at(26, 15)),
+            holiday
+        )
+
+        val slots = AppointmentAgenda.findOpenSlotsForDay(events, day, zone = zone)
+
+        assertEquals(
+            listOf(
+                AppointmentAgenda.OpenTimeSlot(at(26, 9), at(26, 10), 60),
+                AppointmentAgenda.OpenTimeSlot(at(26, 11), at(26, 14), 180),
+                AppointmentAgenda.OpenTimeSlot(at(26, 15), at(26, 18), 180)
+            ),
+            slots
+        )
+    }
+
+    @Test
+    fun openSlotsMergeOverlapsClipToWorkHoursAndDropShortGaps() {
+        val day = AppointmentAgenda.startOfDay(local(2026, Calendar.OCTOBER, 26), zone)
+        val events = listOf(
+            synced(id = 1, title = "Early gym", start = at(26, 8), end = at(26, 9, 30)),
+            synced(id = 2, title = "Standup", start = at(26, 9, 45), end = at(26, 10, 30)),
+            synced(id = 3, title = "Overlap", start = at(26, 10), end = at(26, 11)),
+            synced(id = 4, title = "Quick sync", start = at(26, 11, 30), end = at(26, 12)),
+            synced(id = 5, title = "Late dinner", start = at(26, 16, 30), end = at(26, 20))
+        )
+
+        assertEquals(
+            listOf(AppointmentAgenda.OpenTimeSlot(at(26, 12), at(26, 16, 30), 270)),
+            AppointmentAgenda.findOpenSlotsForDay(events, day, zone = zone)
+        )
+        assertEquals(
+            listOf(
+                AppointmentAgenda.OpenTimeSlot(at(26, 9, 30), at(26, 9, 45), 15),
+                AppointmentAgenda.OpenTimeSlot(at(26, 11), at(26, 11, 30), 30),
+                AppointmentAgenda.OpenTimeSlot(at(26, 12), at(26, 16, 30), 270)
+            ),
+            AppointmentAgenda.findOpenSlotsForDay(events, day, minSlotMinutes = 15, zone = zone)
+        )
+    }
+
+    @Test
+    fun openSlotsSkipPastTimeAndHandleFullOrInvalidDays() {
+        val day = AppointmentAgenda.startOfDay(local(2026, Calendar.OCTOBER, 26), zone)
+
+        assertEquals(
+            listOf(AppointmentAgenda.OpenTimeSlot(at(26, 13, 15), at(26, 18), 285)),
+            AppointmentAgenda.findOpenSlotsForDay(emptyList(), day, zone = zone, notBeforeMillis = at(26, 13, 7))
+        )
+        assertTrue(
+            AppointmentAgenda.findOpenSlotsForDay(emptyList(), day, zone = zone, notBeforeMillis = at(26, 17, 30)).isEmpty()
+        )
+        val fullDay = listOf(synced(id = 1, title = "Workshop", start = at(26, 8), end = at(26, 19)))
+        assertTrue(AppointmentAgenda.findOpenSlotsForDay(fullDay, day, zone = zone).isEmpty())
+        assertTrue(
+            AppointmentAgenda.findOpenSlotsForDay(emptyList(), day, workStartHour = 18, workEndHour = 9, zone = zone).isEmpty()
+        )
+        assertEquals("45m", AppointmentAgenda.durationLabel(45))
+        assertEquals("1h", AppointmentAgenda.durationLabel(60))
+        assertEquals("1h 30m", AppointmentAgenda.durationLabel(90))
+    }
+
+    @Test
+    fun phoneIsFoundInEventTextButNotInDatesOrDialIns() {
+        val crmDescription = AppointmentAgenda.crmDescription("Alex", "(209) 549-6004", "Office", "lead-1", "a1")
+        assertEquals("2095496004", AppointmentAgenda.extractPhone(crmDescription))
+        assertEquals("+14155550134", AppointmentAgenda.extractPhone("Call Maria +1 415 555 0134 about her policy"))
+        assertEquals("5551234", AppointmentAgenda.extractPhone("Cell: 555-1234 at 10:00"))
+        assertNull(AppointmentAgenda.extractPhone("Review 2026-10-24 10:00 notes"))
+        assertNull(
+            AppointmentAgenda.extractPhone(
+                "Join Zoom Meeting\nhttps://zoom.us/j/84512345678\nMeeting ID: 845 1234 5678\n+16465588656,,84512345678# US"
+            )
+        )
+        assertNull(AppointmentAgenda.extractPhone("Phone: 555"))
+        assertNull(AppointmentAgenda.extractPhone(null))
+    }
+
+    @Test
+    fun confirmationTextUsesTheFirstNameAndOmitsTimeForAllDay() {
+        assertEquals(
+            "Hi Dylan, confirming our upcoming appointment (Appointment: Dylan Reyes) on Sat, Oct 24 at 3:00 PM. " +
+                "Reply here if you need anything!",
+            AppointmentAgenda.confirmationText("Dylan Reyes", "Appointment: Dylan Reyes", "Sat, Oct 24", "3:00 PM")
+        )
+        assertEquals(
+            "Hi there, confirming our upcoming appointment (Coffee) on Sat, Oct 24. Reply here if you need anything!",
+            AppointmentAgenda.confirmationText(null, "Coffee", "Sat, Oct 24", null)
+        )
+        assertNull(AppointmentAgenda.firstName("  "))
+    }
+
+    @Test
+    fun outcomeNoteLeadsWithTheOutcomeAndOnlyMapsRealStatuses() {
+        assertEquals(
+            "Outcome: Completed ✅ — Alex (Mon, Oct 26 · 10:00 AM – 11:00 AM)\nSigned the application",
+            AppointmentAgenda.outcomeNote(
+                AppointmentAgenda.VisitOutcome.COMPLETED,
+                "Alex",
+                "Mon, Oct 26 · 10:00 AM – 11:00 AM",
+                " Signed the application "
+            )
+        )
+        assertEquals(
+            "Outcome: No-Show ⚠️ — Alex",
+            AppointmentAgenda.outcomeNote(AppointmentAgenda.VisitOutcome.NO_SHOW, "Alex", "", "")
+        )
+        assertEquals("just a note", AppointmentAgenda.outcomeNote(null, "Alex", "today", "  just a note "))
+        assertEquals(
+            AppointmentAgenda.Outcome.COMPLETED,
+            AppointmentAgenda.appointmentOutcomeFor(AppointmentAgenda.VisitOutcome.COMPLETED)
+        )
+        assertEquals(
+            AppointmentAgenda.Outcome.NO_SHOW,
+            AppointmentAgenda.appointmentOutcomeFor(AppointmentAgenda.VisitOutcome.NO_SHOW)
+        )
+        assertNull(AppointmentAgenda.appointmentOutcomeFor(AppointmentAgenda.VisitOutcome.RESCHEDULED))
+
+        val notes = NoteUtils.prependNote("[Oct 01, 2026 09:00 AM]: Older note", "Outcome: Completed ✅")
+        assertTrue(notes.startsWith("["))
+        assertTrue(notes.substringBefore("\n\n").endsWith("]: Outcome: Completed ✅"))
+        assertTrue(notes.endsWith("\n\n[Oct 01, 2026 09:00 AM]: Older note"))
+    }
+
+    @Test
+    fun upNextSkipsAllDayCanceledAndFarEvents() {
+        val now = at(26, 12)
+        val allDay = synced(
+            id = 1,
+            title = "Birthday",
+            start = utcMidnight(2026, Calendar.OCTOBER, 26),
+            end = utcMidnight(2026, Calendar.OCTOBER, 27),
+            allDay = true
+        )
+        val canceled = synced(id = 2, title = "Canceled", start = at(26, 12, 30), end = at(26, 13, 30), canceled = true)
+        val workBlock = synced(id = 3, title = "Work block", start = at(26, 9), end = at(26, 17))
+        val next = synced(id = 4, title = "Appointment: Alex", start = at(26, 13), end = at(26, 14))
+        val later = synced(id = 5, title = "Later", start = at(26, 15), end = at(26, 16))
+        val farAway = synced(id = 6, title = "Far", start = at(27, 13), end = at(27, 14))
+
+        assertEquals(4L, AppointmentAgenda.pickUpNext(listOf(allDay, canceled, workBlock, later, next, farAway), now)?.eventId)
+
+        val justStarted = synced(id = 7, title = "Just started", start = at(26, 11, 55), end = at(26, 12, 30))
+        assertEquals(7L, AppointmentAgenda.pickUpNext(listOf(next, justStarted), now)?.eventId)
+
+        assertNull(AppointmentAgenda.pickUpNext(listOf(allDay, canceled, workBlock, farAway), now))
+    }
+
+    @Test
+    fun countdownLabelSwitchesFromMinutesToClockTime() {
+        val now = at(26, 12)
+        assertEquals("Now", AppointmentAgenda.countdownLabel(at(26, 11, 59), now, zone, locale))
+        assertEquals("In 1m", AppointmentAgenda.countdownLabel(now + 30_000L, now, zone, locale))
+        assertEquals("In 45m", AppointmentAgenda.countdownLabel(at(26, 12, 45), now, zone, locale))
+        assertEquals("In 2h 5m", AppointmentAgenda.countdownLabel(at(26, 14, 5), now, zone, locale))
+        assertEquals("Today at 3:00 PM", AppointmentAgenda.countdownLabel(at(26, 15), now, zone, locale))
+        assertEquals("Tomorrow at 9:00 AM", AppointmentAgenda.countdownLabel(at(27, 9), now, zone, locale))
+
+        assertEquals("Up Next Today", AppointmentAgenda.upNextHeadline(at(26, 15), now, zone))
+        assertEquals("Up Next Tomorrow", AppointmentAgenda.upNextHeadline(at(27, 9), now, zone))
+        assertEquals("Happening Now", AppointmentAgenda.upNextHeadline(at(26, 11, 55), now, zone))
+    }
+
+    private fun at(day: Int, hour: Int, minute: Int = 0): Long = local(2026, Calendar.OCTOBER, day, hour, minute)
+
+    private fun utcMidnight(year: Int, month: Int, day: Int): Long {
+        return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            set(year, month, day, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
+    private fun synced(
+        id: Long,
+        title: String,
+        start: Long,
+        end: Long,
+        allDay: Boolean = false,
+        canceled: Boolean = false
+    ): SyncedCalendarEvent {
+        return SyncedCalendarEvent(
+            eventId = id,
+            title = title,
+            description = "",
+            startMillis = start,
+            endMillis = end,
+            calendarId = 1L,
+            calendarDisplayName = "Family",
+            calendarColor = 0xFF4C8DFF.toInt(),
+            allDay = allDay,
+            leadId = null,
+            canceled = canceled
+        )
+    }
+
     private fun local(year: Int, month: Int, day: Int, hour: Int = 0, minute: Int = 0): Long {
         return Calendar.getInstance(zone).apply {
             set(Calendar.YEAR, year)

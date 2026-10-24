@@ -28,6 +28,9 @@ import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.activity.compose.setContent
@@ -39,6 +42,7 @@ import androidx.work.*
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.nickpulido.rcrm.ui.components.DashboardLead
 import com.nickpulido.rcrm.ui.components.DashboardScreen
+import com.nickpulido.rcrm.ui.components.UpNextUi
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -85,6 +89,10 @@ class MainActivity : AppCompatActivity() {
     private var hasPulsedFollowUpGoal = false
 
     private var currentTabPosition by mutableIntStateOf(0)
+
+    private var upNextBanner by mutableStateOf<UpNextUi?>(null)
+    private var upNextEvent: SyncedCalendarEvent? = null
+    private var upNextJob: Job? = null
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { writeBackupToFile(it) }
@@ -162,6 +170,8 @@ class MainActivity : AppCompatActivity() {
         const val PREFS_IGNORED = "ignored_contacts_list"
         const val SETTINGS_PREFS = "settings"
         const val NAME_TOKEN = "[NAME]"
+        const val UP_NEXT_TICK_MS = 30_000L
+        const val UP_NEXT_REQUERY_TICKS = 10
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -244,7 +254,12 @@ class MainActivity : AppCompatActivity() {
                     leads = dashboardLeads,
                     onLeadClick = { openLead(it) },
                     onCallLead = { dialLead(it) },
-                    onCompleteLead = { completeFollowUp(it) }
+                    onCompleteLead = { completeFollowUp(it) },
+                    upNext = upNextBanner,
+                    onUpNextOpenAgenda = {
+                        startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
+                    },
+                    onUpNextConfirm = { openUpNextEvent() }
                 )
             }
         }
@@ -421,6 +436,77 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         loadLocalStats()
         loadHotList() // Refresh reminders when returning to main screen
+        startUpNextTicker()
+    }
+
+    override fun onPause() {
+        upNextJob?.cancel()
+        upNextJob = null
+        super.onPause()
+    }
+
+    /**
+     * Keeps the countdown current while the dashboard is visible. The calendar is
+     * re-read when the shown event has passed and every few minutes otherwise.
+     */
+    private fun startUpNextTicker() {
+        upNextJob?.cancel()
+        upNextJob = lifecycleScope.launch {
+            var event = loadUpNextEvent()
+            var ticks = 0
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                val expired = event != null && AppointmentAgenda.pickUpNext(listOf(event), now) == null
+                if (expired || ticks >= UP_NEXT_REQUERY_TICKS) {
+                    event = loadUpNextEvent()
+                    ticks = 0
+                }
+                upNextEvent = event
+                upNextBanner = event?.let { toUpNextUi(it, System.currentTimeMillis()) }
+                ticks++
+                delay(UP_NEXT_TICK_MS)
+            }
+        }
+    }
+
+    private suspend fun loadUpNextEvent(): SyncedCalendarEvent? {
+        if (!GoogleCalendarManager.hasCalendarPermissions(this)) return null
+        return withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val events = GoogleCalendarManager.getEventsInRange(
+                context = this@MainActivity,
+                startMillis = now - AppointmentAgenda.UP_NEXT_GRACE_MS,
+                endMillis = now + AppointmentAgenda.UP_NEXT_WINDOW_MS,
+                selectedCalendarIds = GoogleCalendarManager.getVisibleCalendarIds(this@MainActivity)
+            )
+            AppointmentAgenda.pickUpNext(events, now)
+        }
+    }
+
+    private fun toUpNextUi(event: SyncedCalendarEvent, now: Long): UpNextUi {
+        val zone = TimeZone.getDefault()
+        val locale = Locale.getDefault()
+        val timeFormat = SimpleDateFormat("h:mm a", locale)
+        return UpNextUi(
+            headline = AppointmentAgenda.upNextHeadline(event.startMillis, now, zone),
+            title = event.title.ifBlank { "(No title)" },
+            countdown = AppointmentAgenda.countdownLabel(event.startMillis, now, zone, locale),
+            timeRange = "${timeFormat.format(Date(event.startMillis))} – ${timeFormat.format(Date(event.endMillis))}",
+            calendarLabel = AppointmentAgenda.shortCalendarLabel(
+                event.calendarDisplayName,
+                explicitCrm = !event.leadId.isNullOrBlank()
+            ),
+            calendarColor = event.calendarColor
+        )
+    }
+
+    private fun openUpNextEvent() {
+        val intent = Intent(this, AppointmentsActivity::class.java)
+        upNextEvent?.let { event ->
+            intent.putExtra(AppointmentsActivity.EXTRA_FOCUS_EVENT_ID, event.eventId)
+            intent.putExtra(AppointmentsActivity.EXTRA_FOCUS_START_MILLIS, event.startMillis)
+        }
+        startActivity(intent)
     }
 
     private fun loadLocalStats() {

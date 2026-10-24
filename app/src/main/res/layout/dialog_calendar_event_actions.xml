@@ -40,6 +40,79 @@
             android:textColor="@color/textColorSecondary"
             android:textSize="14sp" />
 
+        <TextView
+            android:id="@+id/tvEventActionPhone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:textColor="@color/colorInfo"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/rowClientContact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnSendConfirmationText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.3"
+                android:minHeight="52dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="💬 Send Confirmation Text"
+                android:textAllCaps="false"
+                android:textColor="@color/textColorPrimary"
+                android:textSize="14sp"
+                android:maxLines="2"
+                android:gravity="center"
+                android:background="@drawable/bg_neon_green_button"
+                android:stateListAnimator="@null"
+                app:backgroundTint="@null" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnCallLead"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:minHeight="52dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="📞 Call Lead"
+                android:textAllCaps="false"
+                android:textColor="@color/textColorPrimary"
+                android:textSize="14sp"
+                android:maxLines="2"
+                android:gravity="center"
+                android:background="@drawable/bg_neon_cyan_button"
+                android:stateListAnimator="@null"
+                app:backgroundTint="@null" />
+        </LinearLayout>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnLogOutcome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:minHeight="52dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="✅ Log Outcome (Completed / Reschedule / No-Show)"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="14sp"
+            android:maxLines="2"
+            android:gravity="center"
+            android:background="@drawable/bg_primary_gradient_button"
+            android:stateListAnimator="@null"
+            app:backgroundTint="@null" />
+
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnViewInGoogleCalendar"
             android:layout_width="match_parent"
@@ -92,6 +165,15 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Appointment status"
+                android:textColor="@color/textColorSecondary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnOutcomeCompleted"
