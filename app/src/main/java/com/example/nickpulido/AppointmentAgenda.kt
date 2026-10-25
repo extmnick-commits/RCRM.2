@@ -162,7 +162,8 @@ object AppointmentAgenda {
     enum class VisitOutcome(val label: String) {
         COMPLETED("Completed ✅"),
         RESCHEDULED("Rescheduled 📅"),
-        NO_SHOW("No-Show ⚠️")
+        NO_SHOW("No-Show ⚠️"),
+        CANCELED("Canceled 🚫")
     }
 
     fun startOfDay(millis: Long, zone: TimeZone): Long {
@@ -1035,6 +1036,7 @@ object AppointmentAgenda {
         return when (outcome) {
             VisitOutcome.COMPLETED -> Outcome.COMPLETED
             VisitOutcome.NO_SHOW -> Outcome.NO_SHOW
+            VisitOutcome.CANCELED -> Outcome.CANCELED
             VisitOutcome.RESCHEDULED -> null
         }
     }

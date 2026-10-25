@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_space_glass"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Header: Title and Close -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tvEventTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <ImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="@color/textColorSecondary" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvEventTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/textColorSecondary"
+        android:textSize="15sp" />
+
+    <TextView
+        android:id="@+id/tvLinkedContact"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/colorInfo"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvLocation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/textColorSecondary"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <!-- Unlinked State Info -->
+    <LinearLayout
+        android:id="@+id/layoutUnlinked"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="A linked contact is required to send confirmations, add notes, or log outcomes."
+            android:textColor="@color/textColorSecondary"
+            android:textSize="14sp"
+            android:layout_marginBottom="12dp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnLinkExisting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="Link existing contact"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_neon_purple_button"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnCreateLead"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="Create new lead"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_neon_green_button" />
+    </LinearLayout>
+
+    <!-- Prominent Action -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnProminentAction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:minHeight="52dp"
+        android:textAllCaps="false"
+        android:textColor="@color/textColorPrimary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:background="@drawable/bg_primary_gradient_button"
+        android:visibility="gone" />
+
+    <!-- Secondary Actions (Row) -->
+    <LinearLayout
+        android:id="@+id/layoutSecondaryActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:text="💬 Text"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_neon_cyan_button"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnCall"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:text="📞 Call"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_neon_green_button"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnDirections"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:text="📍 Directions"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_neon_purple_button"
+            android:visibility="gone" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnJoinMeeting"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:text="📹 Join"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_neon_purple_button"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- More Options Expander -->
+    <TextView
+        android:id="@+id/tvMoreOptions"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:text="More options ▾"
+        android:textColor="@color/textColorSecondary"
+        android:textSize="15sp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <LinearLayout
+        android:id="@+id/layoutMoreOptions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnNotesFollowUp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="Notes &amp; follow-up"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_frosted_pill_input" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnOpenLead"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="Open Lead in RCRM"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_frosted_pill_input"
+            android:visibility="gone" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnEditCalendar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="Edit in Google Calendar"
+            android:textAllCaps="false"
+            android:textColor="@color/textColorPrimary"
+            android:background="@drawable/bg_frosted_pill_input" />
+    </LinearLayout>
+</LinearLayout>

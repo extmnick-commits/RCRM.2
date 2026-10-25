@@ -536,7 +536,7 @@ class MainActivity : AppCompatActivity() {
             liveBadge = if (live) AppointmentAgenda.liveBadge(event.endMillis, now) else null,
             leadName = lead?.name,
             locationChip = AppointmentAgenda.locationChipLabel(event.location, meetingUrl),
-            primaryActionLabel = if (live) "✅ Log Outcome" else "Confirm / Prep"
+            primaryActionLabel = if (live) "✅ Log Outcome" else "💬 Confirm"
         )
     }
 

@@ -57,7 +57,7 @@ data class UpNextUi(
     val liveBadge: String? = null,
     val leadName: String? = null,
     val locationChip: String? = null,
-    val primaryActionLabel: String = "Confirm / Prep"
+    val primaryActionLabel: String = "💬 Confirm"
 )
 
 @Composable

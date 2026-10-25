@@ -933,92 +933,157 @@ class AppointmentsActivity : AppCompatActivity() {
     }
 
     private fun showEventActions(item: AgendaItem) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_calendar_event_actions, null)
-        val dialog = glassDialog(dialogView)
+        val dialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val dialogView = layoutInflater.inflate(R.layout.bottom_sheet_event_actions, null)
+        dialog.setContentView(dialogView)
+        (dialogView.parent as? View)?.setBackgroundResource(android.R.color.transparent)
 
-        dialogView.findViewById<TextView>(R.id.tvEventActionTitle).text = item.title
-        dialogView.findViewById<TextView>(R.id.tvEventActionWhen).text = item.whenLabel
-        val linkedName = item.leadName?.takeIf { AppointmentAgenda.isLinkedToCrm(item.leadId, item.explicitCrm) }
-        dialogView.findViewById<TextView>(R.id.tvEventActionSubtitle).text =
-            AppointmentAgenda.eventSubtitle(item.calendarDisplayName, linkedName)
-        val detailView = dialogView.findViewById<TextView>(R.id.tvEventActionDetail)
-        if (item.detailText.isBlank()) {
-            detailView.visibility = View.GONE
+        dialogView.findViewById<TextView>(R.id.tvEventTitle).text = item.title
+        dialogView.findViewById<TextView>(R.id.tvEventTime).text = item.whenLabel
+        dialogView.findViewById<View>(R.id.btnClose).setOnClickListener { dialog.dismiss() }
+
+        val tvLinkedContact = dialogView.findViewById<TextView>(R.id.tvLinkedContact)
+        val isLinked = item.explicitCrm && !item.leadId.isNullOrBlank()
+        if (isLinked && !item.leadName.isNullOrBlank()) {
+            tvLinkedContact.visibility = View.VISIBLE
+            tvLinkedContact.text = "🔗 Lead: ${item.leadName}"
         } else {
-            detailView.visibility = View.VISIBLE
-            detailView.text = item.detailText
+            tvLinkedContact.visibility = View.GONE
         }
 
-        dialogView.findViewById<View>(R.id.btnSendConfirmationText).setOnClickListener {
-            requestReachOut(item, AfterLink.TEXT, dialog)
-        }
-        dialogView.findViewById<View>(R.id.btnCallLead).setOnClickListener {
-            requestReachOut(item, AfterLink.CALL, dialog)
-        }
-        dialogView.findViewById<View>(R.id.btnMapOrLink).setOnClickListener {
-            dialog.dismiss()
-            openMapOrLink(item)
-        }
-        dialogView.findViewById<View>(R.id.btnLogOutcome).setOnClickListener {
-            dialog.dismiss()
-            showQuickNoteDialog(item, outcomeMode = true)
+        val tvLocation = dialogView.findViewById<TextView>(R.id.tvLocation)
+        val locationText = item.location?.trim()
+        if (!locationText.isNullOrBlank()) {
+            tvLocation.visibility = View.VISIBLE
+            tvLocation.text = "📍 $locationText"
+        } else {
+            tvLocation.visibility = View.GONE
         }
 
-        dialogView.findViewById<View>(R.id.btnViewInGoogleCalendar).setOnClickListener {
-            dialog.dismiss()
-            openInGoogleCalendar(item)
-        }
+        val now = System.currentTimeMillis()
+        val isBefore = now < item.startMillis
 
-        val openLead = dialogView.findViewById<View>(R.id.btnOpenLeadInRcrm)
-        val saveOrLink = dialogView.findViewById<View>(R.id.btnSaveOrLinkLead)
-        if (!item.explicitCrm || item.leadId.isNullOrBlank()) {
-            openLead.visibility = View.GONE
-            saveOrLink.visibility = View.VISIBLE
-            saveOrLink.setOnClickListener {
+        val layoutUnlinked = dialogView.findViewById<View>(R.id.layoutUnlinked)
+        val btnProminentAction = dialogView.findViewById<TextView>(R.id.btnProminentAction)
+        
+        if (!isLinked) {
+            layoutUnlinked.visibility = View.VISIBLE
+            btnProminentAction.visibility = View.GONE
+            
+            val intendedAction = if (isBefore) AfterLink.TEXT else AfterLink.OUTCOME
+            dialogView.findViewById<View>(R.id.btnLinkExisting).setOnClickListener {
                 dialog.dismiss()
-                showSaveLeadDialog(item, AfterLink.NONE)
+                withLeadChoices { leads ->
+                    if (leads.isEmpty()) {
+                        Toast.makeText(this@AppointmentsActivity, "No RCRM leads to link yet.", Toast.LENGTH_LONG).show()
+                    } else {
+                        showLinkExistingLeadDialog(item, intendedAction)
+                    }
+                }
+            }
+            dialogView.findViewById<View>(R.id.btnCreateLead).setOnClickListener {
+                dialog.dismiss()
+                showSaveLeadDialog(item, intendedAction)
             }
         } else {
-            openLead.visibility = View.VISIBLE
-            saveOrLink.visibility = View.GONE
-            openLead.setOnClickListener {
-                dialog.dismiss()
-                openLeadInRcrm(item.leadId)
-            }
-        }
-
-        val outcomes = dialogView.findViewById<View>(R.id.outcomeActions)
-        val canRecordOutcome = canRecordOutcome(item)
-        outcomes.visibility = if (canRecordOutcome) View.VISIBLE else View.GONE
-        if (canRecordOutcome) {
-            dialogView.findViewById<View>(R.id.btnOutcomeCompleted).setOnClickListener {
-                dialog.dismiss()
-                recordOutcome(item, AppointmentAgenda.Outcome.COMPLETED, null)
-            }
-            dialogView.findViewById<View>(R.id.btnOutcomeNoShow).setOnClickListener {
-                dialog.dismiss()
-                recordOutcome(item, AppointmentAgenda.Outcome.NO_SHOW, null)
-            }
-            dialogView.findViewById<View>(R.id.btnOutcomeCanceled).setOnClickListener {
-                dialog.dismiss()
-                recordOutcome(item, AppointmentAgenda.Outcome.CANCELED, null)
-            }
-            dialogView.findViewById<View>(R.id.btnOutcomeReschedule).setOnClickListener {
-                dialog.dismiss()
-                pickFollowUpDate { millis ->
-                    recordOutcome(item, null, millis)
+            layoutUnlinked.visibility = View.GONE
+            btnProminentAction.visibility = View.VISIBLE
+            if (isBefore) {
+                btnProminentAction.text = "💬 Confirm Appointment"
+                btnProminentAction.setOnClickListener {
+                    requestReachOut(item, AfterLink.TEXT, dialog)
+                }
+            } else {
+                btnProminentAction.text = "✅ Log Outcome"
+                btnProminentAction.setOnClickListener {
+                    dialog.dismiss()
+                    showQuickNoteDialog(item, outcomeMode = true)
                 }
             }
         }
 
-        dialogView.findViewById<View>(R.id.btnQuickNoteFollowUp).setOnClickListener {
+        val layoutSecondaryActions = dialogView.findViewById<View>(R.id.layoutSecondaryActions)
+        val btnText = dialogView.findViewById<View>(R.id.btnText)
+        val btnCall = dialogView.findViewById<View>(R.id.btnCall)
+        val btnDirections = dialogView.findViewById<View>(R.id.btnDirections)
+        val btnJoinMeeting = dialogView.findViewById<View>(R.id.btnJoinMeeting)
+
+        val phone = leadPhoneFor(item)
+        val hasPhone = !phone.isNullOrBlank()
+        val hasMeeting = !AppointmentAgenda.extractMeetingOrWebUrl(item.location, item.description).isNullOrBlank()
+        val hasLocation = !locationText.isNullOrBlank()
+
+        var secondaryCount = 0
+
+        if (hasPhone && isLinked) {
+            btnText.visibility = View.VISIBLE
+            btnCall.visibility = View.VISIBLE
+            secondaryCount += 2
+            btnText.setOnClickListener { requestReachOut(item, AfterLink.TEXT, dialog) }
+            btnCall.setOnClickListener { requestReachOut(item, AfterLink.CALL, dialog) }
+        } else {
+            btnText.visibility = View.GONE
+            btnCall.visibility = View.GONE
+        }
+
+        if (hasLocation && !hasMeeting) {
+            btnDirections.visibility = View.VISIBLE
+            secondaryCount++
+            btnDirections.setOnClickListener {
+                dialog.dismiss()
+                openMapOrLink(item)
+            }
+        } else {
+            btnDirections.visibility = View.GONE
+        }
+
+        if (hasMeeting) {
+            btnJoinMeeting.visibility = View.VISIBLE
+            secondaryCount++
+            btnJoinMeeting.setOnClickListener {
+                dialog.dismiss()
+                openMapOrLink(item)
+            }
+        } else {
+            btnJoinMeeting.visibility = View.GONE
+        }
+
+        layoutSecondaryActions.visibility = if (secondaryCount > 0) View.VISIBLE else View.GONE
+
+        val tvMoreOptions = dialogView.findViewById<TextView>(R.id.tvMoreOptions)
+        val layoutMoreOptions = dialogView.findViewById<View>(R.id.layoutMoreOptions)
+        tvMoreOptions.setOnClickListener {
+            if (layoutMoreOptions.visibility == View.GONE) {
+                layoutMoreOptions.visibility = View.VISIBLE
+                tvMoreOptions.text = "More options ▴"
+            } else {
+                layoutMoreOptions.visibility = View.GONE
+                tvMoreOptions.text = "More options ▾"
+            }
+        }
+
+        dialogView.findViewById<View>(R.id.btnNotesFollowUp).setOnClickListener {
             dialog.dismiss()
             showQuickNoteDialog(item)
         }
-        dialogView.findViewById<View>(R.id.btnCloseEventActions).setOnClickListener { dialog.dismiss() }
+
+        val btnOpenLead = dialogView.findViewById<View>(R.id.btnOpenLead)
+        if (isLinked) {
+            btnOpenLead.visibility = View.VISIBLE
+            btnOpenLead.setOnClickListener {
+                dialog.dismiss()
+                item.leadId?.let { openLeadInRcrm(it) }
+            }
+        } else {
+            btnOpenLead.visibility = View.GONE
+        }
+
+        dialogView.findViewById<View>(R.id.btnEditCalendar).setOnClickListener {
+            dialog.dismiss()
+            openInGoogleCalendar(item)
+        }
 
         dialog.show()
-        sizeDialog(dialog)
     }
 
     private fun canRecordOutcome(item: AgendaItem): Boolean {
@@ -1086,10 +1151,10 @@ class AppointmentsActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestReachOut(item: AgendaItem, after: AfterLink, dialog: AlertDialog) {
+    private fun requestReachOut(item: AgendaItem, after: AfterLink, dialog: android.app.Dialog?) {
         val linkedPhone = leadPhoneFor(item)
         if (!item.leadId.isNullOrBlank() && linkedPhone != null) {
-            dialog.dismiss()
+            dialog?.dismiss()
             if (after == AfterLink.TEXT) {
                 sendConfirmationText(item, linkedPhone)
             } else {
@@ -1101,7 +1166,7 @@ class AppointmentsActivity : AppCompatActivity() {
             Toast.makeText(this, "That lead has no phone number.", Toast.LENGTH_LONG).show()
             return
         }
-        dialog.dismiss()
+        dialog?.dismiss()
         Toast.makeText(this, "Select a contact to link & reach out", Toast.LENGTH_SHORT).show()
         withLeadChoices { leads ->
             if (leads.isEmpty()) {
@@ -1279,7 +1344,8 @@ class AppointmentsActivity : AppCompatActivity() {
             val chips = listOf(
                 Triple(AppointmentAgenda.VisitOutcome.COMPLETED, R.id.chipOutcomeCompleted, R.drawable.bg_neon_green_button),
                 Triple(AppointmentAgenda.VisitOutcome.RESCHEDULED, R.id.chipOutcomeRescheduled, R.drawable.bg_neon_cyan_button),
-                Triple(AppointmentAgenda.VisitOutcome.NO_SHOW, R.id.chipOutcomeNoShow, R.drawable.bg_neon_purple_button)
+                Triple(AppointmentAgenda.VisitOutcome.NO_SHOW, R.id.chipOutcomeNoShow, R.drawable.bg_neon_purple_button),
+                Triple(AppointmentAgenda.VisitOutcome.CANCELED, R.id.chipOutcomeCanceled, R.drawable.bg_frosted_pill_input)
             ).map { (outcome, id, selectedBackground) ->
                 Triple(outcome, dialogView.findViewById<TextView>(id), selectedBackground)
             }
@@ -1330,13 +1396,35 @@ class AppointmentsActivity : AppCompatActivity() {
                 typed
             }
             val followUp = followUpMillis
-            if (note.isEmpty() && followUp == null) {
+            if (note.isEmpty() && followUp == null && outcome == null) {
                 val hint = if (outcomeMode) {
                     "Pick an outcome, add a note, or set a follow-up."
                 } else {
                     "Add a note or set a follow-up."
                 }
                 Toast.makeText(this, hint, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (outcome == AppointmentAgenda.VisitOutcome.RESCHEDULED) {
+                // Must complete scheduling flow first
+                dialog.dismiss()
+                pickFollowUpDate { newStartMillis ->
+                    saveQuickNote(
+                        leadId = leadId,
+                        leadName = item.leadName ?: item.title,
+                        phone = item.phone.orEmpty(),
+                        note = note,
+                        followUpMillis = followUp,
+                        prepend = true,
+                        savedMessage = "Outcome logged",
+                        onDone = {
+                            if (canRecordOutcome(item)) {
+                                recordOutcome(item, null, newStartMillis, openNoteAfter = false)
+                            }
+                        },
+                        onFailed = {}
+                    )
+                }
                 return@setOnClickListener
             }
             saveButton.isEnabled = false
