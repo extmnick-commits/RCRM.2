@@ -71,8 +71,9 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 val birthday = doc.getString("birthday")
                 
                 val isPaused = doc.getBoolean("isPaused") ?: false
+                val isClosed = doc.getBoolean("isClosed") ?: false
 
-                if (isPaused) continue
+                if (isPaused || isClosed) continue
 
                 val notes = parseNotes(rawNotes)
                 

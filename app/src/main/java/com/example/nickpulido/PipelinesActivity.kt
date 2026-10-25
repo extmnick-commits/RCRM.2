@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
@@ -12,15 +13,19 @@ import androidx.compose.runtime.setValue
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.SetOptions
 import com.nickpulido.rcrm.ui.components.PipelineLead
 import com.nickpulido.rcrm.ui.components.PipelineType
 import com.nickpulido.rcrm.ui.components.PipelinesScreen
 import com.nickpulido.rcrm.ui.components.RecruitStage
 import com.nickpulido.rcrm.ui.components.SalesStage
 import com.nickpulido.rcrm.domain.FollowUpRepository
-import com.nickpulido.rcrm.domain.ActionType
+import com.nickpulido.rcrm.domain.OutcomeSavePlanner
+import com.nickpulido.rcrm.domain.StageChangeSpec
 import com.nickpulido.rcrm.ui.components.OutcomeSheet
+import com.nickpulido.rcrm.ui.components.OutcomeSheetRequest
+import com.nickpulido.rcrm.ui.components.appointmentChoicesFromLead
+import com.nickpulido.rcrm.ui.components.readOutcomeRequest
+import com.nickpulido.rcrm.ui.components.writeTo
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
 
 class PipelinesActivity : ComponentActivity() {
@@ -34,11 +39,11 @@ class PipelinesActivity : ComponentActivity() {
     private var pipelineType by mutableStateOf(PipelineType.SALES)
     
     private val followUpRepository = FollowUpRepository()
-    private var activeOutcomeLeadId by mutableStateOf<String?>(null)
-    private var activeStageChange by mutableStateOf<Triple<String, PipelineType, String>?>(null)
+    private var outcomeRequest by mutableStateOf<OutcomeSheetRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        outcomeRequest = readOutcomeRequest(savedInstanceState)
 
         val currentUser = auth.currentUser
         if (currentUser == null) {
@@ -84,7 +89,8 @@ class PipelinesActivity : ComponentActivity() {
                         }
 
                         val isPaused = doc.getBoolean("isPaused") ?: false
-                        val isMissingPlan = followUpDate == null && !isPaused
+                        val isClosed = doc.getBoolean("isClosed") ?: false
+                        val isMissingPlan = followUpDate == null && !isPaused && !isClosed
 
                         val today = java.util.Calendar.getInstance().apply {
                             set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -113,10 +119,16 @@ class PipelinesActivity : ComponentActivity() {
                             isPinned = doc.getBoolean("isPinned") ?: false,
                             isMissingPlan = isMissingPlan,
                             isOverdue = isOverdue,
-                            lastConnectedContactLabel = lastConnectedContactLabel
+                            lastConnectedContactLabel = lastConnectedContactLabel,
+                            followUpAtMillis = followUpDate?.time,
+                            appointmentChoices = appointmentChoicesFromLead(
+                                doc.get("appointments"),
+                                doc.getTimestamp("appointmentDate")
+                            )
                         )
                     }
                     leads = newLeads.sortedByDescending { it.isPinned }
+                    enrichOutcomeRequest()
                 }
             }
 
@@ -155,43 +167,32 @@ class PipelinesActivity : ComponentActivity() {
                     }
                 )
 
-                activeStageChange?.let { (leadId, pType, newStageId) ->
+                outcomeRequest?.let { request ->
                     OutcomeSheet(
-                        leadId = leadId,
-                        onDismiss = { activeStageChange = null },
-                        onSave = { outcome, note, nextActionTitle, nextActionTime, nextActionType, pauseReason ->
-                            val currentUserId = auth.currentUser?.uid ?: return@OutcomeSheet
-                            val stageTitle = if (pType == PipelineType.SALES) {
-                                SalesStage.values().find { it.id == newStageId }?.title ?: "New Stage"
-                            } else {
-                                RecruitStage.values().find { it.id == newStageId }?.title ?: "New Stage"
+                        request = request,
+                        onDismiss = { outcomeRequest = null },
+                        onSave = { submission, done ->
+                            val currentUserId = auth.currentUser?.uid
+                            if (currentUserId.isNullOrBlank()) {
+                                done(false, "Sign in again before saving.")
+                                return@OutcomeSheet
                             }
-                            
-                            followUpRepository.recordStageChange(
-                                leadId = leadId,
-                                ownerId = currentUserId,
-                                pipelineType = pType,
-                                newStageId = newStageId,
-                                stageTitle = stageTitle,
-                                suggestedNextActionTitle = nextActionTitle,
-                                suggestedNextActionTime = nextActionTime
-                            ) { success ->
-                                // Also log the custom outcome if provided (unless it's just empty)
-                                if (success && outcome.isNotEmpty()) {
-                                    followUpRepository.recordOutcomeAndNextStep(
-                                        leadId = leadId,
-                                        ownerId = currentUserId,
-                                        currentActionId = null,
-                                        newOutcome = outcome,
-                                        newNote = note,
-                                        nextActionTitle = null, // Already handled in recordStageChange
-                                        nextActionTime = null,
-                                        nextActionType = nextActionType,
-                                        pauseReason = pauseReason
-                                    ) { }
+                            followUpRepository.saveOutcome(
+                                OutcomeSavePlanner.buildSaveRequest(
+                                    submission = submission,
+                                    leadId = request.leadId,
+                                    ownerId = currentUserId,
+                                    stage = request.stage,
+                                    currentActionId = request.currentActionId,
+                                    nowMillis = System.currentTimeMillis()
+                                )
+                            ) { success, error ->
+                                if (isDestroyed) return@saveOutcome
+                                if (success) {
+                                    Toast.makeText(this@PipelinesActivity, "Saved", Toast.LENGTH_SHORT).show()
                                 }
+                                done(success, error)
                             }
-                            activeStageChange = null
                         }
                     )
                 }
@@ -200,7 +201,66 @@ class PipelinesActivity : ComponentActivity() {
     }
 
     private fun updateLeadStage(leadId: String, pType: PipelineType, newStageId: String) {
-        activeStageChange = Triple(leadId, pType, newStageId)
+        val lead = leads.find { it.id == leadId }
+        val stageTitle = if (pType == PipelineType.SALES) {
+            SalesStage.values().find { it.id == newStageId }?.title ?: "New stage"
+        } else {
+            RecruitStage.values().find { it.id == newStageId }?.title ?: "New stage"
+        }
+        outcomeRequest = OutcomeSheetRequest(
+            leadId = leadId,
+            contactName = OutcomeSavePlanner.outcomeContactName(lead?.name),
+            subtitle = OutcomeSavePlanner.outcomeHeaderSubtitle(pType.label, stageTitle),
+            currentActionId = null,
+            existingFollowUpMillis = lead?.followUpAtMillis,
+            appointments = lead?.appointmentChoices.orEmpty(),
+            outcomeRequired = false,
+            stage = StageChangeSpec(pType, newStageId, stageTitle)
+        )
+        followUpRepository.loadEarliestPendingActionId(leadId) { actionId ->
+            val current = outcomeRequest ?: return@loadEarliestPendingActionId
+            if (current.leadId == leadId && current.stage?.newStageId == newStageId && !actionId.isNullOrBlank()) {
+                outcomeRequest = current.copy(currentActionId = actionId)
+            }
+        }
+    }
+
+    private fun enrichOutcomeRequest() {
+        val current = outcomeRequest ?: return
+        val lead = leads.find { it.id == current.leadId } ?: return
+        val stageTitle = current.stage?.let { stage ->
+            if (stage.pipelineType == PipelineType.SALES) {
+                SalesStage.values().find { it.id == stage.newStageId }?.title
+            } else {
+                RecruitStage.values().find { it.id == stage.newStageId }?.title
+            }
+        }.orEmpty().ifBlank { current.stage?.stageTitle.orEmpty() }
+        val pipelineLabel = current.stage?.pipelineType?.label
+        val updated = current.copy(
+            contactName = OutcomeSavePlanner.outcomeContactName(lead.name),
+            subtitle = if (pipelineLabel.isNullOrBlank()) {
+                current.subtitle
+            } else {
+                OutcomeSavePlanner.outcomeHeaderSubtitle(pipelineLabel, stageTitle)
+            },
+            existingFollowUpMillis = lead.followUpAtMillis,
+            appointments = lead.appointmentChoices,
+            stage = current.stage?.copy(stageTitle = stageTitle.ifBlank { current.stage.stageTitle })
+        )
+        if (
+            updated.contactName != current.contactName ||
+            updated.subtitle != current.subtitle ||
+            updated.existingFollowUpMillis != current.existingFollowUpMillis ||
+            updated.appointments != current.appointments ||
+            updated.stage != current.stage
+        ) {
+            outcomeRequest = updated
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outcomeRequest?.writeTo(outState)
     }
 
     override fun onDestroy() {

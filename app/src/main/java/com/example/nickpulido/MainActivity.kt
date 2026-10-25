@@ -44,8 +44,13 @@ import com.nickpulido.rcrm.ui.components.DashboardLead
 import com.nickpulido.rcrm.ui.components.DashboardScreen
 import com.nickpulido.rcrm.ui.components.UpNextUi
 import com.nickpulido.rcrm.domain.FollowUpRepository
-import com.nickpulido.rcrm.domain.ActionType
+import com.nickpulido.rcrm.domain.OutcomeSavePlanner
 import com.nickpulido.rcrm.ui.components.OutcomeSheet
+import com.nickpulido.rcrm.ui.components.OutcomeSheetRequest
+import com.nickpulido.rcrm.ui.components.appointmentChoicesFromLead
+import com.nickpulido.rcrm.ui.components.homeOutcomeSubtitle
+import com.nickpulido.rcrm.ui.components.readOutcomeRequest
+import com.nickpulido.rcrm.ui.components.writeTo
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -98,7 +103,7 @@ class MainActivity : AppCompatActivity() {
     private var upNextIndex by mutableIntStateOf(0)
     private var upNextJob: Job? = null
 
-    private var activeOutcomeLeadId by mutableStateOf<String?>(null)
+    private var outcomeRequest by mutableStateOf<OutcomeSheetRequest?>(null)
     private val followUpRepository = FollowUpRepository()
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -183,6 +188,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        outcomeRequest = readOutcomeRequest(savedInstanceState)
         
         // --- Apply Theme from Prefs Before setContentView ---
         prefs = getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
@@ -274,31 +280,33 @@ class MainActivity : AppCompatActivity() {
                     onUpNextJoinLocation = { openUpNextLocation() }
                 )
                 
-                activeOutcomeLeadId?.let { leadId ->
+                outcomeRequest?.let { request ->
                     OutcomeSheet(
-                        leadId = leadId,
-                        onDismiss = { activeOutcomeLeadId = null },
-                        onSave = { outcome, note, nextActionTitle, nextActionTime, nextActionType, pauseReason ->
-                            val currentUserId = auth.currentUser?.uid ?: return@OutcomeSheet
-                            followUpRepository.recordOutcomeAndNextStep(
-                                leadId = leadId,
-                                ownerId = currentUserId,
-                                currentActionId = null, // Or lookup actual ID
-                                newOutcome = outcome,
-                                newNote = note,
-                                nextActionTitle = nextActionTitle,
-                                nextActionTime = nextActionTime,
-                                nextActionType = nextActionType,
-                                pauseReason = pauseReason
-                            ) { success ->
-                                if (success) {
-                                    Toast.makeText(this@MainActivity, "Follow-up completed", Toast.LENGTH_SHORT).show()
-                                    loadHotList()
-                                } else {
-                                    Toast.makeText(this@MainActivity, "Failed to save outcome", Toast.LENGTH_SHORT).show()
-                                }
+                        request = request,
+                        onDismiss = { outcomeRequest = null },
+                        onSave = { submission, done ->
+                            val currentUserId = auth.currentUser?.uid
+                            if (currentUserId.isNullOrBlank()) {
+                                done(false, "Sign in again before saving.")
+                                return@OutcomeSheet
                             }
-                            activeOutcomeLeadId = null
+                            followUpRepository.saveOutcome(
+                                OutcomeSavePlanner.buildSaveRequest(
+                                    submission = submission,
+                                    leadId = request.leadId,
+                                    ownerId = currentUserId,
+                                    stage = request.stage,
+                                    currentActionId = request.currentActionId,
+                                    nowMillis = System.currentTimeMillis()
+                                )
+                            ) { success, error ->
+                                if (isDestroyed) return@saveOutcome
+                                if (success) {
+                                    Toast.makeText(this@MainActivity, "Outcome saved", Toast.LENGTH_SHORT).show()
+                                    loadHotList()
+                                }
+                                done(success, error)
+                            }
                         }
                     )
                 }
@@ -1545,6 +1553,7 @@ class MainActivity : AppCompatActivity() {
         cardImageUri?.let { outState.putParcelable("CARD_IMAGE_URI", it) }
         croppedImageUri?.let { outState.putParcelable("CROPPED_IMAGE_URI", it) }
         currentPhotoPath?.let { outState.putString("CURRENT_PHOTO_PATH", it) }
+        outcomeRequest?.writeTo(outState)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
@@ -1997,6 +2006,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 filterHotList(searchQuery)
                 refreshUpNextLabels()
+                enrichOutcomeRequest()
             }
     }
 
@@ -2021,8 +2031,10 @@ class MainActivity : AppCompatActivity() {
             val followUpDate = lead["followUpDate"] as? Timestamp
             val leadDateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
             val isPaused = lead["isPaused"] as? Boolean == true
+            val isClosed = lead["isClosed"] as? Boolean == true
             val hasContent = name.isNotBlank() || phone.isNotBlank()
             
+            if (isClosed) return@filter false
             when (currentTabPosition) {
                 0 -> (leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr) || 
                      (followUpDate == null && !isPaused && hasContent) // Needs Attention
@@ -2082,6 +2094,64 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun completeFollowUp(docId: String) {
-        activeOutcomeLeadId = docId
+        val lead = allLeadsData.find { it["__docId"] == docId }
+        outcomeRequest = if (lead == null) {
+            OutcomeSheetRequest(
+                leadId = docId,
+                contactName = "Contact",
+                subtitle = "",
+                currentActionId = null,
+                existingFollowUpMillis = null,
+                appointments = emptyList(),
+                outcomeRequired = true,
+                stage = null
+            )
+        } else {
+            requestForLead(lead)
+        }
+        followUpRepository.loadEarliestPendingActionId(docId) { actionId ->
+            val current = outcomeRequest ?: return@loadEarliestPendingActionId
+            if (current.leadId == docId && !actionId.isNullOrBlank()) {
+                outcomeRequest = current.copy(currentActionId = actionId)
+            }
+        }
+    }
+
+    private fun requestForLead(lead: Map<String, Any>): OutcomeSheetRequest {
+        val docId = lead["__docId"] as? String ?: ""
+        val category = lead["category"] as? String ?: ""
+        val followUp = lead["followUpDate"] as? Timestamp
+        return OutcomeSheetRequest(
+            leadId = docId,
+            contactName = OutcomeSavePlanner.outcomeContactName(lead["name"] as? String),
+            subtitle = homeOutcomeSubtitle(
+                category = category,
+                salesStageId = lead["salesStage"] as? String,
+                recruitStageId = lead["recruitStage"] as? String
+            ),
+            currentActionId = null,
+            existingFollowUpMillis = followUp?.toDate()?.time,
+            appointments = appointmentChoicesFromLead(
+                lead["appointments"],
+                lead["appointmentDate"] as? Timestamp
+            ),
+            outcomeRequired = true,
+            stage = null
+        )
+    }
+
+    private fun enrichOutcomeRequest() {
+        val current = outcomeRequest ?: return
+        if (current.stage != null) return
+        val lead = allLeadsData.find { it["__docId"] == current.leadId } ?: return
+        val updated = requestForLead(lead).copy(currentActionId = current.currentActionId)
+        if (
+            updated.contactName != current.contactName ||
+            updated.subtitle != current.subtitle ||
+            updated.existingFollowUpMillis != current.existingFollowUpMillis ||
+            updated.appointments != current.appointments
+        ) {
+            outcomeRequest = updated
+        }
     }
 }
