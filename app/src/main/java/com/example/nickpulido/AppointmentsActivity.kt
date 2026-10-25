@@ -1405,7 +1405,7 @@ class AppointmentsActivity : AppCompatActivity() {
                 Toast.makeText(this, hint, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            if (outcome == AppointmentAgenda.VisitOutcome.RESCHEDULED) {
+            if (outcome == AppointmentAgenda.VisitOutcome.RESCHEDULED && !(outcomeMode && outcome != null)) {
                 // Must complete scheduling flow first
                 dialog.dismiss()
                 pickFollowUpDate { newStartMillis ->
@@ -1427,24 +1427,109 @@ class AppointmentsActivity : AppCompatActivity() {
                 }
                 return@setOnClickListener
             }
-            saveButton.isEnabled = false
-            saveQuickNote(
-                leadId = leadId,
-                leadName = item.leadName ?: item.title,
-                phone = item.phone.orEmpty(),
-                note = note,
-                followUpMillis = followUp,
-                prepend = outcomeMode,
-                savedMessage = if (outcomeMode) "Outcome logged" else "Saved",
-                onDone = {
+
+            if (outcomeMode && outcome != null) {
+                val outcomeString = when (outcome) {
+                    AppointmentAgenda.VisitOutcome.COMPLETED -> "Meeting completed"
+                    AppointmentAgenda.VisitOutcome.NO_SHOW -> "No-show"
+                    AppointmentAgenda.VisitOutcome.CANCELED -> "Canceled"
+                    AppointmentAgenda.VisitOutcome.RESCHEDULED -> "Rescheduled"
+                }
+
+                if (outcome == AppointmentAgenda.VisitOutcome.RESCHEDULED) {
                     dialog.dismiss()
-                    val status = outcome?.let(AppointmentAgenda::appointmentOutcomeFor)
-                    if (status != null && canRecordOutcome(item) && item.status != statusFor(status)) {
-                        recordOutcome(item, status, null, openNoteAfter = false)
+                    pickFollowUpDate { newStartMillis ->
+                        val nextActionTitle = "Rescheduled Appointment"
+                        com.nickpulido.rcrm.domain.FollowUpRepository().recordOutcomeAndNextStep(
+                            leadId = leadId,
+                            ownerId = auth.currentUser?.uid ?: "",
+                            currentActionId = null,
+                            newOutcome = outcomeString,
+                            newNote = note,
+                            nextActionTitle = nextActionTitle,
+                            nextActionTime = newStartMillis,
+                            nextActionType = com.nickpulido.rcrm.domain.ActionType.MEETING,
+                            pauseReason = null
+                        ) { success ->
+                            runOnUiThread {
+                                if (success) {
+                                    ReminderReceiver.scheduleReminder(
+                                        this@AppointmentsActivity,
+                                        item.phone.orEmpty().ifBlank { leadId },
+                                        item.leadName ?: item.title,
+                                        newStartMillis
+                                    )
+                                    Toast.makeText(this@AppointmentsActivity, "Outcome logged", Toast.LENGTH_SHORT).show()
+                                    loadAgenda()
+                                    if (canRecordOutcome(item)) {
+                                        recordOutcome(item, null, newStartMillis, openNoteAfter = false)
+                                    }
+                                } else {
+                                    Toast.makeText(this@AppointmentsActivity, "Failed to log outcome", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
                     }
-                },
-                onFailed = { saveButton.isEnabled = true }
-            )
+                    return@setOnClickListener
+                }
+                
+                saveButton.isEnabled = false
+                val nextActionTitle = if (followUp != null) "Follow Up" else null
+                com.nickpulido.rcrm.domain.FollowUpRepository().recordOutcomeAndNextStep(
+                    leadId = leadId,
+                    ownerId = auth.currentUser?.uid ?: "",
+                    currentActionId = null,
+                    newOutcome = outcomeString,
+                    newNote = note,
+                    nextActionTitle = nextActionTitle,
+                    nextActionTime = followUp,
+                    nextActionType = com.nickpulido.rcrm.domain.ActionType.CALL,
+                    pauseReason = null
+                ) { success ->
+                    runOnUiThread {
+                        if (success) {
+                            if (followUp != null) {
+                                ReminderReceiver.scheduleReminder(
+                                    this@AppointmentsActivity,
+                                    item.phone.orEmpty().ifBlank { leadId },
+                                    item.leadName ?: item.title,
+                                    followUp
+                                )
+                            }
+                            Toast.makeText(this@AppointmentsActivity, "Outcome logged", Toast.LENGTH_SHORT).show()
+                            loadAgenda()
+                            dialog.dismiss()
+                            
+                            val status = AppointmentAgenda.appointmentOutcomeFor(outcome)
+                            if (status != null && canRecordOutcome(item) && item.status != statusFor(status)) {
+                                recordOutcome(item, status, null, openNoteAfter = false)
+                            }
+                        } else {
+                            saveButton.isEnabled = true
+                            Toast.makeText(this@AppointmentsActivity, "Failed to log outcome", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } else {
+                saveButton.isEnabled = false
+                saveQuickNote(
+                    leadId = leadId,
+                    leadName = item.leadName ?: item.title,
+                    phone = item.phone.orEmpty(),
+                    note = note,
+                    followUpMillis = followUp,
+                    prepend = outcomeMode,
+                    savedMessage = if (outcomeMode) "Outcome logged" else "Saved",
+                    onDone = {
+                        dialog.dismiss()
+                        val status = outcome?.let(AppointmentAgenda::appointmentOutcomeFor)
+                        if (status != null && canRecordOutcome(item) && item.status != statusFor(status)) {
+                            recordOutcome(item, status, null, openNoteAfter = false)
+                        }
+                    },
+                    onFailed = { saveButton.isEnabled = true }
+                )
+            }
         }
         dialog.show()
         sizeDialog(dialog)

@@ -398,6 +398,31 @@ fun LeadPipelineCard(
                     fontSize = 12.sp
                 )
             }
+            if (lead.isMissingPlan) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Needs a next step",
+                    color = NeonPink,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            } else if (lead.isOverdue) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Overdue",
+                    color = NeonPink,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            if (!lead.lastConnectedContactLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = lead.lastConnectedContactLabel,
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             
             // Quick Actions

@@ -51,29 +51,41 @@ class DailyFollowUpWorker(context: Context, params: WorkerParameters) : Coroutin
             val followUps = mutableListOf<String>()
             val appointments = mutableListOf<String>()
 
+            val zone = TimeZone.getDefault()
+            val nowMillis = System.currentTimeMillis()
+            val todayStart = AppointmentAgenda.startOfDay(nowMillis, zone)
+            val todayEnd = Calendar.getInstance(zone).apply {
+                timeInMillis = todayStart
+                add(Calendar.DAY_OF_YEAR, 1)
+            }.timeInMillis
+
             for (doc in snapshot.documents) {
                 if (isStopped) break
                 val name = doc.getString(FIELD_NAME) ?: "Unknown"
 
-                doc.getTimestamp(FIELD_FOLLOW_UP_DATE)?.let { ts ->
-                    if (ts.isSameCalendarDay(todayKey)) {
-                        followUps.add("$name · ${timeFormat.format(ts.toDate())}")
+                val ts = doc.getTimestamp(FIELD_FOLLOW_UP_DATE)
+                val isPaused = doc.getBoolean("isPaused") ?: false
+
+                if (ts == null) {
+                    if (!isPaused) {
+                        followUps.add("$name · Missing Plan")
+                    }
+                } else {
+                    val date = ts.toDate()
+                    if (date.time < todayStart) {
+                        followUps.add("$name · Overdue")
+                    } else if (ts.isSameCalendarDay(todayKey)) {
+                        followUps.add("$name · ${timeFormat.format(date)}")
                     }
                 }
 
-                val zone = TimeZone.getDefault()
-                val todayStart = AppointmentAgenda.startOfDay(System.currentTimeMillis(), zone)
-                val todayEnd = Calendar.getInstance(zone).apply {
-                    timeInMillis = todayStart
-                    add(Calendar.DAY_OF_YEAR, 1)
-                }.timeInMillis
                 val records = AppointmentAgenda.migrateAppointments(
                     leadId = doc.id,
                     existing = LeadAppointmentSync.readRecords(doc.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
                     legacyStartMillis = doc.getTimestamp(FIELD_APPOINTMENT_DATE)?.toDate()?.time,
                     legacyLocation = doc.getString("appointmentLocation"),
                     legacyEventId = null,
-                    nowMillis = System.currentTimeMillis()
+                    nowMillis = nowMillis
                 )
                 AppointmentAgenda.digestAppointmentStarts(records, todayStart, todayEnd).forEach { start ->
                     appointments.add("$name · ${timeFormat.format(Date(start))}")

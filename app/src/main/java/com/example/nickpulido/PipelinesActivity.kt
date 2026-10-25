@@ -18,6 +18,9 @@ import com.nickpulido.rcrm.ui.components.PipelineType
 import com.nickpulido.rcrm.ui.components.PipelinesScreen
 import com.nickpulido.rcrm.ui.components.RecruitStage
 import com.nickpulido.rcrm.ui.components.SalesStage
+import com.nickpulido.rcrm.domain.FollowUpRepository
+import com.nickpulido.rcrm.domain.ActionType
+import com.nickpulido.rcrm.ui.components.OutcomeSheet
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
 
 class PipelinesActivity : ComponentActivity() {
@@ -29,6 +32,10 @@ class PipelinesActivity : ComponentActivity() {
     private var leads by mutableStateOf<List<PipelineLead>>(emptyList())
     private var searchQuery by mutableStateOf("")
     private var pipelineType by mutableStateOf(PipelineType.SALES)
+    
+    private val followUpRepository = FollowUpRepository()
+    private var activeOutcomeLeadId by mutableStateOf<String?>(null)
+    private var activeStageChange by mutableStateOf<Triple<String, PipelineType, String>?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,9 +78,26 @@ class PipelinesActivity : ComponentActivity() {
                         val rawNotes = doc.getString("notes") ?: ""
                         val lastNote = NoteUtils.getDisplayNote(rawNotes)
                         
-                        val followUpLabel = doc.getTimestamp("followUpDate")?.toDate()?.let {
+                        val followUpDate = doc.getTimestamp("followUpDate")?.toDate()
+                        val followUpLabel = followUpDate?.let {
                             java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(it)
                         }
+
+                        val isPaused = doc.getBoolean("isPaused") ?: false
+                        val isMissingPlan = followUpDate == null && !isPaused
+
+                        val today = java.util.Calendar.getInstance().apply {
+                            set(java.util.Calendar.HOUR_OF_DAY, 0)
+                            set(java.util.Calendar.MINUTE, 0)
+                            set(java.util.Calendar.SECOND, 0)
+                            set(java.util.Calendar.MILLISECOND, 0)
+                        }.time
+                        val isOverdue = followUpDate != null && followUpDate.before(today)
+
+                        val lastConnectedContactLong = doc.getLong("lastConnectedContact")
+                        val lastConnectedContactLabel = lastConnectedContactLong?.let {
+                            java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
+                        }?.let { "Last connected: $it" }
 
                         // Filter by type logic will be handled in compose or here. We load all and filter in compose.
                         PipelineLead(
@@ -86,7 +110,10 @@ class PipelinesActivity : ComponentActivity() {
                             recruitStage = recruitStage,
                             lastNotePreview = lastNote,
                             followUpDateLabel = followUpLabel,
-                            isPinned = doc.getBoolean("isPinned") ?: false
+                            isPinned = doc.getBoolean("isPinned") ?: false,
+                            isMissingPlan = isMissingPlan,
+                            isOverdue = isOverdue,
+                            lastConnectedContactLabel = lastConnectedContactLabel
                         )
                     }
                     leads = newLeads.sortedByDescending { it.isPinned }
@@ -127,40 +154,53 @@ class PipelinesActivity : ComponentActivity() {
                         updateLeadStage(leadId, pType, newStageId)
                     }
                 )
+
+                activeStageChange?.let { (leadId, pType, newStageId) ->
+                    OutcomeSheet(
+                        leadId = leadId,
+                        onDismiss = { activeStageChange = null },
+                        onSave = { outcome, note, nextActionTitle, nextActionTime, nextActionType, pauseReason ->
+                            val currentUserId = auth.currentUser?.uid ?: return@OutcomeSheet
+                            val stageTitle = if (pType == PipelineType.SALES) {
+                                SalesStage.values().find { it.id == newStageId }?.title ?: "New Stage"
+                            } else {
+                                RecruitStage.values().find { it.id == newStageId }?.title ?: "New Stage"
+                            }
+                            
+                            followUpRepository.recordStageChange(
+                                leadId = leadId,
+                                ownerId = currentUserId,
+                                pipelineType = pType,
+                                newStageId = newStageId,
+                                stageTitle = stageTitle,
+                                suggestedNextActionTitle = nextActionTitle,
+                                suggestedNextActionTime = nextActionTime
+                            ) { success ->
+                                // Also log the custom outcome if provided (unless it's just empty)
+                                if (success && outcome.isNotEmpty()) {
+                                    followUpRepository.recordOutcomeAndNextStep(
+                                        leadId = leadId,
+                                        ownerId = currentUserId,
+                                        currentActionId = null,
+                                        newOutcome = outcome,
+                                        newNote = note,
+                                        nextActionTitle = null, // Already handled in recordStageChange
+                                        nextActionTime = null,
+                                        nextActionType = nextActionType,
+                                        pauseReason = pauseReason
+                                    ) { }
+                                }
+                            }
+                            activeStageChange = null
+                        }
+                    )
+                }
             }
         }
     }
 
     private fun updateLeadStage(leadId: String, pType: PipelineType, newStageId: String) {
-        val lead = leads.find { it.id == leadId } ?: return
-        
-        val stageTitle = if (pType == PipelineType.SALES) {
-            SalesStage.values().find { it.id == newStageId }?.title ?: "New Stage"
-        } else {
-            RecruitStage.values().find { it.id == newStageId }?.title ?: "New Stage"
-        }
-
-        val updateMap = mutableMapOf<String, Any>()
-        if (pType == PipelineType.SALES) {
-            updateMap["salesStage"] = newStageId
-            if (newStageId == SalesStage.IN_FORCE.id && !lead.category.contains("Client", ignoreCase = true)) {
-                val newCats = if (lead.category.isBlank()) "Client" else "${lead.category}, Client"
-                updateMap["category"] = newCats
-            }
-        } else {
-            updateMap["recruitStage"] = newStageId
-        }
-        
-        // Append note
-        // It's better to fetch current notes directly from document and append.
-        db.collection("leads").document(leadId).get().addOnSuccessListener { doc ->
-            val existingNotes = doc.getString("notes") ?: ""
-            val newNote = NoteUtils.formatNewNote("Moved to $stageTitle stage")
-            val updatedNotes = if (existingNotes.isEmpty()) newNote else "$newNote\n\n$existingNotes"
-            updateMap["notes"] = updatedNotes
-
-            db.collection("leads").document(leadId).set(updateMap, SetOptions.merge())
-        }
+        activeStageChange = Triple(leadId, pType, newStageId)
     }
 
     override fun onDestroy() {
