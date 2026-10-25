@@ -88,6 +88,7 @@ class AppointmentsActivity : AppCompatActivity() {
     private var showOpenSlots = false
     private var pendingFocusEventId: Long? = null
     private var pendingFocusStartMillis: Long? = null
+    private var immediateFocusShown = false
 
     private var contactNameTarget: EditText? = null
     private var contactPhoneTarget: EditText? = null
@@ -278,6 +279,9 @@ class AppointmentsActivity : AppCompatActivity() {
         if (savedInstanceState == null && !GoogleCalendarManager.hasCalendarPermissions(this)) {
             requestCalendarPermissions()
         }
+        if (savedInstanceState == null) {
+            maybeShowImmediateFocusDialog()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -312,15 +316,82 @@ class AppointmentsActivity : AppCompatActivity() {
         val start = pendingFocusStartMillis ?: return
         pendingFocusEventId = null
         pendingFocusStartMillis = null
+        if (immediateFocusShown) {
+            immediateFocusShown = false
+            return
+        }
         val match = monthItems.firstOrNull { item ->
             item.eventId == eventId &&
                 kotlin.math.abs(item.startMillis - start) <= AppointmentAgenda.SAME_INSTANT_TOLERANCE_MS
         } ?: monthItems.firstOrNull { it.eventId == eventId }
         if (match != null) {
-            showEventActions(match)
+            if (intent.getBooleanExtra(EXTRA_FOCUS_LOG_OUTCOME, false)) {
+                showQuickNoteDialog(match, outcomeMode = true)
+            } else {
+                showEventActions(match)
+            }
         } else {
             Toast.makeText(this, "That event is no longer on your visible calendars.", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun maybeShowImmediateFocusDialog() {
+        val source = intent ?: return
+        val eventId = source.getLongExtra(EXTRA_FOCUS_EVENT_ID, -1L).takeIf { it > 0L } ?: return
+        val start = source.getLongExtra(EXTRA_FOCUS_START_MILLIS, -1L).takeIf { it > 0L } ?: return
+        val openActions = source.getBooleanExtra(EXTRA_FOCUS_OPEN_ACTIONS, false)
+        val logOutcome = source.getBooleanExtra(EXTRA_FOCUS_LOG_OUTCOME, false)
+        if (!openActions && !logOutcome) return
+        val item = agendaItemFromFocusExtras(source, eventId, start)
+        immediateFocusShown = true
+        if (logOutcome) {
+            showQuickNoteDialog(item, outcomeMode = true)
+        } else {
+            showEventActions(item)
+        }
+    }
+
+    private fun agendaItemFromFocusExtras(source: Intent, eventId: Long, start: Long): AgendaItem {
+        val end = source.getLongExtra(EXTRA_FOCUS_END_MILLIS, -1L).takeIf { it > start }
+            ?: (start + 60L * 60L * 1000L)
+        val title = source.getStringExtra(EXTRA_FOCUS_TITLE).orEmpty().ifBlank { "(No title)" }
+        val calendar = source.getStringExtra(EXTRA_FOCUS_CALENDAR).orEmpty()
+        val leadId = source.getStringExtra(EXTRA_FOCUS_LEAD_ID)?.takeIf { it.isNotBlank() }
+        val leadName = source.getStringExtra(EXTRA_FOCUS_LEAD_NAME)?.takeIf { it.isNotBlank() }
+        val location = source.getStringExtra(EXTRA_FOCUS_LOCATION)?.takeIf { it.isNotBlank() }
+        val description = source.getStringExtra(EXTRA_FOCUS_DESCRIPTION).orEmpty()
+        val phone = source.getStringExtra(EXTRA_FOCUS_PHONE)?.takeIf { it.isNotBlank() }
+        val color = source.getIntExtra(EXTRA_FOCUS_COLOR, AppointmentAgenda.CRM_COLOR)
+        val account = source.getStringExtra(EXTRA_FOCUS_ACCOUNT).orEmpty()
+        val canWrite = source.getBooleanExtra(EXTRA_FOCUS_CAN_WRITE, true)
+        val linked = AppointmentAgenda.isLinkedToCrm(leadId, !leadId.isNullOrBlank())
+        val entry = AppointmentAgenda.AgendaEntry(
+            title = title,
+            startMillis = start,
+            endMillis = end,
+            allDay = false,
+            color = color,
+            eventId = eventId,
+            leadId = leadId,
+            ownerId = null,
+            appointmentId = null,
+            leadName = leadName,
+            phone = phone,
+            location = location,
+            explicitCrm = linked,
+            suggestedLeadId = null,
+            calendarDisplayName = calendar,
+            accountName = account,
+            canWrite = canWrite,
+            recurring = false,
+            recurringMaster = false,
+            storedStartMillis = null,
+            timeDrifted = false,
+            status = null
+        )
+        return entry.toAgendaItem(description).copy(
+            eventPhone = AppointmentAgenda.extractPhone(description) ?: AppointmentAgenda.extractPhone(title)
+        )
     }
 
     private fun requestCalendarPermissions() {
@@ -434,10 +505,12 @@ class AppointmentsActivity : AppCompatActivity() {
         bindDayStrip(emptyList(), snap = true)
 
         val statusView = findViewById<TextView>(R.id.tvCalendarStatus)
-        progressBar.visibility = View.VISIBLE
-        emptyView.visibility = View.GONE
-        displayRows.clear()
-        agendaAdapter.notifyDataSetChanged()
+        if (!immediateFocusShown) {
+            progressBar.visibility = View.VISIBLE
+            emptyView.visibility = View.GONE
+            displayRows.clear()
+            agendaAdapter.notifyDataSetChanged()
+        }
         statusView.visibility = if (GoogleCalendarManager.hasCalendarPermissions(this)) {
             View.GONE
         } else {
@@ -577,6 +650,7 @@ class AppointmentsActivity : AppCompatActivity() {
         }
 
         val events = mutableListOf<SyncedCalendarEvent>()
+        val extrasByEventId = HashMap<Long, SyncedCalendarEvent>()
         if (GoogleCalendarManager.hasCalendarPermissions(this)) {
             events += GoogleCalendarManager.getEventsInRange(
                 context = this,
@@ -584,12 +658,14 @@ class AppointmentsActivity : AppCompatActivity() {
                 endMillis = endMillis,
                 selectedCalendarIds = GoogleCalendarManager.getVisibleCalendarIds(this)
             )
+            events.forEach { extrasByEventId[it.eventId] = it }
             val seenIds = events.map { it.eventId }.toMutableSet()
             appointments.mapNotNull { it.eventId }.distinct().forEach { eventId ->
                 if (eventId in seenIds) return@forEach
                 val lookedUp = GoogleCalendarManager.lookupEvent(this, eventId) ?: return@forEach
                 if (lookedUp.recurring && lookedUp.originalInstanceTime == null) return@forEach
                 events += lookedUp
+                extrasByEventId[lookedUp.eventId] = lookedUp
                 seenIds += lookedUp.eventId
             }
         }
@@ -616,6 +692,7 @@ class AppointmentsActivity : AppCompatActivity() {
         }
         return reconciled.map { entry ->
             val lead = entry.leadId?.let { leadContacts[it] }
+            val extra = entry.eventId?.let { extrasByEventId[it] }
             val filled = if (lead == null) {
                 entry
             } else {
@@ -623,8 +700,10 @@ class AppointmentsActivity : AppCompatActivity() {
                     leadName = entry.leadName ?: lead.name,
                     phone = entry.phone?.takeIf { it.isNotBlank() } ?: lead.phone.takeIf { it.isNotBlank() }
                 )
-            }
-            filled.toAgendaItem().copy(eventPhone = entry.eventId?.let { phonesByEventId[it] })
+            }.copy(
+                location = entry.location ?: extra?.location?.takeIf { it.isNotBlank() }
+            )
+            filled.toAgendaItem(extra?.description).copy(eventPhone = entry.eventId?.let { phonesByEventId[it] })
         }
     }
 
@@ -859,6 +938,9 @@ class AppointmentsActivity : AppCompatActivity() {
 
         dialogView.findViewById<TextView>(R.id.tvEventActionTitle).text = item.title
         dialogView.findViewById<TextView>(R.id.tvEventActionWhen).text = item.whenLabel
+        val linkedName = item.leadName?.takeIf { AppointmentAgenda.isLinkedToCrm(item.leadId, item.explicitCrm) }
+        dialogView.findViewById<TextView>(R.id.tvEventActionSubtitle).text =
+            AppointmentAgenda.eventSubtitle(item.calendarDisplayName, linkedName)
         val detailView = dialogView.findViewById<TextView>(R.id.tvEventActionDetail)
         if (item.detailText.isBlank()) {
             detailView.visibility = View.GONE
@@ -867,27 +949,15 @@ class AppointmentsActivity : AppCompatActivity() {
             detailView.text = item.detailText
         }
 
-        val leadPhone = leadPhoneFor(item)
-        val contactPhone = leadPhone ?: item.eventPhone
-        val phoneLabel = dialogView.findViewById<TextView>(R.id.tvEventActionPhone)
-        val contactRow = dialogView.findViewById<View>(R.id.rowClientContact)
-        if (contactPhone == null) {
-            phoneLabel.visibility = View.GONE
-            contactRow.visibility = View.GONE
-        } else {
-            phoneLabel.visibility = View.VISIBLE
-            phoneLabel.text = if (leadPhone != null) "Lead phone: $contactPhone" else "Phone in event: $contactPhone"
-            contactRow.visibility = View.VISIBLE
-            val callButton = dialogView.findViewById<TextView>(R.id.btnCallLead)
-            callButton.text = if (item.leadId.isNullOrBlank()) "📞 Call" else "📞 Call Lead"
-            callButton.setOnClickListener {
-                dialog.dismiss()
-                dialPhone(contactPhone)
-            }
-            dialogView.findViewById<View>(R.id.btnSendConfirmationText).setOnClickListener {
-                dialog.dismiss()
-                sendConfirmationText(item, contactPhone)
-            }
+        dialogView.findViewById<View>(R.id.btnSendConfirmationText).setOnClickListener {
+            requestReachOut(item, AfterLink.TEXT, dialog)
+        }
+        dialogView.findViewById<View>(R.id.btnCallLead).setOnClickListener {
+            requestReachOut(item, AfterLink.CALL, dialog)
+        }
+        dialogView.findViewById<View>(R.id.btnMapOrLink).setOnClickListener {
+            dialog.dismiss()
+            openMapOrLink(item)
         }
         dialogView.findViewById<View>(R.id.btnLogOutcome).setOnClickListener {
             dialog.dismiss()
@@ -995,6 +1065,88 @@ class AppointmentsActivity : AppCompatActivity() {
             AfterLink.NONE -> loadAgenda()
             AfterLink.NOTE -> showQuickNoteDialog(linked)
             AfterLink.OUTCOME -> showQuickNoteDialog(linked, outcomeMode = true)
+            AfterLink.TEXT -> {
+                val phone = leadPhoneFor(linked) ?: linked.eventPhone
+                if (phone == null) {
+                    Toast.makeText(this, "That lead has no phone number.", Toast.LENGTH_LONG).show()
+                } else {
+                    sendConfirmationText(linked, phone)
+                }
+                loadAgenda()
+            }
+            AfterLink.CALL -> {
+                val phone = leadPhoneFor(linked) ?: linked.eventPhone
+                if (phone == null) {
+                    Toast.makeText(this, "That lead has no phone number.", Toast.LENGTH_LONG).show()
+                } else {
+                    dialPhone(phone)
+                }
+                loadAgenda()
+            }
+        }
+    }
+
+    private fun requestReachOut(item: AgendaItem, after: AfterLink, dialog: AlertDialog) {
+        val linkedPhone = leadPhoneFor(item)
+        if (!item.leadId.isNullOrBlank() && linkedPhone != null) {
+            dialog.dismiss()
+            if (after == AfterLink.TEXT) {
+                sendConfirmationText(item, linkedPhone)
+            } else {
+                dialPhone(linkedPhone)
+            }
+            return
+        }
+        if (!item.leadId.isNullOrBlank()) {
+            Toast.makeText(this, "That lead has no phone number.", Toast.LENGTH_LONG).show()
+            return
+        }
+        dialog.dismiss()
+        Toast.makeText(this, "Select a contact to link & reach out", Toast.LENGTH_SHORT).show()
+        withLeadChoices { leads ->
+            if (leads.isEmpty()) {
+                Toast.makeText(this, "No RCRM leads to link yet.", Toast.LENGTH_LONG).show()
+                return@withLeadChoices
+            }
+            showLinkExistingLeadDialog(item, after)
+        }
+    }
+
+    private fun withLeadChoices(onReady: (List<LeadChoice>) -> Unit) {
+        val existing = leadChoices()
+        if (existing.isNotEmpty()) {
+            onReady(existing)
+            return
+        }
+        val currentUserId = auth.currentUser?.uid
+        if (currentUserId == null) {
+            onReady(emptyList())
+            return
+        }
+        db.collection("leads")
+            .whereEqualTo("ownerId", currentUserId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (isDestroyed) return@addOnSuccessListener
+                loadedLeads = snapshot.documents.mapNotNull { doc ->
+                    val map = doc.data?.toMutableMap() ?: return@mapNotNull null
+                    map["__docId"] = doc.id
+                    map
+                }
+                onReady(leadChoices())
+            }
+            .addOnFailureListener {
+                if (!isDestroyed) {
+                    Toast.makeText(this, "Couldn't load leads.", Toast.LENGTH_LONG).show()
+                    onReady(emptyList())
+                }
+            }
+    }
+
+    private fun openMapOrLink(item: AgendaItem) {
+        val opened = GoogleCalendarManager.openLocationOrMeeting(this, item.location, item.description)
+        if (!opened) {
+            openInGoogleCalendar(item)
         }
     }
 
@@ -1009,6 +1161,8 @@ class AppointmentsActivity : AppCompatActivity() {
                 "Save this event as a lead first, then add the note or follow-up."
             AfterLink.OUTCOME -> dialogView.findViewById<TextView>(R.id.tvSaveLeadSubtitle).text =
                 "Save this event as a lead first, then log the outcome."
+            AfterLink.TEXT, AfterLink.CALL -> dialogView.findViewById<TextView>(R.id.tvSaveLeadSubtitle).text =
+                "Save this event as a lead first, then reach out."
             AfterLink.NONE -> Unit
         }
         contactNameTarget = nameInput
@@ -2615,11 +2769,12 @@ class AppointmentsActivity : AppCompatActivity() {
             originalEventId = originalEventId,
             explicitLeadId = leadId,
             explicitAppointmentId = explicitAppointmentId,
-            canceled = canceled
+            canceled = canceled,
+            location = location.takeIf { it.isNotBlank() }
         )
     }
 
-    private fun AppointmentAgenda.AgendaEntry.toAgendaItem(): AgendaItem {
+    private fun AppointmentAgenda.AgendaEntry.toAgendaItem(description: String? = null): AgendaItem {
         val statusText = AppointmentAgenda.statusLabel(status)
         val whenText = buildString {
             append(formatWhen(startMillis, endMillis, allDay))
@@ -2646,7 +2801,7 @@ class AppointmentsActivity : AppCompatActivity() {
             explicitCrm = explicitCrm,
             appointmentId = appointmentId,
             suggestedLeadId = suggestedLeadId,
-            detailText = AppointmentAgenda.eventDetail(this, storedLabel),
+            detailText = AppointmentAgenda.eventDetail(this, storedLabel, description),
             canWrite = canWrite,
             recurring = recurring,
             recurringMaster = recurringMaster,
@@ -2654,7 +2809,8 @@ class AppointmentsActivity : AppCompatActivity() {
             ownerId = ownerId,
             timeDrifted = timeDrifted,
             storedStartMillis = storedStartMillis,
-            calendarDisplayName = calendarDisplayName
+            calendarDisplayName = calendarDisplayName,
+            description = description.orEmpty()
         )
     }
 
@@ -2698,7 +2854,7 @@ class AppointmentsActivity : AppCompatActivity() {
 
     private enum class SourceFilter { ALL_EVENTS, CRM_ONLY }
 
-    private enum class AfterLink { NONE, NOTE, OUTCOME }
+    private enum class AfterLink { NONE, NOTE, OUTCOME, TEXT, CALL }
 
     private data class LeadChoice(
         val id: String,
@@ -2732,7 +2888,8 @@ class AppointmentsActivity : AppCompatActivity() {
         val timeDrifted: Boolean = false,
         val storedStartMillis: Long? = null,
         val calendarDisplayName: String = "",
-        val eventPhone: String? = null
+        val eventPhone: String? = null,
+        val description: String = ""
     )
 
     private data class DayCell(
@@ -2822,6 +2979,7 @@ class AppointmentsActivity : AppCompatActivity() {
             private val title: TextView = view.findViewById(R.id.tvEventTitle)
             private val whenLabel: TextView = view.findViewById(R.id.tvEventWhen)
             private val meta: TextView = view.findViewById(R.id.tvEventMeta)
+            private val crmBadge: TextView = view.findViewById(R.id.tvCrmLinkedBadge)
 
             fun bind(item: AgendaItem) {
                 colorBar.background = GradientDrawable().apply {
@@ -2833,7 +2991,17 @@ class AppointmentsActivity : AppCompatActivity() {
                 whenLabel.text = item.whenLabel
                 meta.text = item.meta
                 meta.visibility = if (item.meta.isBlank()) View.GONE else View.VISIBLE
-                itemView.contentDescription = listOf(item.title, item.whenLabel, item.meta)
+                val badge = AppointmentAgenda.crmLinkedBadge(
+                    item.leadName,
+                    AppointmentAgenda.isLinkedToCrm(item.leadId, item.explicitCrm)
+                )
+                if (badge == null) {
+                    crmBadge.visibility = View.GONE
+                } else {
+                    crmBadge.visibility = View.VISIBLE
+                    crmBadge.text = badge
+                }
+                itemView.contentDescription = listOf(item.title, item.whenLabel, item.meta, badge.orEmpty())
                     .filter { it.isNotBlank() }
                     .joinToString(", ")
                 itemView.setOnClickListener { showEventActions(item) }
@@ -2944,6 +3112,19 @@ class AppointmentsActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_FOCUS_EVENT_ID = "focus_event_id"
         const val EXTRA_FOCUS_START_MILLIS = "focus_event_start_millis"
+        const val EXTRA_FOCUS_END_MILLIS = "focus_event_end_millis"
+        const val EXTRA_FOCUS_TITLE = "focus_event_title"
+        const val EXTRA_FOCUS_LOCATION = "focus_event_location"
+        const val EXTRA_FOCUS_LEAD_ID = "focus_event_lead_id"
+        const val EXTRA_FOCUS_LEAD_NAME = "focus_event_lead_name"
+        const val EXTRA_FOCUS_PHONE = "focus_event_phone"
+        const val EXTRA_FOCUS_CALENDAR = "focus_event_calendar"
+        const val EXTRA_FOCUS_COLOR = "focus_event_color"
+        const val EXTRA_FOCUS_DESCRIPTION = "focus_event_description"
+        const val EXTRA_FOCUS_ACCOUNT = "focus_event_account"
+        const val EXTRA_FOCUS_CAN_WRITE = "focus_event_can_write"
+        const val EXTRA_FOCUS_OPEN_ACTIONS = "focus_open_actions"
+        const val EXTRA_FOCUS_LOG_OUTCOME = "focus_log_outcome"
         private const val VIEW_HEADER = 0
         private const val VIEW_EVENT = 1
         private const val VIEW_OPEN_SLOT = 2

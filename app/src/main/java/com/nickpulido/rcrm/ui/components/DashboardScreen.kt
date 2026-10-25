@@ -98,7 +98,10 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     upNext: UpNextUi? = null,
     onUpNextOpenAgenda: () -> Unit = {},
-    onUpNextConfirm: () -> Unit = {}
+    onUpNextConfirm: () -> Unit = {},
+    onUpNextPrevious: () -> Unit = {},
+    onUpNextNext: () -> Unit = {},
+    onUpNextJoinLocation: () -> Unit = {}
 ) {
     Box(
         modifier = modifier
@@ -189,7 +192,10 @@ fun DashboardScreen(
                     UpNextBanner(
                         upNext = upNext,
                         onOpenAgenda = onUpNextOpenAgenda,
-                        onConfirmPrep = onUpNextConfirm
+                        onConfirmPrep = onUpNextConfirm,
+                        onPrevious = onUpNextPrevious,
+                        onNext = onUpNextNext,
+                        onJoinLocation = onUpNextJoinLocation
                     )
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }

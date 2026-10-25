@@ -45,7 +45,8 @@ data class SyncedCalendarEvent(
     val originalInstanceTime: Long? = null,
     val originalEventId: Long? = null,
     val explicitAppointmentId: String? = null,
-    val canceled: Boolean = false
+    val canceled: Boolean = false,
+    val location: String = ""
 )
 
 object GoogleCalendarManager {
@@ -299,7 +300,8 @@ object GoogleCalendarManager {
             CalendarContract.Events.RRULE,
             CalendarContract.Events.ORIGINAL_INSTANCE_TIME,
             CalendarContract.Events.ORIGINAL_ID,
-            CalendarContract.Events.STATUS
+            CalendarContract.Events.STATUS,
+            CalendarContract.Events.EVENT_LOCATION
         )
         return try {
             context.contentResolver.query(
@@ -475,6 +477,28 @@ object GoogleCalendarManager {
         launchCalendarIntent(context, intent)
     }
 
+    fun openLocationOrMeeting(context: Context, location: String?, description: String?): Boolean {
+        val url = AppointmentAgenda.extractMeetingOrWebUrl(location, description)
+        if (!url.isNullOrBlank()) {
+            return launchViewUri(context, Uri.parse(url), "No browser is available on this device.")
+        }
+        val loc = location?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+        val mapsNav = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${Uri.encode(loc)}")).apply {
+            setPackage("com.google.android.apps.maps")
+        }
+        return try {
+            if (context !is Activity) mapsNav.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(mapsNav)
+            true
+        } catch (_: Exception) {
+            launchViewUri(
+                context,
+                Uri.parse("geo:0,0?q=${Uri.encode(loc)}"),
+                "No maps app is available on this device."
+            )
+        }
+    }
+
     fun openGoogleCalendarAtTime(context: Context, timeMillis: Long = System.currentTimeMillis()) {
         val whenMillis = if (timeMillis > 0L) timeMillis else System.currentTimeMillis()
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -503,7 +527,8 @@ object GoogleCalendarManager {
             CalendarContract.Instances.CALENDAR_ID,
             CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
             CalendarContract.Instances.CALENDAR_COLOR,
-            CalendarContract.Instances.ALL_DAY
+            CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.EVENT_LOCATION
         )
         if (!extended) return basic
         return basic + arrayOf(
@@ -581,7 +606,8 @@ object GoogleCalendarManager {
             originalInstanceTime = originalInstance,
             originalEventId = originalId,
             explicitAppointmentId = AppointmentAgenda.extractAppointmentId(description),
-            canceled = status == CalendarContract.Events.STATUS_CANCELED
+            canceled = status == CalendarContract.Events.STATUS_CANCELED,
+            location = cursor.stringValue(CalendarContract.Events.EVENT_LOCATION)
         )
     }
 
@@ -761,7 +787,8 @@ object GoogleCalendarManager {
                     originalEventId = event.originalEventId,
                     explicitLeadId = event.leadId,
                     explicitAppointmentId = event.explicitAppointmentId,
-                    canceled = event.canceled
+                    canceled = event.canceled,
+                    location = event.location.takeIf { it.isNotBlank() }
                 )
             }
         return AppointmentAgenda.selectRetryTarget(
@@ -898,6 +925,19 @@ object GoogleCalendarManager {
             }
         }
         return calendars
+    }
+
+    private fun launchViewUri(context: Context, uri: Uri, unavailableMessage: String): Boolean {
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        return try {
+            if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't open $uri", e)
+            Toast.makeText(context, unavailableMessage, Toast.LENGTH_LONG).show()
+            false
+        }
     }
 
     private fun launchCalendarIntent(context: Context, intent: Intent) {

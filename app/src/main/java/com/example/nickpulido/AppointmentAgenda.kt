@@ -18,6 +18,7 @@ object AppointmentAgenda {
     const val CRM_COLOR = 0xFF4C8DFF.toInt()
     const val UP_NEXT_WINDOW_MS = 24L * 60L * 60L * 1000L
     const val UP_NEXT_GRACE_MS = 10L * 60L * 1000L
+    const val UP_NEXT_LIMIT = 8
 
     private const val MINUTE_MS = 60_000L
     private const val SLOT_ROUNDING_MS = 15L * MINUTE_MS
@@ -29,6 +30,10 @@ object AppointmentAgenda {
     private val LOOSE_PHONE = Regex("""(?<![\w/=])\+?\(?\d[\d \t().-]{8,20}\d(?![\w/:])""")
     private val NOT_A_PHONE_LINE = Regex(
         """(?i)://|,,|#|meeting id|conference id|passcode|access code|\bpin\b|one tap|dial[- ]?in|zoom|meet\.google|teams"""
+    )
+    private val WEB_URL = Regex("""(?i)https?://[^\s<>"']+""")
+    private val MEETING_HOST = Regex(
+        """(?i)zoom\.us|meet\.google\.com|teams\.microsoft\.com|webex\.com|gotomeeting\.com"""
     )
 
     enum class MonthWindow { UPCOMING, ALL }
@@ -92,7 +97,8 @@ object AppointmentAgenda {
         val originalEventId: Long?,
         val explicitLeadId: String?,
         val explicitAppointmentId: String?,
-        val canceled: Boolean
+        val canceled: Boolean,
+        val location: String? = null
     )
 
     data class AgendaEntry(
@@ -700,18 +706,68 @@ object AppointmentAgenda {
         }
     }
 
+    fun isLinkedToCrm(leadId: String?, explicitCrm: Boolean): Boolean {
+        return explicitCrm || !leadId.isNullOrBlank()
+    }
+
+    fun crmLinkedBadge(leadName: String?, linked: Boolean): String? {
+        if (!linked) return null
+        val name = leadName?.trim().orEmpty()
+        return if (name.isNotEmpty()) "🔗 $name" else "🔗 CRM Linked"
+    }
+
+    fun eventSubtitle(calendarDisplayName: String, linkedLeadName: String?): String {
+        val calendar = calendarDisplayName.trim().ifBlank { "Calendar" }
+        val link = if (!linkedLeadName.isNullOrBlank()) "Linked: $linkedLeadName" else "Unlinked Event"
+        return "● $calendar • $link"
+    }
+
+    fun stripRcrmFooter(text: String?): String {
+        if (text.isNullOrBlank()) return ""
+        return text.lineSequence()
+            .filterNot { line ->
+                val trimmed = line.trim()
+                trimmed.isEmpty() ||
+                    trimmed == "---" ||
+                    trimmed.startsWith("rcrm://", ignoreCase = true) ||
+                    trimmed.contains("rcrm://lead/", ignoreCase = true) ||
+                    trimmed.contains("rcrm://appointment/", ignoreCase = true) ||
+                    trimmed.startsWith("Open Lead in RCRM:", ignoreCase = true)
+            }
+            .joinToString("\n")
+            .trim()
+    }
+
+    fun eventPreview(description: String?, location: String?): String {
+        val loc = location?.trim().orEmpty()
+        val desc = stripRcrmFooter(description)
+        return when {
+            desc.isNotEmpty() && loc.isNotEmpty() && !desc.contains(loc) -> "$loc\n$desc"
+            desc.isNotEmpty() -> desc
+            else -> loc
+        }
+    }
+
+    fun extractMeetingOrWebUrl(location: String?, description: String?): String? {
+        urlIn(location)?.let { return it }
+        val cleaned = stripRcrmFooter(description)
+        val urls = WEB_URL.findAll(cleaned).map { trimUrl(it.value) }.filter { it.isNotEmpty() }.toList()
+        return urls.firstOrNull { MEETING_HOST.containsMatchIn(it) } ?: urls.firstOrNull()
+    }
+
+    fun locationChipLabel(location: String?, meetingUrl: String?): String? {
+        if (meetingUrl.isNullOrBlank() && location.isNullOrBlank()) return null
+        return "📍 Location / Join"
+    }
+
     fun eventDetail(
         entry: AgendaEntry,
-        storedTimeLabel: String?
+        storedTimeLabel: String?,
+        description: String? = null
     ): String {
         val lines = mutableListOf<String>()
-        if (entry.calendarDisplayName.isNotBlank()) lines += "Calendar: ${entry.calendarDisplayName}"
-        if (entry.accountName.isNotBlank()) lines += "Account: ${entry.accountName}"
-        if (entry.eventId != null || entry.calendarDisplayName.isNotBlank()) {
-            lines += if (entry.canWrite) "Access: Writable" else "Access: Read only"
-        }
-        if (!entry.location.isNullOrBlank()) lines += "Location: ${entry.location}"
-        if (entry.explicitCrm && !entry.leadName.isNullOrBlank()) lines += "Lead: ${entry.leadName}"
+        val preview = eventPreview(description, entry.location)
+        if (preview.isNotBlank()) lines += preview
         statusLabel(entry.status)?.let { lines += "Status: $it" }
         if (entry.recurring) {
             lines += "Repeats on the calendar. RCRM will not change the whole series."
@@ -983,20 +1039,50 @@ object AppointmentAgenda {
         }
     }
 
+    fun isLiveNow(startMillis: Long, endMillis: Long, nowMillis: Long): Boolean {
+        return nowMillis >= startMillis && nowMillis <= endMillis
+    }
+
+    fun liveBadge(endMillis: Long, nowMillis: Long): String {
+        val remaining = (endMillis - nowMillis).coerceAtLeast(0L)
+        val minutes = ((remaining + MINUTE_MS - 1) / MINUTE_MS).toInt().coerceAtLeast(1)
+        val ends = if (minutes < 60) "${minutes}m" else durationLabel(minutes)
+        return "LIVE NOW • Ends in $ends"
+    }
+
     /**
-     * The next timed event within [windowMillis]. An event that began less than
-     * [graceMillis] ago still counts so a just-started meeting stays on screen.
+     * Timed events that are live now or start within [windowMillis]. An event
+     * that began less than [graceMillis] ago still counts even if [endMillis]
+     * is missing. Live meetings sort first so the dashboard can show them.
      */
+    fun upcomingEvents(
+        events: List<SyncedCalendarEvent>,
+        nowMillis: Long,
+        windowMillis: Long = UP_NEXT_WINDOW_MS,
+        graceMillis: Long = UP_NEXT_GRACE_MS,
+        limit: Int = UP_NEXT_LIMIT
+    ): List<SyncedCalendarEvent> {
+        return events
+            .filter { !it.allDay && !it.canceled && it.endMillis > nowMillis }
+            .filter { event ->
+                isLiveNow(event.startMillis, event.endMillis, nowMillis) ||
+                    (event.startMillis >= nowMillis - graceMillis && event.startMillis < nowMillis + windowMillis)
+            }
+            .sortedWith(
+                compareBy<SyncedCalendarEvent> { event ->
+                    if (isLiveNow(event.startMillis, event.endMillis, nowMillis)) 0 else 1
+                }.thenBy { it.startMillis }.thenBy { it.title.lowercase(Locale.US) }
+            )
+            .take(limit.coerceAtLeast(1))
+    }
+
     fun pickUpNext(
         events: List<SyncedCalendarEvent>,
         nowMillis: Long,
         windowMillis: Long = UP_NEXT_WINDOW_MS,
         graceMillis: Long = UP_NEXT_GRACE_MS
     ): SyncedCalendarEvent? {
-        return events
-            .filter { !it.allDay && !it.canceled && it.endMillis > nowMillis }
-            .filter { it.startMillis >= nowMillis - graceMillis && it.startMillis < nowMillis + windowMillis }
-            .minWithOrNull(compareBy<SyncedCalendarEvent> { it.startMillis }.thenBy { it.title.lowercase(Locale.US) })
+        return upcomingEvents(events, nowMillis, windowMillis, graceMillis, limit = 1).firstOrNull()
     }
 
     fun countdownLabel(startMillis: Long, nowMillis: Long, zone: TimeZone, locale: Locale): String {
@@ -1044,6 +1130,15 @@ object AppointmentAgenda {
                 set(Calendar.HOUR_OF_DAY, hour)
             }
         }.timeInMillis
+    }
+
+    private fun urlIn(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        return WEB_URL.find(text)?.value?.let { trimUrl(it) }?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun trimUrl(raw: String): String {
+        return raw.trim().trimEnd('.', ',', ';', ')', ']', '"', '\'')
     }
 
     private fun nextDayStart(dayStartMillis: Long, zone: TimeZone): Long {
@@ -1125,7 +1220,8 @@ object AppointmentAgenda {
             appointmentId = appointment.appointmentId,
             leadName = appointment.leadName,
             phone = appointment.phone,
-            location = appointment.location?.takeIf { it.isNotBlank() },
+            location = appointment.location?.takeIf { it.isNotBlank() }
+                ?: event.location?.takeIf { it.isNotBlank() },
             explicitCrm = true,
             suggestedLeadId = null,
             calendarDisplayName = event.calendarDisplayName,
@@ -1182,7 +1278,7 @@ object AppointmentAgenda {
             appointmentId = event.explicitAppointmentId,
             leadName = null,
             phone = null,
-            location = null,
+            location = event.location?.takeIf { it.isNotBlank() },
             explicitCrm = explicit,
             suggestedLeadId = if (explicit) null else suggestedLeadId,
             calendarDisplayName = event.calendarDisplayName,

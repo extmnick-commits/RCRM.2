@@ -152,10 +152,11 @@ class AppointmentAgendaTest {
         assertTrue(rows[0].explicitCrm)
         assertTrue(rows[0].timeDrifted)
         assertEquals("Family", AppointmentAgenda.shortCalendarLabel(rows[0].calendarDisplayName, true))
-        assertFalse(AppointmentAgenda.eventDetail(rows[0], "Oct 26, 9:00 AM").contains("extmnick@gmail.com") &&
-            AppointmentAgenda.shortCalendarLabel(rows[0].calendarDisplayName, true).contains("@"))
-        assertTrue(AppointmentAgenda.eventDetail(rows[0], "Oct 26, 9:00 AM").contains("Account: extmnick@gmail.com"))
-        assertTrue(AppointmentAgenda.eventDetail(rows[0], "Oct 26, 9:00 AM").contains("neither one was overwritten"))
+        assertEquals("● Family • Linked: Alex", AppointmentAgenda.eventSubtitle(rows[0].calendarDisplayName, rows[0].leadName))
+        assertFalse(AppointmentAgenda.shortCalendarLabel(rows[0].calendarDisplayName, true).contains("@"))
+        val detail = AppointmentAgenda.eventDetail(rows[0], "Oct 26, 9:00 AM")
+        assertFalse(detail.contains("Account:"))
+        assertTrue(detail.contains("neither one was overwritten"))
     }
 
     @Test
@@ -699,8 +700,10 @@ class AppointmentAgendaTest {
             ),
             null
         )
-        assertTrue(detail.contains("Calendar: Family"))
-        assertTrue(detail.contains("Account: extmnick@gmail.com"))
+        assertEquals("● Family • Linked: Alex", AppointmentAgenda.eventSubtitle("Family", "Alex"))
+        assertEquals("● Family • Unlinked Event", AppointmentAgenda.eventSubtitle("Family", null))
+        assertTrue(detail.contains("Office"))
+        assertFalse(detail.contains("Account:"))
         assertFalse(AppointmentAgenda.shortCalendarLabel("Family", true).contains("extmnick"))
     }
 
@@ -857,12 +860,47 @@ class AppointmentAgendaTest {
         val later = synced(id = 5, title = "Later", start = at(26, 15), end = at(26, 16))
         val farAway = synced(id = 6, title = "Far", start = at(27, 13), end = at(27, 14))
 
-        assertEquals(4L, AppointmentAgenda.pickUpNext(listOf(allDay, canceled, workBlock, later, next, farAway), now)?.eventId)
+        assertEquals(
+            listOf(3L, 4L, 5L),
+            AppointmentAgenda.upcomingEvents(listOf(allDay, canceled, workBlock, later, next, farAway), now)
+                .map { it.eventId }
+        )
+        assertEquals(3L, AppointmentAgenda.pickUpNext(listOf(allDay, canceled, workBlock, later, next, farAway), now)?.eventId)
 
         val justStarted = synced(id = 7, title = "Just started", start = at(26, 11, 55), end = at(26, 12, 30))
         assertEquals(7L, AppointmentAgenda.pickUpNext(listOf(next, justStarted), now)?.eventId)
+        assertTrue(AppointmentAgenda.isLiveNow(at(26, 11, 55), at(26, 12, 30), now))
+        assertEquals("LIVE NOW • Ends in 30m", AppointmentAgenda.liveBadge(at(26, 12, 30), now))
 
-        assertNull(AppointmentAgenda.pickUpNext(listOf(allDay, canceled, workBlock, farAway), now))
+        assertEquals(3L, AppointmentAgenda.pickUpNext(listOf(allDay, canceled, workBlock, farAway), now)?.eventId)
+        assertNull(AppointmentAgenda.pickUpNext(listOf(allDay, canceled, farAway), now))
+    }
+
+    @Test
+    fun eventPreviewStripsRcrmFooterAndKeepsLocation() {
+        val description = """
+            Meet at the lobby.
+            
+            ---
+            Open Lead in RCRM: rcrm://lead/abc123
+            rcrm://appointment/appt-1
+        """.trimIndent()
+        assertEquals("123 Main St\nMeet at the lobby.", AppointmentAgenda.eventPreview(description, "123 Main St"))
+        assertEquals("Meet at the lobby.", AppointmentAgenda.eventPreview(description, null))
+        assertEquals("", AppointmentAgenda.stripRcrmFooter("Open Lead in RCRM: rcrm://lead/abc123"))
+        assertEquals(
+            "https://zoom.us/j/123",
+            AppointmentAgenda.extractMeetingOrWebUrl(null, "Join: https://zoom.us/j/123 thanks")
+        )
+        assertEquals(
+            "https://meet.google.com/abc-defg",
+            AppointmentAgenda.extractMeetingOrWebUrl("https://meet.google.com/abc-defg", "notes")
+        )
+        assertEquals("📍 Location / Join", AppointmentAgenda.locationChipLabel("Office", null))
+        assertNull(AppointmentAgenda.locationChipLabel(null, null))
+        assertEquals("🔗 Alex", AppointmentAgenda.crmLinkedBadge("Alex", true))
+        assertEquals("🔗 CRM Linked", AppointmentAgenda.crmLinkedBadge(null, true))
+        assertNull(AppointmentAgenda.crmLinkedBadge("Alex", false))
     }
 
     @Test

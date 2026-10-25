@@ -91,7 +91,8 @@ class MainActivity : AppCompatActivity() {
     private var currentTabPosition by mutableIntStateOf(0)
 
     private var upNextBanner by mutableStateOf<UpNextUi?>(null)
-    private var upNextEvent: SyncedCalendarEvent? = null
+    private var upNextEvents: List<SyncedCalendarEvent> = emptyList()
+    private var upNextIndex by mutableIntStateOf(0)
     private var upNextJob: Job? = null
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -259,7 +260,12 @@ class MainActivity : AppCompatActivity() {
                     onUpNextOpenAgenda = {
                         startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
                     },
-                    onUpNextConfirm = { openUpNextEvent() }
+                    onUpNextConfirm = {
+                        openUpNextEvent(logOutcome = upNextBanner?.isLive == true)
+                    },
+                    onUpNextPrevious = { shiftUpNext(-1) },
+                    onUpNextNext = { shiftUpNext(1) },
+                    onUpNextJoinLocation = { openUpNextLocation() }
                 )
             }
         }
@@ -452,61 +458,144 @@ class MainActivity : AppCompatActivity() {
     private fun startUpNextTicker() {
         upNextJob?.cancel()
         upNextJob = lifecycleScope.launch {
-            var event = loadUpNextEvent()
+            var events = loadUpNextEvents()
+            publishUpNext(events)
             var ticks = 0
             while (isActive) {
+                delay(UP_NEXT_TICK_MS)
                 val now = System.currentTimeMillis()
-                val expired = event != null && AppointmentAgenda.pickUpNext(listOf(event), now) == null
+                val current = events.getOrNull(upNextIndex)
+                val expired = current != null && AppointmentAgenda.pickUpNext(listOf(current), now) == null
+                ticks++
                 if (expired || ticks >= UP_NEXT_REQUERY_TICKS) {
-                    event = loadUpNextEvent()
+                    events = loadUpNextEvents()
                     ticks = 0
                 }
-                upNextEvent = event
-                upNextBanner = event?.let { toUpNextUi(it, System.currentTimeMillis()) }
-                ticks++
-                delay(UP_NEXT_TICK_MS)
+                publishUpNext(events)
             }
         }
     }
 
-    private suspend fun loadUpNextEvent(): SyncedCalendarEvent? {
-        if (!GoogleCalendarManager.hasCalendarPermissions(this)) return null
+    private suspend fun loadUpNextEvents(): List<SyncedCalendarEvent> {
+        if (!GoogleCalendarManager.hasCalendarPermissions(this)) return emptyList()
         return withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
             val events = GoogleCalendarManager.getEventsInRange(
                 context = this@MainActivity,
-                startMillis = now - AppointmentAgenda.UP_NEXT_GRACE_MS,
+                startMillis = now - AppointmentAgenda.UP_NEXT_WINDOW_MS,
                 endMillis = now + AppointmentAgenda.UP_NEXT_WINDOW_MS,
                 selectedCalendarIds = GoogleCalendarManager.getVisibleCalendarIds(this@MainActivity)
             )
-            AppointmentAgenda.pickUpNext(events, now)
+            AppointmentAgenda.upcomingEvents(events, now)
         }
     }
 
-    private fun toUpNextUi(event: SyncedCalendarEvent, now: Long): UpNextUi {
+    private fun publishUpNext(events: List<SyncedCalendarEvent>) {
+        val previousId = upNextEvents.getOrNull(upNextIndex)?.eventId
+        upNextEvents = events
+        upNextIndex = when {
+            events.isEmpty() -> 0
+            previousId == null -> 0
+            else -> events.indexOfFirst { it.eventId == previousId }.takeIf { it >= 0 } ?: 0
+        }
+        val current = events.getOrNull(upNextIndex)
+        upNextBanner = current?.let { toUpNextUi(it, System.currentTimeMillis(), upNextIndex, events.size) }
+    }
+
+    private fun shiftUpNext(delta: Int) {
+        if (upNextEvents.size <= 1) return
+        val next = (upNextIndex + delta).mod(upNextEvents.size)
+        upNextIndex = next
+        val current = upNextEvents[next]
+        upNextBanner = toUpNextUi(current, System.currentTimeMillis(), next, upNextEvents.size)
+    }
+
+    private fun toUpNextUi(event: SyncedCalendarEvent, now: Long, index: Int, total: Int): UpNextUi {
         val zone = TimeZone.getDefault()
         val locale = Locale.getDefault()
         val timeFormat = SimpleDateFormat("h:mm a", locale)
+        val live = AppointmentAgenda.isLiveNow(event.startMillis, event.endMillis, now)
+        val lead = resolveLeadForEvent(event)
+        val meetingUrl = AppointmentAgenda.extractMeetingOrWebUrl(event.location, event.description)
         return UpNextUi(
+            eventId = event.eventId,
+            startMillis = event.startMillis,
+            endMillis = event.endMillis,
             headline = AppointmentAgenda.upNextHeadline(event.startMillis, now, zone),
             title = event.title.ifBlank { "(No title)" },
             countdown = AppointmentAgenda.countdownLabel(event.startMillis, now, zone, locale),
             timeRange = "${timeFormat.format(Date(event.startMillis))} – ${timeFormat.format(Date(event.endMillis))}",
             calendarLabel = AppointmentAgenda.shortCalendarLabel(
                 event.calendarDisplayName,
-                explicitCrm = !event.leadId.isNullOrBlank()
+                explicitCrm = !event.leadId.isNullOrBlank() || lead != null
             ),
-            calendarColor = event.calendarColor
+            calendarColor = event.calendarColor,
+            currentIndex = index,
+            totalUpcomingCount = total,
+            isLive = live,
+            liveBadge = if (live) AppointmentAgenda.liveBadge(event.endMillis, now) else null,
+            leadName = lead?.name,
+            locationChip = AppointmentAgenda.locationChipLabel(event.location, meetingUrl),
+            primaryActionLabel = if (live) "✅ Log Outcome" else "Confirm / Prep"
         )
     }
 
-    private fun openUpNextEvent() {
-        val intent = Intent(this, AppointmentsActivity::class.java)
-        upNextEvent?.let { event ->
-            intent.putExtra(AppointmentsActivity.EXTRA_FOCUS_EVENT_ID, event.eventId)
-            intent.putExtra(AppointmentsActivity.EXTRA_FOCUS_START_MILLIS, event.startMillis)
+    private data class LinkedLeadRef(val id: String?, val name: String, val phone: String)
+
+    private fun resolveLeadForEvent(event: SyncedCalendarEvent): LinkedLeadRef? {
+        val byId = event.leadId?.takeIf { it.isNotBlank() }?.let { id ->
+            allLeadsData.firstOrNull { (it["__docId"] as? String) == id }
+        }
+        if (byId != null) {
+            return LinkedLeadRef(
+                id = event.leadId,
+                name = (byId["name"] as? String)?.trim().orEmpty().ifBlank { "Lead" },
+                phone = (byId["phone"] as? String)?.trim().orEmpty()
+            )
+        }
+        val names = allLeadsData.mapNotNull { (it["name"] as? String)?.trim()?.takeIf { name -> name.length >= 2 } }
+        val matchedName = GoogleCalendarManager.matchEventToLeadName(event.title, names) ?: return event.leadId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { LinkedLeadRef(id = it, name = "Lead", phone = "") }
+        val matched = allLeadsData.firstOrNull { lead ->
+            (lead["name"] as? String)?.trim().equals(matchedName, ignoreCase = true)
+        }
+        return LinkedLeadRef(
+            id = (matched?.get("__docId") as? String) ?: event.leadId,
+            name = matchedName,
+            phone = (matched?.get("phone") as? String)?.trim().orEmpty()
+        )
+    }
+
+    private fun openUpNextEvent(logOutcome: Boolean) {
+        val event = upNextEvents.getOrNull(upNextIndex) ?: return
+        val lead = resolveLeadForEvent(event)
+        val intent = Intent(this, AppointmentsActivity::class.java).apply {
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_EVENT_ID, event.eventId)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_START_MILLIS, event.startMillis)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_END_MILLIS, event.endMillis)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_TITLE, event.title)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_LOCATION, event.location)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_LEAD_ID, event.leadId.orEmpty())
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_LEAD_NAME, event.leadId?.let { lead?.name }.orEmpty())
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_PHONE, event.leadId?.let { lead?.phone }.orEmpty())
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_CALENDAR, event.calendarDisplayName)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_COLOR, event.calendarColor)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_DESCRIPTION, event.description)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_ACCOUNT, event.accountName)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_CAN_WRITE, event.canWrite)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_OPEN_ACTIONS, !logOutcome)
+            putExtra(AppointmentsActivity.EXTRA_FOCUS_LOG_OUTCOME, logOutcome)
         }
         startActivity(intent)
+    }
+
+    private fun openUpNextLocation() {
+        val event = upNextEvents.getOrNull(upNextIndex) ?: return
+        val opened = GoogleCalendarManager.openLocationOrMeeting(this, event.location, event.description)
+        if (!opened) {
+            GoogleCalendarManager.openEventInGoogleCalendar(this, event.eventId, event.startMillis, event.endMillis)
+        }
     }
 
     private fun loadLocalStats() {
@@ -1872,7 +1961,13 @@ class MainActivity : AppCompatActivity() {
                     allLeadsData.add(data)
                 }
                 filterHotList(searchQuery)
+                refreshUpNextLabels()
             }
+    }
+
+    private fun refreshUpNextLabels() {
+        val current = upNextEvents.getOrNull(upNextIndex) ?: return
+        upNextBanner = toUpNextUi(current, System.currentTimeMillis(), upNextIndex, upNextEvents.size)
     }
 
     private fun filterHotList(query: String) {
