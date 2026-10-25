@@ -211,9 +211,10 @@ fun DashboardScreen(
                 item {
                     Text(
                         text = when (selectedTab) {
-                            1 -> "Nothing scheduled tomorrow"
-                            2 -> "No overdue follow-ups"
-                            else -> "No follow-ups today"
+                            0 -> "No urgent attention needed"
+                            1 -> "No tasks today"
+                            2 -> "No upcoming tasks"
+                            else -> "No tasks"
                         },
                         color = TextMuted,
                         fontSize = 14.sp,
@@ -390,7 +391,7 @@ private fun FollowUpTabs(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
-    val labels = listOf("Today", "Tomorrow", "Overdue")
+    val labels = listOf("Needs Attention", "Today", "Upcoming")
     Row(modifier = Modifier.fillMaxWidth()) {
         labels.forEachIndexed { index, label ->
             val selected = index == selectedTab

@@ -43,6 +43,9 @@ import com.google.android.material.materialswitch.MaterialSwitch
 import com.nickpulido.rcrm.ui.components.DashboardLead
 import com.nickpulido.rcrm.ui.components.DashboardScreen
 import com.nickpulido.rcrm.ui.components.UpNextUi
+import com.nickpulido.rcrm.domain.FollowUpRepository
+import com.nickpulido.rcrm.domain.ActionType
+import com.nickpulido.rcrm.ui.components.OutcomeSheet
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -94,6 +97,9 @@ class MainActivity : AppCompatActivity() {
     private var upNextEvents: List<SyncedCalendarEvent> = emptyList()
     private var upNextIndex by mutableIntStateOf(0)
     private var upNextJob: Job? = null
+
+    private var activeOutcomeLeadId by mutableStateOf<String?>(null)
+    private val followUpRepository = FollowUpRepository()
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { writeBackupToFile(it) }
@@ -267,6 +273,35 @@ class MainActivity : AppCompatActivity() {
                     onUpNextNext = { shiftUpNext(1) },
                     onUpNextJoinLocation = { openUpNextLocation() }
                 )
+                
+                activeOutcomeLeadId?.let { leadId ->
+                    OutcomeSheet(
+                        leadId = leadId,
+                        onDismiss = { activeOutcomeLeadId = null },
+                        onSave = { outcome, note, nextActionTitle, nextActionTime, nextActionType, pauseReason ->
+                            val currentUserId = auth.currentUser?.uid ?: return@OutcomeSheet
+                            followUpRepository.recordOutcomeAndNextStep(
+                                leadId = leadId,
+                                ownerId = currentUserId,
+                                currentActionId = null, // Or lookup actual ID
+                                newOutcome = outcome,
+                                newNote = note,
+                                nextActionTitle = nextActionTitle,
+                                nextActionTime = nextActionTime,
+                                nextActionType = nextActionType,
+                                pauseReason = pauseReason
+                            ) { success ->
+                                if (success) {
+                                    Toast.makeText(this@MainActivity, "Follow-up completed", Toast.LENGTH_SHORT).show()
+                                    loadHotList()
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Failed to save outcome", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            activeOutcomeLeadId = null
+                        }
+                    )
+                }
             }
         }
 
@@ -1976,11 +2011,6 @@ class MainActivity : AppCompatActivity() {
         val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val selectedDateStr = sdf.format(selectedDate)
         
-        val tomorrowCal = Calendar.getInstance()
-        tomorrowCal.time = selectedDate
-        tomorrowCal.add(Calendar.DAY_OF_YEAR, 1)
-        val tomorrowDateStr = sdf.format(tomorrowCal.time)
-
         val filtered = allLeadsData.filter { lead ->
             val name = lead["name"] as? String ?: ""
             val phone = lead["phone"] as? String ?: ""
@@ -1988,21 +2018,28 @@ class MainActivity : AppCompatActivity() {
             
             if (!matchesSearch) return@filter false
             
-            
-            
             val followUpDate = lead["followUpDate"] as? Timestamp
             val leadDateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
+            val isPaused = lead["isPaused"] as? Boolean == true
+            val hasContent = name.isNotBlank() || phone.isNotBlank()
             
             when (currentTabPosition) {
-                0 -> leadDateStr == selectedDateStr // Today only
-                1 -> leadDateStr == tomorrowDateStr // Tomorrow
-                2 -> leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr // Overdue
+                0 -> (leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr) || 
+                     (followUpDate == null && !isPaused && hasContent) // Needs Attention
+                1 -> leadDateStr == selectedDateStr // Today
+                2 -> leadDateStr.isNotEmpty() && leadDateStr > selectedDateStr // Upcoming
                 else -> true
             }
         }
-        hotListData.addAll(filtered)
         val detailFormat = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
-        dashboardLeads = filtered.map { it.toDashboardLead(detailFormat) }
+        
+        val sortedFiltered = filtered.sortedBy { lead -> 
+            val followUpDate = lead["followUpDate"] as? Timestamp
+            followUpDate?.toDate()?.time ?: Long.MAX_VALUE 
+        }
+        
+        hotListData.addAll(sortedFiltered)
+        dashboardLeads = sortedFiltered.map { it.toDashboardLead(detailFormat) }
     }
 
     private fun Map<String, Any>.toDashboardLead(detailFormat: SimpleDateFormat): DashboardLead {
@@ -2016,6 +2053,8 @@ class MainActivity : AppCompatActivity() {
             details.add("Appt: ${detailFormat.format(appointment.toDate())}")
         } else if (followUp != null) {
             details.add("Due: ${detailFormat.format(followUp.toDate())}")
+        } else {
+            details.add("Needs a next step")
         }
         details.add(phone.ifEmpty { "No Phone" })
         return DashboardLead(
@@ -2043,17 +2082,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun completeFollowUp(docId: String) {
-        if (docId.isEmpty()) return
-        db.collection("leads").document(docId)
-            .update("followUpDate", null)
-            .addOnSuccessListener {
-                val lead = hotListData.find { it["__docId"] == docId }
-                val phone = lead?.get("phone") as? String
-                if (!phone.isNullOrEmpty()) {
-                    ReminderReceiver.cancelReminder(this, phone)
-                }
-                Toast.makeText(this, "Follow-up marked complete", Toast.LENGTH_SHORT).show()
-                loadHotList()
-            }
+        activeOutcomeLeadId = docId
     }
 }

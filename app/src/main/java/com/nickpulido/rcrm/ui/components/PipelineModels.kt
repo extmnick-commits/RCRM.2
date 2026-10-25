@@ -33,5 +33,8 @@ data class PipelineLead(
     val recruitStage: RecruitStage,
     val lastNotePreview: String,
     val followUpDateLabel: String?,
-    val isPinned: Boolean
+    val isPinned: Boolean,
+    val isMissingPlan: Boolean,
+    val isOverdue: Boolean,
+    val lastConnectedContactLabel: String?
 )

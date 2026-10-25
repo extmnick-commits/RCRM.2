@@ -65,16 +65,15 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 val name = doc.getString(FIELD_NAME) ?: "Someone"
                 val phone = doc.getString(FIELD_PHONE) ?: ""
                 val followUpTimestamp = doc.getTimestamp(FIELD_FOLLOW_UP_DATE)
-                val previousSuggestion = doc.getString(FIELD_SIDE_KICK_SUGGESTION) ?: ""
-                val previousFeedback = doc.getString(FIELD_AI_FEEDBACK)
                 val lastCoachedAt = doc.getTimestamp(FIELD_LAST_COACHED_AT)?.toDate()?.time ?: 0L
-                val category = doc.getString("category") ?: ""
-                val jobTitle = doc.getString("jobTitle") ?: ""
-                val targetMarket = doc.getString("targetMarket") ?: ""
                 val lastFollowUpDate = followUpTimestamp?.toDate()?.time ?: 0L
                 val rawNotes = doc.getString(FIELD_NOTES) ?: ""
                 val birthday = doc.getString("birthday")
                 
+                val isPaused = doc.getBoolean("isPaused") ?: false
+
+                if (isPaused) continue
+
                 val notes = parseNotes(rawNotes)
                 
                 // Engagement: Notes in last 7 days
@@ -100,26 +99,17 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
                     neglectedLeads.add(NeglectedLead(doc.id, name, phone, "🎂 Birthday Today!", "It's their birthday! Send a quick text or call to wish them well.", Long.MAX_VALUE))
                 } else if (isNeglected || (isOldFollowUp && recentNotesCount == 0)) {
                     // Improvement: If a suggestion was already generated in the last 24 hours,
-                    // skip the expensive AI call to avoid redundancy and save costs.
+                    // skip regenerating it to avoid redundancy and notification spam.
                     if (lastCoachedAt > (now - DAY_IN_MS)) {
-                        Log.d(TAG, "Skipping AI for $name, recently coached.")
+                        Log.d(TAG, "Skipping coaching for $name, recently coached.")
                         continue
                     }
 
                     val lastActivityTime = notes.maxByOrNull { it.timestamp }?.timestamp ?: 0L
                     val neglectScore = now - lastActivityTime
                     
-                    val insPolicyType = doc.getString("insPolicyType") ?: ""
-                    val insFaceAmount = doc.getString("insFaceAmount") ?: ""
-                    val insUnderwritingStatus = doc.getString("insUnderwritingStatus") ?: ""
-                    val invAccountType = doc.getString("invAccountType") ?: ""
-                    val invAccountStatus = doc.getString("invAccountStatus") ?: ""
-                    
-                    val suggestion = analyzeLeadHistory(
-                        name, category, jobTitle, targetMarket, 
-                        insPolicyType, insFaceAmount, insUnderwritingStatus, invAccountType, invAccountStatus,
-                        notes, previousSuggestion, previousFeedback
-                    )
+                    // Replaced AI call with fast local evaluation
+                    val suggestion = generateLocalAdvice(lastFollowUpDate, now, notes.isEmpty())
                     val lastNoteContent = notes.maxByOrNull { it.timestamp }?.content ?: "No notes recorded"
 
                     neglectedLeads.add(NeglectedLead(doc.id, name, phone, lastNoteContent, suggestion, neglectScore))
@@ -229,59 +219,22 @@ class SideKickWorker(context: Context, params: WorkerParameters) : CoroutineWork
     /**
      * Tailors tips based on Primerica's business model and specific keywords, looking at all interactions.
      */
-    private suspend fun analyzeLeadHistory(
-        name: String,
-        category: String,
-        jobTitle: String,
-        targetMarket: String,
-        insPolicyType: String,
-        insFaceAmount: String,
-        insUnderwritingStatus: String,
-        invAccountType: String,
-        invAccountStatus: String,
-        notes: List<Note>,
-        previousSuggestion: String,
-        previousFeedback: String?
+    private fun generateLocalAdvice(
+        lastFollowUpDate: Long,
+        now: Long,
+        hasNoNotes: Boolean
     ): String {
-        if (notes.isEmpty()) return "No notes found. Give them a quick call to establish contact."
+        if (hasNoNotes) return "No notes found. Give them a quick call to establish contact."
         
-        // Pro Tip: Limit the history context sent to the AI to minimize token usage.
-        val allContent = notes.take(10).joinToString("\n") { "- ${it.content}" }
-
-        val leadContext = java.lang.StringBuilder().apply {
-            if (category.isNotEmpty()) append("Category: $category. ")
-            if (jobTitle.isNotEmpty()) append("Job Title: $jobTitle. ")
-            if (targetMarket.isNotEmpty()) append("Target Market Traits: $targetMarket. ")
-            if (insPolicyType.isNotEmpty()) append("Life Ins Type: $insPolicyType. ")
-            if (insFaceAmount.isNotEmpty()) append("Face Amount: $insFaceAmount. ")
-            if (insUnderwritingStatus.isNotEmpty()) append("Ins Status: $insUnderwritingStatus. ")
-            if (invAccountType.isNotEmpty()) append("Investment Type: $invAccountType. ")
-            if (invAccountStatus.isNotEmpty()) append("Investment Status: $invAccountStatus. ")
-        }.toString()
-
-        val feedbackContext = if (previousFeedback != null && previousSuggestion.isNotEmpty()) {
-            val feedbackQuality = if (previousFeedback == "positive") "good" else "bad"
-            "My last suggestion for this lead was: \"$previousSuggestion\". The agent gave feedback that this was a $feedbackQuality suggestion. Use this to improve your next suggestion and suggest something different."
-        } else ""
-
-        val prompt = "You are an expert sales manager and coach for a Primerica agent. " +
-            "Analyze the following interaction history for a lead named $name. $leadContext\n" +
-            "$feedbackContext\n" +
-            "Provide exactly ONE short, highly actionable, and specific next step to re-engage them. " +
-            "Focus on Primerica's core offerings (Recruiting, Financial Needs Analysis, Life Insurance, Investments) if applicable. " +
-            "Keep it under 2 sentences and speak directly to the agent (e.g., \"Call them to...\"). " +
-            "Here is the history:\n$allContent"
-
-        return try {
-            // This makes a network request to the Google AI API
-            val response = GeminiApiClient.generativeModel.generateContent(prompt)
-            response.text?.trim() ?: "Suggest checking in to keep the relationship warm."
-        } catch (e: Exception) {
-            // Log the error for debugging
-            Log.e(TAG, "Gemini API call failed", e)
-            // Provide a safe fallback message if the API call fails
-            "Could not reach AI. Suggest a general check-in call."
+        if (lastFollowUpDate == 0L) {
+            return "Missing a plan. Set a next step or follow up date."
         }
+        
+        if (lastFollowUpDate < now) {
+            return "Follow up is overdue. Reach out to them soon."
+        }
+        
+        return "It's been a while. Suggest a general check-in call."
     }
 
     private fun sendBatchNotification(leads: List<NeglectedLead>) {
