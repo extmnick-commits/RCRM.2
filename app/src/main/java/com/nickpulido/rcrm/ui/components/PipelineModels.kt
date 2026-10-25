@@ -36,5 +36,7 @@ data class PipelineLead(
     val isPinned: Boolean,
     val isMissingPlan: Boolean,
     val isOverdue: Boolean,
-    val lastConnectedContactLabel: String?
+    val lastConnectedContactLabel: String?,
+    val followUpAtMillis: Long? = null,
+    val appointmentChoices: List<com.nickpulido.rcrm.domain.AppointmentChoice> = emptyList()
 )

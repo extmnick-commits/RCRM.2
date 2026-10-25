@@ -1,0 +1,103 @@
+rules_version = '2';
+
+// Assumed data model:
+// leads/{leadId}: ownerId, name, phone, notes, category, salesStage, recruitStage,
+//   followUpDate, isPaused, isClosed, pausedReason, lastAttemptedContact, lastConnectedContact
+// leads/{leadId}/next_actions/{actionId}: ownerId, leadId, title, dueTime, status, type
+// leads/{leadId}/activity_records/{recordId}: ownerId, leadId, outcome, note, type, timestamp
+// user_settings/{uid}: role (agent | admin | super_admin), email, managed_users
+// user_settings/{uid}/daily_stats/{day}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function callerSettings() {
+      return get(/databases/$(database)/documents/user_settings/$(request.auth.uid)).data;
+    }
+
+    function callerRole() {
+      return exists(/databases/$(database)/documents/user_settings/$(request.auth.uid))
+        ? callerSettings().get('role', 'agent')
+        : 'agent';
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && callerRole() == 'super_admin';
+    }
+
+    function isAdmin() {
+      return signedIn() && (callerRole() == 'admin' || callerRole() == 'super_admin');
+    }
+
+    function manages(uid) {
+      return isAdmin()
+        && exists(/databases/$(database)/documents/user_settings/$(request.auth.uid))
+        && uid in callerSettings().get('managed_users', []);
+    }
+
+    function ownsLead(leadId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/leads/$(leadId)).data.ownerId == request.auth.uid;
+    }
+
+    function leadOwnedByCaller() {
+      return request.resource.data.ownerId is string
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId.size() < 128
+        && request.resource.data.ownerId.size() > 0;
+    }
+
+    function ownedChild(leadId) {
+      return request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.leadId == leadId;
+    }
+
+    function keepsRole() {
+      return request.resource.data.get('role', 'agent') == resource.data.get('role', 'agent');
+    }
+
+    match /leads/{leadId} {
+      allow get: if signedIn() && (
+        resource.data.ownerId == request.auth.uid || isSuperAdmin() || manages(resource.data.ownerId)
+      );
+      allow list: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow list: if isSuperAdmin();
+
+      allow create: if signedIn() && leadOwnedByCaller();
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid
+        && leadOwnedByCaller();
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+
+      match /next_actions/{actionId} {
+        allow read: if ownsLead(leadId) || isSuperAdmin();
+        allow create, update: if ownsLead(leadId) && ownedChild(leadId);
+        allow delete: if ownsLead(leadId);
+      }
+
+      match /activity_records/{recordId} {
+        allow read: if ownsLead(leadId) || isSuperAdmin();
+        allow create, update: if ownsLead(leadId) && ownedChild(leadId);
+        allow delete: if ownsLead(leadId);
+      }
+    }
+
+    match /user_settings/{userId} {
+      allow get: if signedIn() && (request.auth.uid == userId || isSuperAdmin() || manages(userId));
+      allow list: if isSuperAdmin() || isAdmin();
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.get('role', 'agent') == 'agent';
+      allow update: if isSuperAdmin()
+        || (signedIn() && request.auth.uid == userId && keepsRole());
+
+      match /daily_stats/{dayId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+    }
+  }
+}

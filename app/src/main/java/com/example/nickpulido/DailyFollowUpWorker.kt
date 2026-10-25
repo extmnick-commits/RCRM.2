@@ -65,6 +65,8 @@ class DailyFollowUpWorker(context: Context, params: WorkerParameters) : Coroutin
 
                 val ts = doc.getTimestamp(FIELD_FOLLOW_UP_DATE)
                 val isPaused = doc.getBoolean("isPaused") ?: false
+                val isClosed = doc.getBoolean("isClosed") ?: false
+                if (isClosed) continue
 
                 if (ts == null) {
                     if (!isPaused) {

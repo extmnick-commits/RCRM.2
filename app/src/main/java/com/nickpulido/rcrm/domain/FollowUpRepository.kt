@@ -1,8 +1,11 @@
 package com.nickpulido.rcrm.domain
 
+import android.util.Log
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.nickpulido.rcrm.NoteUtils
 import com.nickpulido.rcrm.ui.components.PipelineType
 import java.util.Date
 import java.util.UUID
@@ -20,92 +23,53 @@ class FollowUpRepository {
         nextActionTitle: String?,
         nextActionTime: Long?,
         nextActionType: ActionType,
+        clearExistingNextAction: Boolean = false,
         pauseReason: String? = null,
+        operationId: String = UUID.randomUUID().toString(),
+        resolveCurrentActionIfMissing: Boolean = false,
+        linkedAppointmentId: String? = null,
+        closeWorkflow: Boolean = false,
         onComplete: (Boolean) -> Unit
     ) {
-        val leadRef = db.collection("leads").document(leadId)
-        val nextActionsRef = leadRef.collection("next_actions")
-        val activityRecordsRef = leadRef.collection("activity_records")
-
-        db.runTransaction { transaction ->
-            // 1. Read existing lead (required for appending notes)
-            val leadSnapshot = transaction.get(leadRef)
-            val existingNotes = leadSnapshot.getString("notes") ?: ""
-            val updatedNotes = NoteUtils.prependNote(existingNotes, newNote)
-
-            // 2. Mark currentAction as COMPLETED or CANCELLED
-            if (currentActionId != null) {
-                val currentActionRef = nextActionsRef.document(currentActionId)
-                val status = if (pauseReason != null) ActionStatus.CANCELLED else ActionStatus.COMPLETED
-                val actionUpdates = mutableMapOf<String, Any>(
-                    "status" to status.name,
-                    "completedAt" to System.currentTimeMillis()
-                )
-                if (pauseReason != null) {
-                    actionUpdates["reason"] = pauseReason
-                }
-                transaction.update(currentActionRef, actionUpdates)
-            }
-
-            // 3. Save an ActivityRecord
-            val activityRecord = ActivityRecord(
-                id = UUID.randomUUID().toString(),
+        val lifecycle = when {
+            closeWorkflow -> WorkflowLifecycle.CLOSE
+            pauseReason != null -> WorkflowLifecycle.PAUSE
+            else -> WorkflowLifecycle.UNCHANGED
+        }
+        val changingLifecycle = lifecycle != WorkflowLifecycle.UNCHANGED
+        val nextAction = if (
+            !changingLifecycle &&
+            nextActionTitle != null &&
+            nextActionTime != null
+        ) {
+            NextActionSpec(
+                title = nextActionTitle,
+                dueTime = nextActionTime,
+                type = nextActionType,
+                appointmentId = linkedAppointmentId
+            )
+        } else {
+            null
+        }
+        saveOutcome(
+            OutcomeSaveRequest(
+                operationId = operationId,
                 leadId = leadId,
                 ownerId = ownerId,
-                type = nextActionType,
                 outcome = newOutcome,
                 note = newNote,
-                timestamp = System.currentTimeMillis()
+                activityType = nextActionType,
+                stage = null,
+                currentActionId = currentActionId,
+                resolveCurrentActionIfMissing = resolveCurrentActionIfMissing,
+                nextAction = nextAction,
+                clearExistingNextAction = clearExistingNextAction && nextAction == null && !changingLifecycle,
+                lifecycle = lifecycle,
+                lifecycleReason = pauseReason,
+                nowMillis = System.currentTimeMillis()
             )
-            val activityRef = activityRecordsRef.document(activityRecord.id)
-            transaction.set(activityRef, activityRecord)
-
-            // 4. Update lead document
-            val isConnected = newOutcome.contains("Connected", ignoreCase = true) || 
-                              newOutcome.contains("Meeting completed", ignoreCase = true)
-
-            val leadUpdates = mutableMapOf<String, Any?>()
-            leadUpdates["lastAttemptedContact"] = System.currentTimeMillis()
-            leadUpdates["notes"] = updatedNotes
-
-            if (isConnected) {
-                leadUpdates["lastConnectedContact"] = System.currentTimeMillis()
-            }
-
-            if (pauseReason != null) {
-                leadUpdates["followUpDate"] = null
-                leadUpdates["isPaused"] = true
-            } else {
-                leadUpdates["isPaused"] = false
-                if (nextActionTime != null) {
-                    leadUpdates["followUpDate"] = Timestamp(Date(nextActionTime))
-                } else {
-                    leadUpdates["followUpDate"] = null
-                }
-            }
-
-            transaction.update(leadRef, leadUpdates)
-
-            // 5. Insert new NextAction (PENDING)
-            if (nextActionTitle != null && nextActionTime != null && pauseReason == null) {
-                val newAction = NextAction(
-                    id = UUID.randomUUID().toString(),
-                    leadId = leadId,
-                    ownerId = ownerId,
-                    type = nextActionType,
-                    title = nextActionTitle,
-                    dueTime = nextActionTime,
-                    status = ActionStatus.PENDING,
-                    createdAt = System.currentTimeMillis()
-                )
-                val newActionRef = nextActionsRef.document(newAction.id)
-                transaction.set(newActionRef, newAction)
-            }
-        }.addOnSuccessListener {
-            onComplete(true)
-        }.addOnFailureListener {
-            it.printStackTrace()
-            onComplete(false)
+        ) { success, _ ->
+            onComplete(success)
         }
     }
 
@@ -119,69 +83,198 @@ class FollowUpRepository {
         suggestedNextActionTime: Long?,
         onComplete: (Boolean) -> Unit
     ) {
-        val leadRef = db.collection("leads").document(leadId)
-        val nextActionsRef = leadRef.collection("next_actions")
-        val activityRecordsRef = leadRef.collection("activity_records")
-
-        db.runTransaction { transaction ->
-            val leadSnapshot = transaction.get(leadRef)
-            val leadUpdates = mutableMapOf<String, Any?>()
-
-            // 2. Update stage
-            val stageField = if (pipelineType == PipelineType.SALES) "salesStage" else "recruitStage"
-            leadUpdates[stageField] = newStageId
-
-            // 3. Update category if in_force
-            val currentCategory = leadSnapshot.getString("category") ?: ""
-            if (newStageId == "in_force" && !currentCategory.contains("Client")) {
-                val newCategory = if (currentCategory.isEmpty()) "Client" else "$currentCategory, Client"
-                leadUpdates["category"] = newCategory
-            }
-
-            // 4. Append note
-            val stageNote = "Moved to $stageTitle stage"
-            val existingNotes = leadSnapshot.getString("notes") ?: ""
-            val updatedNotes = NoteUtils.prependNote(existingNotes, stageNote)
-            leadUpdates["notes"] = updatedNotes
-
-            // 5. Insert NextAction and update followUpDate
-            if (suggestedNextActionTitle != null && suggestedNextActionTime != null) {
-                val newAction = NextAction(
-                    id = UUID.randomUUID().toString(),
-                    leadId = leadId,
-                    ownerId = ownerId,
-                    type = ActionType.TO_DO,
-                    title = suggestedNextActionTitle,
-                    dueTime = suggestedNextActionTime,
-                    status = ActionStatus.PENDING,
-                    createdAt = System.currentTimeMillis()
-                )
-                val newActionRef = nextActionsRef.document(newAction.id)
-                transaction.set(newActionRef, newAction)
-                
-                leadUpdates["followUpDate"] = Timestamp(Date(suggestedNextActionTime))
-            }
-
-            // 6. Insert ActivityRecord
-            val activityRecord = ActivityRecord(
-                id = UUID.randomUUID().toString(),
+        val nextAction = if (!suggestedNextActionTitle.isNullOrBlank() && suggestedNextActionTime != null) {
+            NextActionSpec(
+                title = suggestedNextActionTitle,
+                dueTime = suggestedNextActionTime,
+                type = ActionType.TO_DO,
+                appointmentId = null
+            )
+        } else {
+            null
+        }
+        saveOutcome(
+            OutcomeSaveRequest(
+                operationId = UUID.randomUUID().toString(),
                 leadId = leadId,
                 ownerId = ownerId,
-                type = ActionType.TO_DO,
-                outcome = "Stage Changed",
-                note = stageNote,
-                timestamp = System.currentTimeMillis()
+                outcome = null,
+                note = "",
+                activityType = ActionType.TO_DO,
+                stage = StageChangeSpec(pipelineType, newStageId, stageTitle),
+                currentActionId = null,
+                resolveCurrentActionIfMissing = false,
+                nextAction = nextAction,
+                clearExistingNextAction = false,
+                lifecycle = WorkflowLifecycle.UNCHANGED,
+                lifecycleReason = null,
+                nowMillis = System.currentTimeMillis()
             )
-            val activityRef = activityRecordsRef.document(activityRecord.id)
-            transaction.set(activityRef, activityRecord)
-
-            // Update lead document
-            transaction.update(leadRef, leadUpdates)
-        }.addOnSuccessListener {
-            onComplete(true)
-        }.addOnFailureListener {
-            it.printStackTrace()
-            onComplete(false)
+        ) { success, _ ->
+            onComplete(success)
         }
+    }
+
+    fun loadEarliestPendingActionId(leadId: String, onResult: (String?) -> Unit) {
+        db.collection("leads").document(leadId)
+            .collection("next_actions")
+            .whereEqualTo("status", ActionStatus.PENDING.name)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val id = snapshot.documents
+                    .minByOrNull { it.longField("dueTime") ?: Long.MAX_VALUE }
+                    ?.id
+                onResult(id)
+            }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Couldn't load the open task for $leadId", error)
+                onResult(null)
+            }
+    }
+
+    fun saveOutcome(
+        request: OutcomeSaveRequest,
+        onComplete: (success: Boolean, errorMessage: String?) -> Unit
+    ) {
+        val leadRef = db.collection("leads").document(request.leadId)
+        val nextActionsRef = leadRef.collection("next_actions")
+        val activityRef = leadRef.collection("activity_records")
+            .document(OutcomeSavePlanner.activityDocumentId(request.operationId))
+
+        nextActionsRef.whereEqualTo("status", ActionStatus.PENDING.name)
+            .limit(25)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                commitOutcome(request, leadRef, nextActionsRef, activityRef, snapshot.documents.map { it.reference }, onComplete)
+            }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Couldn't list open tasks before saving ${request.leadId}", error)
+                commitOutcome(request, leadRef, nextActionsRef, activityRef, emptyList(), onComplete)
+            }
+    }
+
+    private fun commitOutcome(
+        request: OutcomeSaveRequest,
+        leadRef: DocumentReference,
+        nextActionsRef: com.google.firebase.firestore.CollectionReference,
+        activityRef: DocumentReference,
+        pendingRefs: List<DocumentReference>,
+        onComplete: (success: Boolean, errorMessage: String?) -> Unit
+    ) {
+        db.runTransaction { transaction ->
+            val existingActivity = transaction.get(activityRef)
+            if (existingActivity.exists()) {
+                return@runTransaction
+            }
+
+            val leadSnapshot = transaction.get(leadRef)
+            if (!leadSnapshot.exists()) {
+                throw IllegalStateException("That contact is no longer in RCRM.")
+            }
+
+            val pendingSnapshots = pendingRefs.map { transaction.get(it) }
+            val pending = pendingSnapshots.mapNotNull { doc -> pendingRef(doc) }
+            val plan = OutcomeSavePlanner.plan(
+                request = request,
+                existingNotes = leadSnapshot.getString("notes") ?: "",
+                existingCategory = leadSnapshot.getString("category") ?: "",
+                pendingActions = pending
+            )
+
+            val knownIds = pendingSnapshots.map { it.id }.toSet()
+            val actionSnapshot = plan.completeActionId?.let { actionId ->
+                if (actionId in knownIds) {
+                    pendingSnapshots.first { it.id == actionId }
+                } else {
+                    transaction.get(nextActionsRef.document(actionId))
+                }
+            }
+
+            transaction.set(activityRef, plan.activity)
+
+            if (actionSnapshot != null && actionSnapshot.exists() && plan.completeStatus != null) {
+                val status = actionSnapshot.getString("status")
+                if (status == null || status == ActionStatus.PENDING.name) {
+                    val actionUpdates = mutableMapOf<String, Any>(
+                        "status" to plan.completeStatus.name,
+                        "completedAt" to request.nowMillis
+                    )
+                    if (!plan.completeReason.isNullOrBlank()) {
+                        actionUpdates["reason"] = plan.completeReason
+                    }
+                    transaction.update(actionSnapshot.reference, actionUpdates)
+                }
+            }
+
+            if (plan.newAction != null) {
+                transaction.set(nextActionsRef.document(plan.newAction.id), plan.newAction)
+            }
+
+            val leadUpdates = leadUpdates(plan.leadPatch)
+            if (leadUpdates.isNotEmpty()) {
+                transaction.update(leadRef, leadUpdates)
+            }
+        }.addOnSuccessListener {
+            onComplete(true, null)
+        }.addOnFailureListener { error ->
+            Log.e(TAG, "Couldn't save the outcome for ${request.leadId}", error)
+            val message = error.message?.takeIf { it.isNotBlank() }
+                ?: "Couldn't save. Check your connection and try again."
+            onComplete(false, message)
+        }
+    }
+
+    private fun leadUpdates(patch: LeadPatch): Map<String, Any> {
+        val updates = mutableMapOf<String, Any>()
+        if (patch.stageField != null && patch.stageValue != null) {
+            updates[patch.stageField] = patch.stageValue
+        }
+        if (patch.category != null) updates["category"] = patch.category
+        if (patch.notes != null) updates["notes"] = patch.notes
+        when (patch.followUp) {
+            FollowUpWrite.UNCHANGED -> Unit
+            FollowUpWrite.CLEAR -> updates["followUpDate"] = FieldValue.delete()
+            FollowUpWrite.SET -> {
+                val millis = patch.followUpMillis
+                if (millis != null) updates["followUpDate"] = Timestamp(Date(millis))
+            }
+        }
+        if (patch.isPaused != null) updates["isPaused"] = patch.isPaused
+        if (patch.isClosed != null) updates["isClosed"] = patch.isClosed
+        if (patch.writePausedReason) {
+            updates["pausedReason"] = patch.pausedReason ?: FieldValue.delete()
+        }
+        if (patch.lastAttemptedContact != null) {
+            updates["lastAttemptedContact"] = patch.lastAttemptedContact
+        }
+        if (patch.lastConnectedContact != null) {
+            updates["lastConnectedContact"] = patch.lastConnectedContact
+        }
+        return updates
+    }
+
+    private fun pendingRef(doc: DocumentSnapshot): PendingActionRef? {
+        if (!doc.exists()) return null
+        val status = doc.getString("status")
+        if (status != null && status != ActionStatus.PENDING.name) return null
+        return PendingActionRef(
+            id = doc.id,
+            dueTime = doc.longField("dueTime") ?: 0L
+        )
+    }
+
+    private fun DocumentSnapshot.longField(name: String): Long? {
+        val value = get(name) ?: return null
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Double -> value.toLong()
+            is Number -> value.toLong()
+            else -> null
+        }
+    }
+
+    companion object {
+        private const val TAG = "FollowUpRepository"
     }
 }
