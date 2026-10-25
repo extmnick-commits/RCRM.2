@@ -50,20 +50,24 @@ class ReminderReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
 
         // Use phone hash for unique notifications per lead
-        val notificationId = leadPhone?.hashCode() ?: leadName.hashCode()
+        val actionId = intent.getStringExtra("ACTION_ID")
+        val notificationId = actionId?.hashCode() ?: (leadPhone?.hashCode() ?: leadName.hashCode())
         notificationManager.notify(notificationId, builder.build())
     }
 
     companion object {
-        fun scheduleReminder(context: Context, leadPhone: String, leadName: String, timeInMillis: Long) {
+        fun scheduleReminder(context: Context, leadPhone: String, leadName: String, timeInMillis: Long, actionId: String? = null) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             val intent = Intent(context, ReminderReceiver::class.java).apply {
                 putExtra("LEAD_PHONE", leadPhone)
                 putExtra("LEAD_NAME", leadName)
+                if (actionId != null) putExtra("ACTION_ID", actionId)
             }
+            
+            val requestCode = actionId?.hashCode() ?: leadPhone.hashCode()
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
-                leadPhone.hashCode(),
+                requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -84,12 +88,13 @@ class ReminderReceiver : BroadcastReceiver() {
             }
         }
 
-        fun cancelReminder(context: Context, leadPhone: String) {
+        fun cancelReminder(context: Context, leadPhone: String, actionId: String? = null) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             val intent = Intent(context, ReminderReceiver::class.java)
+            val requestCode = actionId?.hashCode() ?: leadPhone.hashCode()
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
-                leadPhone.hashCode(),
+                requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )

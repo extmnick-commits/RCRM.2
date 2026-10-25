@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="4dp"
+    app:cardBackgroundColor="#4D000000"
+    app:strokeColor="#66243656"
+    app:strokeWidth="1dp"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Complete Button (Checkbox) -->
+        <ImageButton
+            android:id="@+id/btnCompleteReminder"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/checkbox_off_background"
+            app:tint="#2EE7FF"
+            android:contentDescription="Complete Reminder" />
+
+        <!-- Type Icon -->
+        <ImageView
+            android:id="@+id/ivReminderTypeIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="12dp"
+            android:src="@android:drawable/ic_menu_call"
+            app:tint="#3DFF9A"
+            android:background="@drawable/bg_icon_circle_green" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="16dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvReminderTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Reminder Title"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvReminderDue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Tomorrow 9:00 AM"
+                android:textColor="#2EE7FF"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Overflow Menu -->
+        <ImageButton
+            android:id="@+id/btnReminderOverflow"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_more"
+            app:tint="#8E99B0"
+            android:contentDescription="Options" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

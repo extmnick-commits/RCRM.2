@@ -523,29 +523,7 @@ class FollowUpActivity : AppCompatActivity() {
             }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
         }
 
-        val tvReminderValue = dialogView.findViewById<TextView>(R.id.tvReminderValue)
-        val btnSetReminder = dialogView.findViewById<Button>(R.id.btnSetReminder)
-        val btnEditReminderIcon = dialogView.findViewById<View>(R.id.btnEditReminderIcon)
-        val btnDeleteReminderIcon = dialogView.findViewById<View>(R.id.btnDeleteReminderIcon)
-        val btnAddCalendar = dialogView.findViewById<Button>(R.id.btnAddCalendar)
-
-        var userModifiedReminder = false
-        var selectedFollowUpDate: Date? = (lead["followUpDate"] as? Timestamp)?.toDate()
-        fun updateReminderUI() {
-            if (selectedFollowUpDate != null) {
-                val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
-                tvReminderValue?.text = sdf.format(selectedFollowUpDate!!)
-                btnSetReminder?.text = getString(R.string.btn_change_reminder)
-                btnEditReminderIcon?.visibility = View.VISIBLE
-                btnDeleteReminderIcon?.visibility = View.VISIBLE
-            } else {
-                tvReminderValue?.text = getString(R.string.reminder_none)
-                btnSetReminder?.text = getString(R.string.btn_set_reminder)
-                btnEditReminderIcon?.visibility = View.GONE
-                btnDeleteReminderIcon?.visibility = View.GONE
-            }
-        }
-        updateReminderUI()
+        // Reminder variables removed
 
         val btnSetAppt = dialogView.findViewById<Button>(R.id.btnSetAppt)
         val tvApptValue = dialogView.findViewById<TextView>(R.id.tvApptValue)
@@ -555,7 +533,102 @@ class FollowUpActivity : AppCompatActivity() {
         val headerReminders = dialogView.findViewById<View>(R.id.headerReminders)
         val containerReminders = dialogView.findViewById<View>(R.id.containerReminders)
         val tvToggleReminders = dialogView.findViewById<TextView>(R.id.tvToggleReminders)
-        if (lead["followUpDate"] != null || lead["appointmentDate"] != null) {
+        val layoutRemindersList = dialogView.findViewById<LinearLayout>(R.id.layoutRemindersList)
+        val tvViewAllReminders = dialogView.findViewById<TextView>(R.id.tvViewAllReminders)
+        val btnAddReminder = dialogView.findViewById<Button>(R.id.btnAddReminder)
+
+        val loadedActivities = mutableListOf<ActivityRecord>()
+        val loadedNextActions = mutableListOf<NextAction>()
+
+        btnAddReminder?.setOnClickListener {
+            val addDialog = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+            val addView = layoutInflater.inflate(R.layout.dialog_add_reminder, null)
+            addDialog.setContentView(addView)
+            
+            val etTitle = addView.findViewById<EditText>(R.id.etReminderTitle)
+            val etNotes = addView.findViewById<EditText>(R.id.etReminderNotes)
+            val btnSave = addView.findViewById<Button>(R.id.btnSaveReminder)
+            val spinnerType = addView.findViewById<Spinner>(R.id.spinnerReminderType)
+            val tvCustomDate = addView.findViewById<TextView>(R.id.tvCustomDateTime)
+            val btnToday = addView.findViewById<Button>(R.id.btnDueToday)
+            val btnTomorrow = addView.findViewById<Button>(R.id.btnDueTomorrow)
+
+            val types = listOf("TO_DO" to "To Do", "CALL" to "Call", "MESSAGE" to "Message", "EMAIL" to "Email", "MEETING" to "Meeting")
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, types.map { it.second })
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerType.adapter = adapter
+
+            var selectedTime = System.currentTimeMillis()
+            val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
+
+            fun updateTimeUI() {
+                tvCustomDate.text = sdf.format(Date(selectedTime))
+            }
+            updateTimeUI()
+
+            btnToday.setOnClickListener {
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 17)
+                cal.set(Calendar.MINUTE, 0)
+                selectedTime = cal.timeInMillis
+                updateTimeUI()
+            }
+            btnTomorrow.setOnClickListener {
+                val cal = Calendar.getInstance()
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+                cal.set(Calendar.HOUR_OF_DAY, 9)
+                cal.set(Calendar.MINUTE, 0)
+                selectedTime = cal.timeInMillis
+                updateTimeUI()
+            }
+
+            tvCustomDate.setOnClickListener {
+                val cal = Calendar.getInstance().apply { timeInMillis = selectedTime }
+                DatePickerDialog(this, { _, y, m, d ->
+                    cal.set(y, m, d)
+                    TimePickerDialog(this, { _, h, min ->
+                        cal.set(Calendar.HOUR_OF_DAY, h)
+                        cal.set(Calendar.MINUTE, min)
+                        selectedTime = cal.timeInMillis
+                        updateTimeUI()
+                    }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }
+
+            btnSave.setOnClickListener {
+                val title = etTitle.text.toString().trim()
+                if (title.isEmpty()) {
+                    Toast.makeText(this, "Please enter a title", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val type = ActionType.valueOf(types[spinnerType.selectedItemPosition].first)
+                val actionId = UUID.randomUUID().toString()
+                val na = NextAction(
+                    id = actionId,
+                    leadId = docId,
+                    ownerId = auth.currentUser?.uid ?: "",
+                    title = title,
+                    type = type,
+                    dueTime = selectedTime,
+                    status = ActionStatus.PENDING
+                )
+                db.collection("leads").document(docId).collection("next_actions").document(na.id).set(na)
+                    .addOnSuccessListener {
+                        ReminderReceiver.scheduleReminder(
+                            this,
+                            editPhone?.text?.toString() ?: docId,
+                            editName?.text?.toString() ?: "Lead",
+                            selectedTime,
+                            actionId
+                        )
+                        Toast.makeText(this, "Reminder saved", Toast.LENGTH_SHORT).show()
+                        addDialog.dismiss()
+                    }
+            }
+            addDialog.show()
+        }
+
+        if (loadedNextActions.isNotEmpty() || lead["followUpDate"] != null || lead["appointmentDate"] != null) {
             containerReminders?.visibility = View.VISIBLE
             tvToggleReminders?.text = "Hide ▲"
         }
@@ -588,8 +661,6 @@ class FollowUpActivity : AppCompatActivity() {
 
         var currentRawNotes: String = (lead["notes"] as? String) ?: ""
         var initialRawNotes: String = currentRawNotes
-        val loadedActivities = mutableListOf<ActivityRecord>()
-        val loadedNextActions = mutableListOf<NextAction>()
         var showAllActivity = false
 
         activeProfileLeadId = docId
@@ -647,6 +718,12 @@ class FollowUpActivity : AppCompatActivity() {
                     "No due date"
                 }
                 tvNextActionDue?.text = dueStr
+                
+                if (pendingAction.dueTime in 1..<System.currentTimeMillis()) {
+                    tvNextActionDue?.setTextColor(Color.parseColor("#FF5252")) // Red for overdue
+                } else {
+                    tvNextActionDue?.setTextColor(Color.parseColor("#2EE7FF")) // Default cyan
+                }
 
                 when (pendingAction.type) {
                     ActionType.CALL -> {
@@ -680,6 +757,146 @@ class FollowUpActivity : AppCompatActivity() {
                 tvNextActionEmpty?.visibility = View.VISIBLE
                 tvNextActionError?.visibility = View.GONE
             }
+        }
+
+        fun renderRemindersUI() {
+            layoutRemindersList?.removeAllViews()
+            val pendingActions = loadedNextActions.filter { it.status == ActionStatus.PENDING }.sortedBy { it.dueTime }
+            
+            val visibleActions = pendingActions.take(3)
+            visibleActions.forEach { action ->
+                val view = layoutInflater.inflate(R.layout.item_reminder, layoutRemindersList, false)
+                
+                val tvTitle = view.findViewById<TextView>(R.id.tvReminderTitle)
+                val tvDue = view.findViewById<TextView>(R.id.tvReminderDue)
+                val ivIcon = view.findViewById<ImageView>(R.id.ivReminderTypeIcon)
+                val btnComplete = view.findViewById<ImageButton>(R.id.btnCompleteReminder)
+                val btnOverflow = view.findViewById<ImageButton>(R.id.btnReminderOverflow)
+
+                tvTitle.text = action.title
+                if (action.dueTime > 0L) {
+                    tvDue.text = OutcomeSavePlanner.formatDue(action.dueTime)
+                    if (action.dueTime < System.currentTimeMillis()) {
+                        tvDue.setTextColor(Color.parseColor("#FF5252")) // Red for overdue
+                    }
+                } else {
+                    tvDue.text = "No due date"
+                }
+
+                when (action.type) {
+                    ActionType.CALL -> {
+                        ivIcon.setImageResource(android.R.drawable.ic_menu_call)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_green)
+                        ivIcon.setColorFilter(Color.parseColor("#3DFF9A"))
+                    }
+                    ActionType.MESSAGE -> {
+                        ivIcon.setImageResource(android.R.drawable.sym_action_chat)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_cyan)
+                        ivIcon.setColorFilter(Color.parseColor("#2EE7FF"))
+                    }
+                    ActionType.EMAIL -> {
+                        ivIcon.setImageResource(android.R.drawable.ic_dialog_email)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_blue)
+                        ivIcon.setColorFilter(Color.parseColor("#D5E6FF"))
+                    }
+                    ActionType.MEETING -> {
+                        ivIcon.setImageResource(android.R.drawable.ic_menu_agenda)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_purple)
+                        ivIcon.setColorFilter(Color.parseColor("#B14CFF"))
+                    }
+                    ActionType.TO_DO -> {
+                        ivIcon.setImageResource(android.R.drawable.checkbox_on_background)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_cyan)
+                        ivIcon.setColorFilter(Color.parseColor("#2EE7FF"))
+                    }
+                }
+
+                btnComplete.setOnClickListener {
+                    // Mark complete
+                    db.collection("leads").document(docId).collection("next_actions").document(action.id)
+                        .update("status", ActionStatus.COMPLETED.name, "completedAt", System.currentTimeMillis())
+                        .addOnSuccessListener {
+                            ReminderReceiver.cancelReminder(this, editPhone?.text?.toString() ?: docId, action.id)
+                        }
+                }
+                btnOverflow.setOnClickListener {
+                    val popup = android.widget.PopupMenu(this, btnOverflow)
+                    popup.menu.add("Reschedule").setOnMenuItemClickListener {
+                        // Very simple fallback: trigger OutcomeSheet with this action ID as current
+                        val bottomSheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+                        val composeView = androidx.compose.ui.platform.ComposeView(this).apply {
+                            setContent {
+                                com.nickpulido.rcrm.ui.theme.RCRMTheme {
+                                    com.nickpulido.rcrm.ui.components.OutcomeSheet(
+                                        request = com.nickpulido.rcrm.ui.components.OutcomeSheetRequest(
+                                            leadId = docId,
+                                            contactName = editName?.text?.toString() ?: "",
+                                            subtitle = "Rescheduling reminder...",
+                                            currentActionId = action.id,
+                                            existingFollowUpMillis = null,
+                                            appointments = emptyList(),
+                                            outcomeRequired = false,
+                                            stage = null
+                                        ),
+                                        onDismiss = { bottomSheet.dismiss() },
+                                        onSave = { submission, complete ->
+                                            lifecycleScope.launch {
+                                                val actionId = com.nickpulido.rcrm.domain.OutcomeSavePlanner.nextActionDocumentId(submission.operationId)
+                                                com.nickpulido.rcrm.domain.FollowUpRepository().saveOutcome(
+                                                    com.nickpulido.rcrm.domain.OutcomeSaveRequest(
+                                                        operationId = submission.operationId,
+                                                        leadId = docId,
+                                                        ownerId = auth.currentUser?.uid ?: "",
+                                                        outcome = submission.outcome.takeIf { it.isNotBlank() },
+                                                        note = submission.note,
+                                                        activityType = submission.nextType,
+                                                        stage = null,
+                                                        currentActionId = action.id,
+                                                        resolveCurrentActionIfMissing = false,
+                                                        nextAction = if (submission.scheduleNext) {
+                                                            com.nickpulido.rcrm.domain.NextActionSpec(
+                                                                title = submission.nextTitle,
+                                                                dueTime = submission.nextTime ?: 0L,
+                                                                type = submission.nextType,
+                                                                appointmentId = submission.linkedAppointmentId
+                                                            )
+                                                        } else null,
+                                                        clearExistingNextAction = submission.clearExisting,
+                                                        lifecycle = submission.lifecycle,
+                                                        lifecycleReason = submission.lifecycleReason,
+                                                        nowMillis = System.currentTimeMillis()
+                                                    )
+                                                ) { success, errorMessage ->
+                                                    complete(success, errorMessage)
+                                                    if (success) {
+                                                        if (submission.scheduleNext && submission.nextTime != null) {
+                                                            ReminderReceiver.scheduleReminder(this@FollowUpActivity, editPhone?.text?.toString() ?: docId, editName?.text?.toString() ?: "Lead", submission.nextTime, actionId)
+                                                        }
+                                                        bottomSheet.dismiss()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        bottomSheet.setContentView(composeView)
+                        bottomSheet.show()
+                        true
+                    }
+                    popup.menu.add("Delete").setOnMenuItemClickListener {
+                        db.collection("leads").document(docId).collection("next_actions").document(action.id)
+                            .update("status", ActionStatus.CANCELLED.name)
+                            .addOnSuccessListener { ReminderReceiver.cancelReminder(this, editPhone?.text?.toString() ?: docId, action.id) }
+                        true
+                    }
+                    popup.show()
+                }
+
+                layoutRemindersList?.addView(view)
+            }
+            tvViewAllReminders?.visibility = if (pendingActions.size > 3) View.VISIBLE else View.GONE
         }
 
         fun renderActivityTimelineUI() {
@@ -831,9 +1048,11 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         renderNextActionUI()
+        renderRemindersUI()
         renderActivityTimelineUI()
         refreshActiveProfileCallback = {
             renderNextActionUI()
+            renderRemindersUI()
             renderActivityTimelineUI()
         }
 
@@ -862,7 +1081,28 @@ class FollowUpActivity : AppCompatActivity() {
                         )
                     loadedNextActions.add(na)
                 }
+
+                // Migration check
+                if (loadedNextActions.isEmpty() && lead["followUpDate"] != null) {
+                    val migrateDate = (lead["followUpDate"] as? Timestamp)?.toDate()
+                    if (migrateDate != null) {
+                        val migrateNa = NextAction(
+                            id = UUID.randomUUID().toString(),
+                            leadId = docId,
+                            ownerId = auth.currentUser?.uid ?: "",
+                            title = "Follow up",
+                            type = ActionType.TO_DO,
+                            dueTime = migrateDate.time,
+                            status = ActionStatus.PENDING
+                        )
+                        db.collection("leads").document(docId).collection("next_actions").document(migrateNa.id).set(migrateNa)
+                        // Note: To avoid loops, we don't clear followUpDate here unless required, but the prompt says 
+                        // "create a single NextAction representing it to prevent data loss."
+                    }
+                }
+                
                 renderNextActionUI()
+                renderRemindersUI()
             }
 
         val activityReg = db.collection("leads").document(docId)
@@ -916,12 +1156,6 @@ class FollowUpActivity : AppCompatActivity() {
                 if (editEmail?.text?.toString() == initialEmail) {
                     val remoteEmail = snapshot.getString("email")
                     if (remoteEmail != null) editEmail?.setText(remoteEmail)
-                }
-
-                val remoteFollowUp = (snapshot.get("followUpDate") as? Timestamp)?.toDate()
-                if (!userModifiedReminder && remoteFollowUp != selectedFollowUpDate) {
-                    selectedFollowUpDate = remoteFollowUp
-                    updateReminderUI()
                 }
             }
 
@@ -1128,35 +1362,119 @@ class FollowUpActivity : AppCompatActivity() {
             }
         }
 
+        val showOutcomeSheet = {
+            val bottomSheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+            val composeView = androidx.compose.ui.platform.ComposeView(this).apply {
+                setContent {
+                    com.nickpulido.rcrm.ui.theme.RCRMTheme {
+                        com.nickpulido.rcrm.ui.components.OutcomeSheet(
+                            request = com.nickpulido.rcrm.ui.components.OutcomeSheetRequest(
+                                leadId = docId,
+                                contactName = editName?.text?.toString() ?: "",
+                                subtitle = com.nickpulido.rcrm.ui.components.homeOutcomeSubtitle(
+                                    lead["category"] as? String ?: "", 
+                                    lead["salesStage"] as? String, 
+                                    lead["recruitStage"] as? String
+                                ),
+                                currentActionId = loadedNextActions.firstOrNull { it.status == ActionStatus.PENDING }?.id,
+                                existingFollowUpMillis = (lead["followUpDate"] as? com.google.firebase.Timestamp)?.toDate()?.time,
+                                appointments = com.nickpulido.rcrm.ui.components.appointmentChoicesFromLead(
+                                    lead["appointments"],
+                                    lead["appointmentDate"] as? com.google.firebase.Timestamp
+                                ),
+                                outcomeRequired = false,
+                                stage = null
+                            ),
+                            onDismiss = { bottomSheet.dismiss() },
+                            onSave = { submission, complete ->
+                                lifecycleScope.launch {
+                                    val actionId = com.nickpulido.rcrm.domain.OutcomeSavePlanner.nextActionDocumentId(submission.operationId)
+                                    com.nickpulido.rcrm.domain.FollowUpRepository().saveOutcome(
+                                        com.nickpulido.rcrm.domain.OutcomeSaveRequest(
+                                            operationId = submission.operationId,
+                                            leadId = docId,
+                                            ownerId = auth.currentUser?.uid ?: "",
+                                            outcome = submission.outcome.takeIf { it.isNotBlank() },
+                                            note = submission.note,
+                                            activityType = submission.nextType,
+                                            stage = null,
+                                            currentActionId = loadedNextActions.firstOrNull { it.status == ActionStatus.PENDING }?.id,
+                                            resolveCurrentActionIfMissing = true,
+                                            nextAction = if (submission.scheduleNext) {
+                                                com.nickpulido.rcrm.domain.NextActionSpec(
+                                                    title = submission.nextTitle,
+                                                    dueTime = submission.nextTime ?: 0L,
+                                                    type = submission.nextType,
+                                                    appointmentId = submission.linkedAppointmentId
+                                                )
+                                            } else null,
+                                            clearExistingNextAction = submission.clearExisting,
+                                            lifecycle = submission.lifecycle,
+                                            lifecycleReason = submission.lifecycleReason,
+                                            nowMillis = System.currentTimeMillis()
+                                        )
+                                    ) { success, errorMessage ->
+                                        complete(success, errorMessage)
+                                        if (success) {
+                                            if (submission.scheduleNext && submission.nextTime != null) {
+                                                ReminderReceiver.scheduleReminder(
+                                                    this@FollowUpActivity, 
+                                                    editPhone?.text?.toString() ?: docId, 
+                                                    editName?.text?.toString() ?: "Lead", 
+                                                    submission.nextTime,
+                                                    actionId
+                                                )
+                                            }
+                                            if (submission.clearExisting) {
+                                                ReminderReceiver.cancelReminder(this@FollowUpActivity, editPhone?.text?.toString() ?: docId)
+                                            }
+                                            bottomSheet.dismiss()
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            bottomSheet.setContentView(composeView)
+            bottomSheet.show()
+        }
+
         // Contact Buttons
         btnSmsDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
             if (phone.isNotEmpty()) {
-                incrementDailyStat("followup_count")
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")))
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone"))) } catch (e: Exception) {}
+                showOutcomeSheet()
             }
         }
         btnCallDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
             if (phone.isNotEmpty()) {
-                incrementDailyStat("followup_count")
-                startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                try { startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } catch (e: Exception) {}
+                showOutcomeSheet()
             }
         }
         btnEmailDetail?.setOnClickListener {
             val email = editEmail?.text.toString()
             if (email.isNotEmpty()) {
-                incrementDailyStat("followup_count")
-                val intent = Intent(Intent.ACTION_SENDTO).apply {
-                    data = Uri.parse("mailto:")
-                    putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
-                }
-                startActivity(intent)
+                try {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:")
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {}
+                showOutcomeSheet()
             }
         }
         btnMapDetail?.setOnClickListener {
             val addr = editAddress?.text.toString()
-            if (addr.isNotEmpty()) startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(addr)}")))
+            if (addr.isNotEmpty()) {
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(addr)}"))) } catch (e: Exception) {}
+                showOutcomeSheet()
+            }
         }
 
         btnRecordVoiceNote?.setOnClickListener {
@@ -1182,29 +1500,6 @@ class FollowUpActivity : AppCompatActivity() {
                 renderActivityTimelineUI()
                 etQuickNote?.text?.clear()
             }
-        }
-
-        val reminderAction = {
-            userModifiedReminder = true
-            val cal = Calendar.getInstance()
-            selectedFollowUpDate?.let { cal.time = it }
-            val pickerTheme = android.R.style.Theme_DeviceDefault_Dialog_Alert
-            DatePickerDialog(this, pickerTheme, { _, year, month, day ->
-                TimePickerDialog(this, pickerTheme, { _, hour, minute ->
-                    val newCal = Calendar.getInstance()
-                    newCal.set(year, month, day, hour, minute)
-                    selectedFollowUpDate = newCal.time
-                    updateReminderUI()
-                }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
-            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
-        }
-
-        btnSetReminder?.setOnClickListener { reminderAction() }
-        btnEditReminderIcon?.setOnClickListener { reminderAction() }
-        btnDeleteReminderIcon?.setOnClickListener {
-            userModifiedReminder = true
-            selectedFollowUpDate = null
-            updateReminderUI()
         }
 
         var appointmentDate: Date? = (lead["appointmentDate"] as? Timestamp)?.toDate()
@@ -1467,14 +1762,7 @@ class FollowUpActivity : AppCompatActivity() {
             var extractedNotes = if (json.has("notes") && !json.isNull("notes")) json.getString("notes") else spokenText
             if (json.has("followUpDate") && !json.isNull("followUpDate")) {
                 val dateStr = json.getString("followUpDate")
-                try {
-                    val parsedDate = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).parse(dateStr)
-                    if (parsedDate != null) {
-                        selectedFollowUpDate = parsedDate
-                        updateReminderUI()
-                        extractedNotes += "\n[Reminder Set: ${SimpleDateFormat("MMM dd h:mm a", Locale.getDefault()).format(parsedDate)}]"
-                    }
-                } catch (e: Exception) { Log.e(TAG, "Failed to parse followUpDate: $dateStr", e) }
+                extractedNotes += "\n[Requested follow up date: $dateStr]"
             }
             if (json.has("appointmentDate") && !json.isNull("appointmentDate")) {
                 val dateStr = json.getString("appointmentDate")
@@ -1593,8 +1881,7 @@ class FollowUpActivity : AppCompatActivity() {
                 "jobTitle" to editJobTitle?.text.toString(),
                 "category" to updatedCats.joinToString(", "),
                 "notes" to updatedNotes,
-                "targetMarket" to tmList.joinToString(", "),
-                "followUpDate" to selectedFollowUpDate?.let { Timestamp(it) }
+                "targetMarket" to tmList.joinToString(", ")
             )
             updates["insCarrier"] = editInsCarrier?.text.toString()
             updates["insPolicyType"] = spinnerInsPolicyType?.selectedItem?.toString()?.takeIf { it != "Select Policy Type..." }
@@ -1635,16 +1922,9 @@ class FollowUpActivity : AppCompatActivity() {
                 },
                 extras = { _ -> updates },
                 onSuccess = { result ->
-                    if (currentRawNotes != initialRawNotes) {
-                        incrementDailyStat("followup_count")
-                    }
                     val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
                     val leadName = editName?.text.toString()
-                    if (selectedFollowUpDate != null) {
-                        ReminderReceiver.scheduleReminder(this, phoneToNotify, leadName, selectedFollowUpDate!!.time)
-                    } else {
-                        ReminderReceiver.cancelReminder(this, phoneToNotify)
-                    }
+
                     if (appointmentChanged && result.keptNewer) {
                         Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
                     } else if (appointmentChanged) {
@@ -1683,21 +1963,6 @@ class FollowUpActivity : AppCompatActivity() {
                     Toast.makeText(this, "Couldn't save that lead.", Toast.LENGTH_LONG).show()
                 }
             )
-        }
-
-        btnAddCalendar?.setOnClickListener {
-            val phone = editPhone?.text.toString()
-            val name = editName?.text.toString()
-            val notes = ContactActivityTimeline.parseNotes(currentRawNotes).firstOrNull()?.content ?: ""
-            val intent = Intent(Intent.ACTION_INSERT)
-                .setData(android.provider.CalendarContract.Events.CONTENT_URI)
-                .putExtra(android.provider.CalendarContract.Events.TITLE, getString(R.string.calendar_call_title, name))
-                .putExtra(android.provider.CalendarContract.Events.DESCRIPTION, getString(R.string.calendar_description_format, phone, notes))
-            selectedFollowUpDate?.let {
-                intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, it.time)
-                intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, it.time + 30 * 60 * 1000)
-            }
-            startActivity(intent)
         }
 
         dialog.show()
