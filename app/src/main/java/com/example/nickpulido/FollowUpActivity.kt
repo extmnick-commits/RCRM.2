@@ -21,7 +21,15 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.core.content.ContextCompat
+import com.nickpulido.rcrm.domain.ActionStatus
+import com.nickpulido.rcrm.domain.ActionType
+import com.nickpulido.rcrm.domain.ActivityRecord
+import com.nickpulido.rcrm.domain.ContactActivityTimeline
+import com.nickpulido.rcrm.domain.NextAction
+import com.nickpulido.rcrm.domain.OutcomeSavePlanner
+import com.nickpulido.rcrm.domain.ParsedNote
+import com.nickpulido.rcrm.ui.components.PipelineType
 import com.nickpulido.rcrm.databinding.ActivityFollowUpBinding
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -32,12 +40,17 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
+private typealias DatedNote = ParsedNote
+
 class FollowUpActivity : AppCompatActivity() {
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private lateinit var binding: ActivityFollowUpBinding
     private var pendingCreatedAppointmentId: String? = null
+    private var activeProfileLeadId: String? = null
+    private var activeLeadDetailsDialog: AlertDialog? = null
+    private var refreshActiveProfileCallback: (() -> Unit)? = null
     private val allLeads = mutableListOf<Map<String, Any>>()
     private val leads = mutableListOf<Map<String, Any>>()
     private lateinit var adapter: FollowUpAdapter
@@ -161,6 +174,11 @@ class FollowUpActivity : AppCompatActivity() {
         handleIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        refreshActiveProfileCallback?.invoke()
+    }
+
     private fun handleIntent(passedIntent: Intent?) {
         val uriLeadId = GoogleCalendarManager.leadIdFromUri(passedIntent?.data)
         val targetId = uriLeadId
@@ -258,6 +276,8 @@ class FollowUpActivity : AppCompatActivity() {
             .setView(dialogView)
             .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        activeLeadDetailsDialog?.dismiss()
+        activeLeadDetailsDialog = dialog
 
         val docId = lead["id"] as String
         val editName = dialogView.findViewById<EditText>(R.id.editDetailName)
@@ -509,6 +529,24 @@ class FollowUpActivity : AppCompatActivity() {
         val btnDeleteReminderIcon = dialogView.findViewById<View>(R.id.btnDeleteReminderIcon)
         val btnAddCalendar = dialogView.findViewById<Button>(R.id.btnAddCalendar)
 
+        var userModifiedReminder = false
+        var selectedFollowUpDate: Date? = (lead["followUpDate"] as? Timestamp)?.toDate()
+        fun updateReminderUI() {
+            if (selectedFollowUpDate != null) {
+                val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
+                tvReminderValue?.text = sdf.format(selectedFollowUpDate!!)
+                btnSetReminder?.text = getString(R.string.btn_change_reminder)
+                btnEditReminderIcon?.visibility = View.VISIBLE
+                btnDeleteReminderIcon?.visibility = View.VISIBLE
+            } else {
+                tvReminderValue?.text = getString(R.string.reminder_none)
+                btnSetReminder?.text = getString(R.string.btn_set_reminder)
+                btnEditReminderIcon?.visibility = View.GONE
+                btnDeleteReminderIcon?.visibility = View.GONE
+            }
+        }
+        updateReminderUI()
+
         val btnSetAppt = dialogView.findViewById<Button>(R.id.btnSetAppt)
         val tvApptValue = dialogView.findViewById<TextView>(R.id.tvApptValue)
         val btnEditApptIcon = dialogView.findViewById<View>(R.id.btnEditApptIcon)
@@ -534,70 +572,389 @@ class FollowUpActivity : AppCompatActivity() {
         val etQuickNote = dialogView.findViewById<EditText>(R.id.etQuickNote)
         val btnSendNote = dialogView.findViewById<View>(R.id.btnSendNote)
         val btnRecordVoiceNote = dialogView.findViewById<View>(R.id.btnRecordVoiceNote)
-        val notesContainer = dialogView.findViewById<LinearLayout>(R.id.notesContainer)
-        val tvTogglePreviousNotes = dialogView.findViewById<TextView>(R.id.tvTogglePreviousNotes)
+        val pbNextActionLoading = dialogView.findViewById<ProgressBar>(R.id.pbNextActionLoading)
+        val layoutNextActionContent = dialogView.findViewById<View>(R.id.layoutNextActionContent)
+        val ivNextActionTypeIcon = dialogView.findViewById<ImageView>(R.id.ivNextActionTypeIcon)
+        val tvNextActionTitle = dialogView.findViewById<TextView>(R.id.tvNextActionTitle)
+        val tvNextActionDue = dialogView.findViewById<TextView>(R.id.tvNextActionDue)
+        val tvNextActionEmpty = dialogView.findViewById<TextView>(R.id.tvNextActionEmpty)
+        val tvNextActionError = dialogView.findViewById<TextView>(R.id.tvNextActionError)
 
-        // Notes Logic
-        val initialNotes = parseNotes(lead["notes"] as? String ?: "")
-        val originalNotesCount = initialNotes.size
-        val notesList = initialNotes.toMutableList()
-        var showAllNotes = false
+        val pbActivityLoading = dialogView.findViewById<ProgressBar>(R.id.pbActivityLoading)
+        val tvToggleAllActivity = dialogView.findViewById<TextView>(R.id.tvToggleAllActivity)
+        val activityContainer = dialogView.findViewById<LinearLayout>(R.id.activityContainer)
+        val tvActivityEmpty = dialogView.findViewById<TextView>(R.id.tvActivityEmpty)
+        val tvActivityError = dialogView.findViewById<TextView>(R.id.tvActivityError)
 
-        fun refreshNotesUI() {
-            notesContainer?.removeAllViews()
+        var currentRawNotes: String = (lead["notes"] as? String) ?: ""
+        var initialRawNotes: String = currentRawNotes
+        val loadedActivities = mutableListOf<ActivityRecord>()
+        val loadedNextActions = mutableListOf<NextAction>()
+        var showAllActivity = false
 
-            if (notesList.size > 1) {
-                tvTogglePreviousNotes?.visibility = View.VISIBLE
-                tvTogglePreviousNotes?.text = if (showAllNotes) "Hide Previous ▲" else "Show Previous ▼"
+        activeProfileLeadId = docId
+
+        fun createPipelineIntent(stageContext: String? = null): Intent {
+            val contactName = lead["name"] as? String ?: ""
+            val category = lead["category"] as? String ?: ""
+            val isRecruit = category.contains(getString(R.string.category_recruit), ignoreCase = true)
+            val pType = if (isRecruit) PipelineType.RECRUITING.name else PipelineType.SALES.name
+
+            var targetStageId: String? = null
+            if (!stageContext.isNullOrBlank()) {
+                if (isRecruit) {
+                    targetStageId = com.nickpulido.rcrm.ui.components.RecruitStage.values().find {
+                        it.title.equals(stageContext, ignoreCase = true) || it.shortLabel.equals(stageContext, ignoreCase = true) || it.id.equals(stageContext, ignoreCase = true)
+                    }?.id
+                } else {
+                    targetStageId = com.nickpulido.rcrm.ui.components.SalesStage.values().find {
+                        it.title.equals(stageContext, ignoreCase = true) || it.shortLabel.equals(stageContext, ignoreCase = true) || it.id.equals(stageContext, ignoreCase = true)
+                    }?.id
+                }
+            }
+            if (targetStageId == null) {
+                targetStageId = if (isRecruit) (lead["recruitStage"] as? String) else (lead["salesStage"] as? String)
+            }
+
+            return Intent(this@FollowUpActivity, PipelinesActivity::class.java).apply {
+                putExtra("targetLeadId", docId)
+                putExtra("searchQuery", contactName)
+                putExtra("pipelineType", pType)
+                if (!targetStageId.isNullOrBlank()) {
+                    putExtra("targetStageId", targetStageId)
+                }
+            }
+        }
+
+        val openPipelineAction = View.OnClickListener {
+            startActivity(createPipelineIntent())
+        }
+
+        fun renderNextActionUI() {
+            val pendingAction = loadedNextActions
+                .filter { it.status == ActionStatus.PENDING }
+                .minByOrNull { it.dueTime }
+
+            if (pendingAction != null) {
+                layoutNextActionContent?.visibility = View.VISIBLE
+                tvNextActionEmpty?.visibility = View.GONE
+                tvNextActionError?.visibility = View.GONE
+
+                tvNextActionTitle?.text = pendingAction.title
+                val dueStr = if (pendingAction.dueTime > 0L) {
+                    OutcomeSavePlanner.formatDue(pendingAction.dueTime)
+                } else {
+                    "No due date"
+                }
+                tvNextActionDue?.text = dueStr
+
+                when (pendingAction.type) {
+                    ActionType.CALL -> {
+                        ivNextActionTypeIcon?.setImageResource(android.R.drawable.ic_menu_call)
+                        ivNextActionTypeIcon?.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_green)
+                        ivNextActionTypeIcon?.setColorFilter(Color.parseColor("#3DFF9A"))
+                    }
+                    ActionType.MESSAGE -> {
+                        ivNextActionTypeIcon?.setImageResource(android.R.drawable.sym_action_chat)
+                        ivNextActionTypeIcon?.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_cyan)
+                        ivNextActionTypeIcon?.setColorFilter(Color.parseColor("#2EE7FF"))
+                    }
+                    ActionType.EMAIL -> {
+                        ivNextActionTypeIcon?.setImageResource(android.R.drawable.ic_dialog_email)
+                        ivNextActionTypeIcon?.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_blue)
+                        ivNextActionTypeIcon?.setColorFilter(Color.parseColor("#D5E6FF"))
+                    }
+                    ActionType.MEETING -> {
+                        ivNextActionTypeIcon?.setImageResource(android.R.drawable.ic_menu_agenda)
+                        ivNextActionTypeIcon?.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_purple)
+                        ivNextActionTypeIcon?.setColorFilter(Color.parseColor("#B14CFF"))
+                    }
+                    ActionType.TO_DO -> {
+                        ivNextActionTypeIcon?.setImageResource(android.R.drawable.checkbox_on_background)
+                        ivNextActionTypeIcon?.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_cyan)
+                        ivNextActionTypeIcon?.setColorFilter(Color.parseColor("#2EE7FF"))
+                    }
+                }
             } else {
-                tvTogglePreviousNotes?.visibility = View.GONE
-            }
-
-            notesList.forEachIndexed { index, note ->
-                if (!showAllNotes && index < notesList.size - 1) {
-                    return@forEachIndexed
-                }
-
-                val view = LayoutInflater.from(this).inflate(R.layout.item_dated_note, notesContainer, false)
-                view.findViewById<TextView>(R.id.tvNoteDate).text = note.date
-                view.findViewById<TextView>(R.id.tvNoteContent).text = note.content
-
-                view.findViewById<View>(R.id.btnEditNote)?.setOnClickListener {
-                    val editDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_edit_note, null)
-                    val input = editDialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etEditNoteContent)
-                    val tvDate = editDialogView.findViewById<TextView>(R.id.tvEditNoteDate)
-
-                    tvDate?.text = note.date
-                    input?.setText(note.content)
-
-                    AlertDialog.Builder(this)
-                        .setTitle("Edit Note")
-                        .setView(editDialogView)
-                        .setPositiveButton("Save") { _, _ ->
-                            notesList[index] = note.copy(content = input?.text.toString().trim())
-                            refreshNotesUI()
-                        }
-                        .setNegativeButton("Cancel", null)
-                        .create().apply {
-                            window?.setBackgroundDrawableResource(android.R.color.transparent)
-                            show()
-                        }
-                }
-                view.findViewById<View>(R.id.btnDeleteNote)?.setOnClickListener {
-                    notesList.removeAt(index)
-                    refreshNotesUI()
-                }
-                notesContainer?.addView(view)
+                layoutNextActionContent?.visibility = View.GONE
+                tvNextActionEmpty?.visibility = View.VISIBLE
+                tvNextActionError?.visibility = View.GONE
             }
         }
 
-        tvTogglePreviousNotes?.setOnClickListener {
-            showAllNotes = !showAllNotes
-            refreshNotesUI()
+        fun renderActivityTimelineUI() {
+            activityContainer?.removeAllViews()
+
+            val timeline = ContactActivityTimeline.mergeActivityAndNotes(
+                activityRecords = loadedActivities,
+                rawNotes = currentRawNotes
+            )
+
+            if (timeline.isEmpty()) {
+                tvActivityEmpty?.visibility = View.VISIBLE
+                tvToggleAllActivity?.visibility = View.GONE
+                tvActivityError?.visibility = View.GONE
+                return
+            }
+
+            tvActivityEmpty?.visibility = View.GONE
+            tvActivityError?.visibility = View.GONE
+
+            if (timeline.size > 3) {
+                tvToggleAllActivity?.visibility = View.VISIBLE
+                tvToggleAllActivity?.text = if (showAllActivity) "Show less ▲" else "View all (${timeline.size}) ▼"
+            } else {
+                tvToggleAllActivity?.visibility = View.GONE
+            }
+
+            val displayedItems = if (showAllActivity) timeline else timeline.take(3)
+
+            for (item in displayedItems) {
+                val itemView = LayoutInflater.from(this).inflate(R.layout.item_activity_entry, activityContainer, false)
+                val ivIcon = itemView.findViewById<ImageView>(R.id.ivActivityIcon)
+                val tvOutcome = itemView.findViewById<TextView>(R.id.tvActivityOutcome)
+                val tvStageBadge = itemView.findViewById<TextView>(R.id.tvActivityStageBadge)
+                val tvTimestamp = itemView.findViewById<TextView>(R.id.tvActivityTimestamp)
+                val tvNote = itemView.findViewById<TextView>(R.id.tvActivityNote)
+                val actionsLayout = itemView.findViewById<View>(R.id.llActivityItemActions)
+                val btnEdit = itemView.findViewById<View>(R.id.btnEditActivityNote)
+                val btnDelete = itemView.findViewById<View>(R.id.btnDeleteActivityNote)
+
+                tvOutcome.text = item.outcome.ifBlank { "Activity" }
+                tvTimestamp.text = item.dateDisplay
+
+                if (!item.stageContext.isNullOrBlank()) {
+                    tvStageBadge.text = item.stageContext
+                    tvStageBadge.visibility = View.VISIBLE
+                } else {
+                    tvStageBadge.visibility = View.GONE
+                }
+
+                if (item.note.isNotBlank()) {
+                    tvNote.text = item.note
+                    tvNote.visibility = View.VISIBLE
+                } else {
+                    tvNote.visibility = View.GONE
+                }
+
+                when (item.type) {
+                    ActionType.CALL -> {
+                        ivIcon.setImageResource(android.R.drawable.ic_menu_call)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_green)
+                        ivIcon.setColorFilter(Color.parseColor("#3DFF9A"))
+                    }
+                    ActionType.MESSAGE -> {
+                        ivIcon.setImageResource(android.R.drawable.sym_action_chat)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_cyan)
+                        ivIcon.setColorFilter(Color.parseColor("#2EE7FF"))
+                    }
+                    ActionType.EMAIL -> {
+                        ivIcon.setImageResource(android.R.drawable.ic_dialog_email)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_blue)
+                        ivIcon.setColorFilter(Color.parseColor("#D5E6FF"))
+                    }
+                    ActionType.MEETING -> {
+                        ivIcon.setImageResource(android.R.drawable.ic_menu_agenda)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_purple)
+                        ivIcon.setColorFilter(Color.parseColor("#B14CFF"))
+                    }
+                    ActionType.TO_DO -> {
+                        val iconRes = if (item.outcome == "Note") android.R.drawable.ic_menu_edit else android.R.drawable.checkbox_on_background
+                        ivIcon.setImageResource(iconRes)
+                        ivIcon.background = ContextCompat.getDrawable(this, R.drawable.bg_icon_circle_cyan)
+                        ivIcon.setColorFilter(Color.parseColor("#2EE7FF"))
+                    }
+                }
+
+                if (!item.isActivityRecord) {
+                    actionsLayout?.visibility = View.VISIBLE
+                    btnEdit?.setOnClickListener {
+                        val editDialogView = LayoutInflater.from(this).inflate(R.layout.dialog_edit_note, null)
+                        val input = editDialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etEditNoteContent)
+                        val tvDate = editDialogView.findViewById<TextView>(R.id.tvEditNoteDate)
+
+                        tvDate?.text = item.dateDisplay
+                        input?.setText(item.note)
+
+                        AlertDialog.Builder(this)
+                            .setTitle("Edit Note")
+                            .setView(editDialogView)
+                            .setPositiveButton("Save") { _, _ ->
+                                val newContent = input?.text?.toString()?.trim() ?: ""
+                                val parsed = ContactActivityTimeline.parseNotes(currentRawNotes).toMutableList()
+                                val targetIdx = parsed.indexOfFirst { it.content.trim() == item.note.trim() }
+                                if (targetIdx >= 0) {
+                                    parsed[targetIdx] = parsed[targetIdx].copy(content = newContent)
+                                    currentRawNotes = parsed.joinToString("\n\n") { p ->
+                                        if (p.eventId != null) "[${p.date} | eid:${p.eventId}]: ${p.content}"
+                                        else "[${p.date}]: ${p.content}"
+                                    }
+                                    renderActivityTimelineUI()
+                                }
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .create().apply {
+                                window?.setBackgroundDrawableResource(android.R.color.transparent)
+                                show()
+                            }
+                    }
+                    btnDelete?.setOnClickListener {
+                        val parsed = ContactActivityTimeline.parseNotes(currentRawNotes).toMutableList()
+                        val targetIdx = parsed.indexOfFirst { it.content.trim() == item.note.trim() }
+                        if (targetIdx >= 0) {
+                            parsed.removeAt(targetIdx)
+                            currentRawNotes = parsed.joinToString("\n\n") { p ->
+                                if (p.eventId != null) "[${p.date} | eid:${p.eventId}]: ${p.content}"
+                                else "[${p.date}]: ${p.content}"
+                            }
+                            renderActivityTimelineUI()
+                        }
+                    }
+                } else {
+                    actionsLayout?.visibility = View.GONE
+                }
+
+                itemView.setOnClickListener {
+                    startActivity(createPipelineIntent(item.stageContext))
+                }
+                activityContainer?.addView(itemView)
+            }
         }
 
-        refreshNotesUI()
-        
+        val llRecentActivityHeader = dialogView.findViewById<View>(R.id.llRecentActivityHeader)
+        llRecentActivityHeader?.setOnClickListener(openPipelineAction)
+        tvActivityEmpty?.setOnClickListener(openPipelineAction)
+
+        tvToggleAllActivity?.setOnClickListener {
+            showAllActivity = !showAllActivity
+            renderActivityTimelineUI()
+        }
+
+        renderNextActionUI()
+        renderActivityTimelineUI()
+        refreshActiveProfileCallback = {
+            renderNextActionUI()
+            renderActivityTimelineUI()
+        }
+
+        pbNextActionLoading?.visibility = View.VISIBLE
+        pbActivityLoading?.visibility = View.VISIBLE
+
+        val nextActionsReg = db.collection("leads").document(docId)
+            .collection("next_actions")
+            .whereEqualTo("status", ActionStatus.PENDING.name)
+            .addSnapshotListener { snapshot, error ->
+                pbNextActionLoading?.visibility = View.GONE
+                if (error != null) {
+                    tvNextActionError?.visibility = View.VISIBLE
+                    tvNextActionError?.text = "Couldn't load upcoming action"
+                    return@addSnapshotListener
+                }
+                loadedNextActions.clear()
+                snapshot?.documents?.forEach { d ->
+                    val na = d.toObject(NextAction::class.java)?.copy(id = d.id)
+                        ?: NextAction(
+                            id = d.id,
+                            title = d.getString("title") ?: "",
+                            type = runCatching { ActionType.valueOf(d.getString("type") ?: "") }.getOrDefault(ActionType.TO_DO),
+                            dueTime = d.getLong("dueTime") ?: 0L,
+                            status = ActionStatus.PENDING
+                        )
+                    loadedNextActions.add(na)
+                }
+                renderNextActionUI()
+            }
+
+        val activityReg = db.collection("leads").document(docId)
+            .collection("activity_records")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                pbActivityLoading?.visibility = View.GONE
+                if (error != null) {
+                    tvActivityError?.visibility = View.VISIBLE
+                    tvActivityError?.text = "Couldn't load activity. Tap to retry."
+                    return@addSnapshotListener
+                }
+                loadedActivities.clear()
+                snapshot?.documents?.forEach { d ->
+                    val act = d.toObject(ActivityRecord::class.java)?.copy(id = d.id)
+                        ?: ActivityRecord(
+                            id = d.id,
+                            leadId = docId,
+                            type = runCatching { ActionType.valueOf(d.getString("type") ?: "") }.getOrDefault(ActionType.TO_DO),
+                            outcome = d.getString("outcome") ?: "",
+                            note = d.getString("note") ?: "",
+                            timestamp = d.getLong("timestamp") ?: 0L
+                        )
+                    loadedActivities.add(act)
+                }
+                renderActivityTimelineUI()
+            }
+
+        val leadDocReg = db.collection("leads").document(docId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
+                val remoteNotes = snapshot.getString("notes") ?: ""
+                if (remoteNotes != initialRawNotes && remoteNotes != currentRawNotes) {
+                    currentRawNotes = remoteNotes
+                    initialRawNotes = remoteNotes
+                    renderActivityTimelineUI()
+                }
+
+                // Protect unsaved form edits: only update if matching initial value
+                val initialName = lead["name"] as? String ?: ""
+                if (editName?.text?.toString() == initialName) {
+                    val remoteName = snapshot.getString("name")
+                    if (remoteName != null) editName?.setText(remoteName)
+                }
+                val initialPhone = lead["phone"] as? String ?: ""
+                if (editPhone?.text?.toString() == initialPhone) {
+                    val remotePhone = snapshot.getString("phone")
+                    if (remotePhone != null) editPhone?.setText(remotePhone)
+                }
+                val initialEmail = lead["email"] as? String ?: ""
+                if (editEmail?.text?.toString() == initialEmail) {
+                    val remoteEmail = snapshot.getString("email")
+                    if (remoteEmail != null) editEmail?.setText(remoteEmail)
+                }
+
+                val remoteFollowUp = (snapshot.get("followUpDate") as? Timestamp)?.toDate()
+                if (!userModifiedReminder && remoteFollowUp != selectedFollowUpDate) {
+                    selectedFollowUpDate = remoteFollowUp
+                    updateReminderUI()
+                }
+            }
+
+        tvActivityError?.setOnClickListener {
+            tvActivityError.visibility = View.GONE
+            pbActivityLoading?.visibility = View.VISIBLE
+            db.collection("leads").document(docId)
+                .collection("activity_records")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    pbActivityLoading?.visibility = View.GONE
+                    loadedActivities.clear()
+                    snapshot.documents.forEach { d ->
+                        val act = d.toObject(ActivityRecord::class.java)?.copy(id = d.id)
+                            ?: ActivityRecord(
+                                id = d.id,
+                                leadId = docId,
+                                type = runCatching { ActionType.valueOf(d.getString("type") ?: "") }.getOrDefault(ActionType.TO_DO),
+                                outcome = d.getString("outcome") ?: "",
+                                note = d.getString("note") ?: "",
+                                timestamp = d.getLong("timestamp") ?: 0L
+                            )
+                        loadedActivities.add(act)
+                    }
+                    renderActivityTimelineUI()
+                }
+                .addOnFailureListener {
+                    pbActivityLoading?.visibility = View.GONE
+                    tvActivityError.visibility = View.VISIBLE
+                }
+        }
+
         val btnDefaultIntro = dialogView.findViewById<Button>(R.id.btnDefaultIntro)
         val etIntroText = dialogView.findViewById<EditText>(R.id.etIntroText)
         val btnManagePresets = dialogView.findViewById<View>(R.id.btnManagePresets)
@@ -620,7 +977,7 @@ class FollowUpActivity : AppCompatActivity() {
 
         btnAIGenerate?.setOnClickListener {
             val currentName = editName?.text.toString()
-            val currentNote = notesList.joinToString("\n") { it.content }
+            val currentNote = ContactActivityTimeline.parseNotes(currentRawNotes).joinToString("\n") { it.content }
             
             btnAIGenerate.isEnabled = false
             btnAIGenerate.text = "Drafting..."
@@ -821,34 +1178,14 @@ class FollowUpActivity : AppCompatActivity() {
         btnSendNote?.setOnClickListener {
             val text = etQuickNote?.text.toString().trim()
             if (text.isNotEmpty()) {
-                val date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
-                
-                // Append to end for chat-style interface
-                notesList.add(DatedNote(date, text))
-                refreshNotesUI()
-                
+                currentRawNotes = NoteUtils.prependNote(currentRawNotes, text)
+                renderActivityTimelineUI()
                 etQuickNote?.text?.clear()
             }
         }
 
-        var selectedFollowUpDate: Date? = (lead["followUpDate"] as? Timestamp)?.toDate()
-        fun updateReminderUI() {
-            if (selectedFollowUpDate != null) {
-                val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
-                tvReminderValue?.text = sdf.format(selectedFollowUpDate!!)
-                btnSetReminder?.text = getString(R.string.btn_change_reminder)
-                btnEditReminderIcon?.visibility = View.VISIBLE
-                btnDeleteReminderIcon?.visibility = View.VISIBLE
-            } else {
-                tvReminderValue?.text = getString(R.string.reminder_none)
-                btnSetReminder?.text = getString(R.string.btn_set_reminder)
-                btnEditReminderIcon?.visibility = View.GONE
-                btnDeleteReminderIcon?.visibility = View.GONE
-            }
-        }
-        updateReminderUI()
-
         val reminderAction = {
+            userModifiedReminder = true
             val cal = Calendar.getInstance()
             selectedFollowUpDate?.let { cal.time = it }
             val pickerTheme = android.R.style.Theme_DeviceDefault_Dialog_Alert
@@ -865,6 +1202,7 @@ class FollowUpActivity : AppCompatActivity() {
         btnSetReminder?.setOnClickListener { reminderAction() }
         btnEditReminderIcon?.setOnClickListener { reminderAction() }
         btnDeleteReminderIcon?.setOnClickListener {
+            userModifiedReminder = true
             selectedFollowUpDate = null
             updateReminderUI()
         }
@@ -1154,15 +1492,23 @@ class FollowUpActivity : AppCompatActivity() {
                 extractedNotes += " at $appointmentLocation"
             }
             updateAppointmentButtonUI()
-            notesList.add(DatedNote(SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date()), "[Voice Log]: $extractedNotes"))
-            refreshNotesUI()
+            currentRawNotes = NoteUtils.prependNote(currentRawNotes, "[Voice Log]: $extractedNotes")
+            renderActivityTimelineUI()
         }
 
         // Clear lambda on dismiss to prevent stale dialog view references from being
         // applied to a different lead if a delayed result arrives.
         dialog.setOnDismissListener {
+            nextActionsReg.remove()
+            activityReg.remove()
+            leadDocReg.remove()
             applyVoiceLogToDialog = null
             onVoiceLogComplete = null
+            activeProfileLeadId = null
+            refreshActiveProfileCallback = null
+            if (activeLeadDetailsDialog == dialog) {
+                activeLeadDetailsDialog = null
+            }
             if (finishOnDismiss) {
                 finish()
             }
@@ -1194,10 +1540,9 @@ class FollowUpActivity : AppCompatActivity() {
             // Capture any unsent text from the Quick Note input before saving
             val pendingNoteText = etQuickNote?.text.toString().trim()
             if (pendingNoteText.isNotEmpty()) {
-                val date = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
-                notesList.add(DatedNote(date, pendingNoteText))
+                currentRawNotes = NoteUtils.prependNote(currentRawNotes, pendingNoteText)
                 etQuickNote?.text?.clear()
-                refreshNotesUI()
+                renderActivityTimelineUI()
             }
 
             val updatedCats = mutableListOf<String>()
@@ -1209,7 +1554,7 @@ class FollowUpActivity : AppCompatActivity() {
                 if (cbLife?.isChecked == true) updatedCats.add("Life Insurance")
             }
             
-            val updatedNotes = notesList.joinToString("\n\n") { "[${it.date}]: ${it.content}" }
+            val updatedNotes = currentRawNotes
             val tmList = mutableListOf<String>()
             if (cbTmMarried?.isChecked == true) tmList.add("Married")
             if (cbTmAge?.isChecked == true) tmList.add("Age 25-55")
@@ -1290,7 +1635,7 @@ class FollowUpActivity : AppCompatActivity() {
                 },
                 extras = { _ -> updates },
                 onSuccess = { result ->
-                    if (notesList.size > originalNotesCount) {
+                    if (currentRawNotes != initialRawNotes) {
                         incrementDailyStat("followup_count")
                     }
                     val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
@@ -1343,7 +1688,7 @@ class FollowUpActivity : AppCompatActivity() {
         btnAddCalendar?.setOnClickListener {
             val phone = editPhone?.text.toString()
             val name = editName?.text.toString()
-            val notes = notesList.firstOrNull()?.content ?: ""
+            val notes = ContactActivityTimeline.parseNotes(currentRawNotes).firstOrNull()?.content ?: ""
             val intent = Intent(Intent.ACTION_INSERT)
                 .setData(android.provider.CalendarContract.Events.CONTENT_URI)
                 .putExtra(android.provider.CalendarContract.Events.TITLE, getString(R.string.calendar_call_title, name))
@@ -1784,25 +2129,7 @@ class FollowUpActivity : AppCompatActivity() {
         statsListener?.remove()
     }
 
-    private data class DatedNote(val date: String, val content: String)
-
     private fun parseNotes(raw: String): List<DatedNote> {
-        if (raw.isEmpty()) return emptyList()
-        val list = mutableListOf<DatedNote>()
-        // Split by double newline which separates entries
-        val blocks = raw.split("\n\n")
-        for (block in blocks) {
-            if (block.isBlank()) continue
-            // Format is "[MMM dd, yyyy hh:mm a]: Content"
-            val endBracket = block.indexOf("]: ")
-            if (endBracket != -1) {
-                val date = block.substring(1, endBracket)
-                val content = block.substring(endBracket + 3)
-                list.add(DatedNote(date, content))
-            } else {
-                list.add(DatedNote("Unknown Date", block))
-            }
-        }
-        return list
+        return ContactActivityTimeline.parseNotes(raw)
     }
 }

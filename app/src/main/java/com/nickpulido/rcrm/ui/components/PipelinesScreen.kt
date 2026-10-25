@@ -42,6 +42,8 @@ fun PipelinesScreen(
     pipelineType: PipelineType,
     onPipelineTypeChange: (PipelineType) -> Unit,
     leads: List<PipelineLead>,
+    targetLeadId: String? = null,
+    targetStageId: String? = null,
     onLeadClick: (String) -> Unit,
     onCallLead: (String) -> Unit,
     onStageChange: (String, PipelineType, String) -> Unit,
@@ -71,6 +73,32 @@ fun PipelinesScreen(
 
     val pagerState = rememberPagerState(pageCount = { stages.size })
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(targetLeadId, targetStageId, pipelineType, leads, searchQuery) {
+        val stageIdToSelect = if (!targetStageId.isNullOrBlank()) {
+            targetStageId
+        } else if (!targetLeadId.isNullOrBlank()) {
+            val lead = leads.find { it.id == targetLeadId }
+            if (lead != null) {
+                if (pipelineType == PipelineType.SALES) lead.salesStage.id else lead.recruitStage.id
+            } else null
+        } else if (searchQuery.isNotBlank() && leads.isNotEmpty()) {
+            val match = leads.firstOrNull { it.name.contains(searchQuery, ignoreCase = true) }
+            if (match != null) {
+                if (pipelineType == PipelineType.SALES) match.salesStage.id else match.recruitStage.id
+            } else null
+        } else null
+
+        if (stageIdToSelect != null) {
+            val idx = stages.indexOfFirst { it.first == stageIdToSelect }
+            if (idx >= 0) {
+                selectedStageIndex = idx
+                if (isKanbanMode) {
+                    coroutineScope.launch { pagerState.animateScrollToPage(idx) }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(selectedStageIndex) {
         if (isKanbanMode && pagerState.currentPage != selectedStageIndex) {

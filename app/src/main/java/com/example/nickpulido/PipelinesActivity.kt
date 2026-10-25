@@ -37,6 +37,8 @@ class PipelinesActivity : ComponentActivity() {
     private var leads by mutableStateOf<List<PipelineLead>>(emptyList())
     private var searchQuery by mutableStateOf("")
     private var pipelineType by mutableStateOf(PipelineType.SALES)
+    private var targetLeadId by mutableStateOf<String?>(null)
+    private var targetStageId by mutableStateOf<String?>(null)
     
     private val followUpRepository = FollowUpRepository()
     private var outcomeRequest by mutableStateOf<OutcomeSheetRequest?>(null)
@@ -44,6 +46,7 @@ class PipelinesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         outcomeRequest = readOutcomeRequest(savedInstanceState)
+        handleIntent(intent)
 
         val currentUser = auth.currentUser
         if (currentUser == null) {
@@ -128,6 +131,7 @@ class PipelinesActivity : ComponentActivity() {
                         )
                     }
                     leads = newLeads.sortedByDescending { it.isPinned }
+                    handleIntent(intent)
                     enrichOutcomeRequest()
                 }
             }
@@ -151,6 +155,8 @@ class PipelinesActivity : ComponentActivity() {
                     pipelineType = pipelineType,
                     onPipelineTypeChange = { pipelineType = it },
                     leads = filteredLeads,
+                    targetLeadId = targetLeadId,
+                    targetStageId = targetStageId,
                     onLeadClick = { leadId ->
                         val intent = Intent(this, FollowUpActivity::class.java)
                         intent.putExtra("targetLeadId", leadId)
@@ -187,9 +193,22 @@ class PipelinesActivity : ComponentActivity() {
                                     nowMillis = System.currentTimeMillis()
                                 )
                             ) { success, error ->
-                                if (isDestroyed) return@saveOutcome
                                 if (success) {
-                                    Toast.makeText(this@PipelinesActivity, "Saved", Toast.LENGTH_SHORT).show()
+                                    val name = request.contactName.trim().ifEmpty { "contact" }
+                                    com.google.android.material.snackbar.Snackbar.make(
+                                        findViewById(android.R.id.content),
+                                        "Saved to $name",
+                                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                                    ).setAction("View contact") {
+                                        val intent = Intent(this@PipelinesActivity, FollowUpActivity::class.java).apply {
+                                            putExtra("targetLeadId", request.leadId)
+                                        }
+                                        startActivity(intent)
+                                    }.apply {
+                                        view.setBackgroundResource(R.drawable.bg_dialog_space_glass)
+                                        setActionTextColor(android.graphics.Color.parseColor("#2EE7FF"))
+                                        show()
+                                    }
                                 }
                                 done(success, error)
                             }
@@ -255,6 +274,47 @@ class PipelinesActivity : ComponentActivity() {
             updated.stage != current.stage
         ) {
             outcomeRequest = updated
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(passedIntent: Intent?) {
+        if (passedIntent == null) return
+        val targetId = passedIntent.getStringExtra("targetLeadId") ?: passedIntent.getStringExtra("OPEN_LEAD_ID")
+        val query = passedIntent.getStringExtra("searchQuery")
+        val pTypeStr = passedIntent.getStringExtra("pipelineType")
+        val stageIdStr = passedIntent.getStringExtra("targetStageId")
+
+        if (!targetId.isNullOrBlank()) {
+            targetLeadId = targetId
+        }
+        if (!stageIdStr.isNullOrBlank()) {
+            targetStageId = stageIdStr
+        }
+        if (!query.isNullOrBlank()) {
+            searchQuery = query
+        }
+        if (!pTypeStr.isNullOrBlank()) {
+            runCatching { PipelineType.valueOf(pTypeStr) }.getOrNull()?.let {
+                pipelineType = it
+            }
+        }
+
+        if (!targetId.isNullOrBlank() && leads.isNotEmpty()) {
+            val lead = leads.find { it.id == targetId }
+            if (lead != null) {
+                searchQuery = lead.name
+                val isRecruit = lead.category.contains("Recruit", ignoreCase = true)
+                pipelineType = if (isRecruit) PipelineType.RECRUITING else PipelineType.SALES
+                if (targetStageId.isNullOrBlank()) {
+                    targetStageId = if (isRecruit) lead.recruitStage.id else lead.salesStage.id
+                }
+            }
         }
     }
 

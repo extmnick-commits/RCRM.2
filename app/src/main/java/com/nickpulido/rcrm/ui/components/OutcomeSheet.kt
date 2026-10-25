@@ -66,6 +66,7 @@ import com.nickpulido.rcrm.domain.OutcomeSavePlanner
 import com.nickpulido.rcrm.domain.OutcomeSubmission
 import com.nickpulido.rcrm.domain.StageChangeSpec
 import com.nickpulido.rcrm.domain.WorkflowLifecycle
+import com.nickpulido.rcrm.ui.theme.DarkPanelBackground
 import com.nickpulido.rcrm.ui.theme.DarkSpaceBlue
 import com.nickpulido.rcrm.ui.theme.GlassFill
 import com.nickpulido.rcrm.ui.theme.GlassPanel
@@ -246,7 +247,7 @@ fun OutcomeSheet(
                 .padding(bottom = bottomPad)
                     .frostedGlass(
                         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                        fillColor = GlassPanel
+                        fillColor = DarkPanelBackground.copy(alpha = 0.96f)
                     )
             ) {
                 Column(

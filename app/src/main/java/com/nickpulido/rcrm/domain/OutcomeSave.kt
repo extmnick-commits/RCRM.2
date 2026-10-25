@@ -327,7 +327,8 @@ object OutcomeSavePlanner {
             lifecycle = request.lifecycle,
             lifecycleReason = request.lifecycleReason
         )
-        val notes = if (noteBody.isBlank()) null else NoteUtils.prependNote(existingNotes, noteBody)
+        val actId = activityDocumentId(operationId)
+        val notes = if (noteBody.isBlank()) null else NoteUtils.prependNote(existingNotes, noteBody, eventId = actId)
 
         val resumeForNewWork = newAction != null && !changingLifecycle
         val isPaused = when (request.lifecycle) {
@@ -347,7 +348,7 @@ object OutcomeSavePlanner {
             )
 
         val activity = ActivityRecord(
-            id = activityDocumentId(operationId),
+            id = actId,
             leadId = request.leadId,
             ownerId = request.ownerId,
             type = request.activityType,

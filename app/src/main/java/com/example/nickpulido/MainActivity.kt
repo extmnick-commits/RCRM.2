@@ -300,9 +300,22 @@ class MainActivity : AppCompatActivity() {
                                     nowMillis = System.currentTimeMillis()
                                 )
                             ) { success, error ->
-                                if (isDestroyed) return@saveOutcome
                                 if (success) {
-                                    Toast.makeText(this@MainActivity, "Outcome saved", Toast.LENGTH_SHORT).show()
+                                    val name = request.contactName.trim().ifEmpty { "contact" }
+                                    com.google.android.material.snackbar.Snackbar.make(
+                                        findViewById(android.R.id.content),
+                                        "Saved to $name",
+                                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                                    ).setAction("View contact") {
+                                        val intent = Intent(this@MainActivity, FollowUpActivity::class.java).apply {
+                                            putExtra("targetLeadId", request.leadId)
+                                        }
+                                        startActivity(intent)
+                                    }.apply {
+                                        view.setBackgroundResource(R.drawable.bg_dialog_space_glass)
+                                        setActionTextColor(android.graphics.Color.parseColor("#2EE7FF"))
+                                        show()
+                                    }
                                     loadHotList()
                                 }
                                 done(success, error)
