@@ -1,6 +1,5 @@
 package com.nickpulido.rcrm.domain
 
-import com.google.firebase.Timestamp
 import java.util.UUID
 
 enum class ActionType {

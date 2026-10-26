@@ -1,631 +1,180 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/backgroundColor">
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_log_call"
-                    android:textColor="@color/textColorPrimary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:alpha="0.6" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
-
-                    <Button
-                        android:id="@+id/btnScanCardSmartLog"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="📷 Scan Card"
-                        android:backgroundTint="@color/colorSecondary"
-                        android:textColor="@color/white"/>
-                </LinearLayout>
-
-                <EditText
-                    android:id="@+id/etContactName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/hint_contact_name"
-                    android:inputType="textPersonName"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/textColorPrimary"
-                    android:background="@android:color/transparent"
-                    android:paddingVertical="4dp"
-                    android:importantForAutofill="no" />
-
-                <TextView
-                    android:id="@+id/tvLogPhoneNumber"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/textColorSecondary"
-                    android:textSize="14sp"
-                    tools:text="(555) 555-5555" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="8dp">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSkipPersonal"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="6dp"
-                        android:text="@string/btn_skip_personal"
-                        android:textColor="@color/colorDanger"
-                        android:textSize="11sp"
-                        android:textAllCaps="false"
-                        app:cornerRadius="12dp"
-                        tools:ignore="TouchTargetSizeCheck" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnIgnoreCallLog"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="6dp"
-                        android:text="@string/btn_ignore_call_log"
-                        android:textColor="@color/textColorSecondary"
-                        android:textSize="11sp"
-                        android:textAllCaps="false"
-                        app:cornerRadius="12dp"
-                        tools:ignore="TouchTargetSizeCheck" />
-                </LinearLayout>
+    android:id="@+id/smartLogRoot" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:orientation="vertical" android:background="#070B14">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:paddingHorizontal="20dp" android:paddingTop="12dp" android:paddingBottom="8dp">
+        <TextView style="@style/SmartLogTitle" android:text="@string/sl_title" />
+        <TextView style="@style/SmartLogBody" android:text="@string/sl_subtitle" />
+    </LinearLayout>
+    <androidx.core.widget.NestedScrollView android:id="@+id/smartLogScroll"
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:fillViewport="true" android:clipToPadding="false">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingBottom="16dp">
+            <LinearLayout style="@style/SmartLogCard">
+                <TextView style="@style/SmartLogLabel" android:text="@string/sl_contact" />
+                <EditText android:id="@+id/etContactName" style="@style/SmartLogInput"
+                    android:hint="@string/hint_contact_name" android:inputType="textCapWords|textPersonName"
+                    android:textSize="20sp" android:textStyle="bold" android:imeOptions="actionNext" />
+                <TextView android:id="@+id/tvLogPhoneNumber" style="@style/SmartLogBody" android:textIsSelectable="true" />
+                <TextView android:id="@+id/tvSmartContactStatus" style="@style/SmartLogBody" android:text="@string/sl_contact_hint" />
             </LinearLayout>
-
-            <!-- Advanced Logging Toggle Header -->
-            <LinearLayout
-                android:id="@+id/headerAdvancedLogging"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingVertical="12dp"
-                android:layout_marginTop="4dp"
-                android:background="?attr/selectableItemBackground">
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Advanced Details (Email, Address, Company, etc)"
-                    android:textColor="@color/textColorPrimary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/tvToggleAdvanced"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Show ▼"
-                    android:textColor="@color/colorPrimary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="4dp" />
+            <LinearLayout style="@style/SmartLogCard">
+                <TextView style="@style/SmartLogLabel" android:text="@string/sl_outcome" />
+                <com.google.android.material.chip.ChipGroup android:id="@+id/chipSmartOutcome"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    app:singleSelection="true" app:chipSpacingHorizontal="6dp">
+                    <com.google.android.material.chip.Chip android:id="@+id/chipSmartConnected" style="@style/SmartLogChip" android:text="@string/sl_connected" />
+                    <com.google.android.material.chip.Chip android:id="@+id/chipSmartNoAnswer" style="@style/SmartLogChip" android:text="@string/sl_no_answer" />
+                    <com.google.android.material.chip.Chip android:id="@+id/chipSmartVoicemail" style="@style/SmartLogChip" android:text="@string/sl_voicemail" />
+                </com.google.android.material.chip.ChipGroup>
+                <TextView android:id="@+id/tvSmartNoteLabel" style="@style/SmartLogLabel" android:text="@string/sl_note" android:labelFor="@id/etQuickNote" />
+                <EditText android:id="@+id/etQuickNote" style="@style/SmartLogInput" android:hint="@string/sl_note_hint"
+                    android:inputType="textCapSentences|textMultiLine" android:gravity="top" android:minLines="3"
+                    android:maxLines="8" android:imeOptions="flagNoExtractUi" />
+                <Button android:id="@+id/btnDictateSmartNote" style="@style/SmartLogButton" android:text="@string/sl_dictate" />
             </LinearLayout>
+            <LinearLayout style="@style/SmartLogCard">
+                <TextView style="@style/SmartLogLabel" android:text="@string/sl_next_step" />
+                <TextView style="@style/SmartLogBody" android:text="@string/sl_next_hint" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <Button android:id="@+id/btn7pmToday" style="@style/SmartLogButton" android:text="@string/sl_today" android:layout_width="0dp" android:layout_weight="1"/>
+                    <Button android:id="@+id/btn7pmTomorrow" style="@style/SmartLogButton" android:text="@string/sl_tomorrow" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="6dp"/>
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <Button android:id="@+id/btnScheduleCustom" style="@style/SmartLogButton" android:text="@string/sl_pick_date" android:layout_width="0dp" android:layout_weight="1"/>
+                    <Button android:id="@+id/btnMoreSmartDates" style="@style/SmartLogButton" android:text="@string/sl_more_dates" android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="6dp"/>
+                </LinearLayout>
+                <LinearLayout android:id="@+id/containerSmartDates" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <Button android:id="@+id/btnPlus1Week" style="@style/SmartLogButton" android:text="@string/sl_week" />
+                    <Button android:id="@+id/btnPlus2Weeks" style="@style/SmartLogButton" android:text="@string/sl_two_weeks" />
+                    <Button android:id="@+id/btnPlus1Month" style="@style/SmartLogButton" android:text="@string/sl_month" />
+                </LinearLayout>
+                <TextView android:id="@+id/tvSmartNextSummary" style="@style/SmartLogBody" android:text="@string/sl_no_reminder" android:accessibilityLiveRegion="polite" />
+                <LinearLayout android:id="@+id/containerSmartReminder" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                    <TextView style="@style/SmartLogLabel" android:text="@string/sl_action_title" android:labelFor="@id/etSmartActionTitle" />
+                    <EditText android:id="@+id/etSmartActionTitle" style="@style/SmartLogInput" android:hint="@string/sl_action_hint" android:inputType="textCapSentences" android:imeOptions="actionDone" />
+                    <com.google.android.material.chip.ChipGroup android:id="@+id/chipSmartActionType" android:layout_width="match_parent" android:layout_height="wrap_content" app:singleSelection="true" app:selectionRequired="true" app:checkedChip="@id/chipSmartCall" app:chipSpacingHorizontal="6dp">
+                        <com.google.android.material.chip.Chip android:id="@+id/chipSmartCall" style="@style/SmartLogChip" android:text="@string/sl_call" /><com.google.android.material.chip.Chip android:id="@+id/chipSmartText" style="@style/SmartLogChip" android:text="@string/sl_text" /><com.google.android.material.chip.Chip android:id="@+id/chipSmartTodo" style="@style/SmartLogChip" android:text="@string/sl_task" />
+                    </com.google.android.material.chip.ChipGroup>
+                    <Button android:id="@+id/btnClearSmartReminder" style="@style/SmartLogButton" android:text="@string/sl_clear_reminder" />
+                </LinearLayout>
+                <Button android:id="@+id/btnMarkAppointment" style="@style/SmartLogButton" android:text="@string/sl_appointment" />
+                <TextView android:id="@+id/tvSmartAppointmentSummary" style="@style/SmartLogBody" android:visibility="gone" android:accessibilityLiveRegion="polite" />
+                <Button android:id="@+id/btnClearSmartAppointment" style="@style/SmartLogButton" android:text="@string/sl_clear_appointment" android:visibility="gone"/>
+            </LinearLayout>
+            <LinearLayout style="@style/SmartLogCard">
+                <LinearLayout android:id="@+id/headerAdvancedLogging" style="@style/SmartLogDisclosure">
+                    <TextView style="@style/SmartLogLabel" android:layout_width="0dp" android:layout_weight="1" android:text="@string/sl_details" />
+                    <TextView android:id="@+id/tvToggleAdvanced" style="@style/SmartLogBody" android:text="@string/sl_show" />
+                </LinearLayout>
+                <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools" android:id="@+id/containerAdvancedLogging" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
-            <LinearLayout
-                android:id="@+id/containerAdvancedLogging"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
+                <Button android:id="@+id/btnScanCardSmartLog" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/sl_scan_card" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null" android:minHeight="48dp"/>
+                <EditText android:id="@+id/etContactEmail" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Email Address" android:inputType="textEmailAddress" android:layout_marginTop="8dp" android:importantForAutofill="no" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
 
-                <EditText
-                    android:id="@+id/etContactEmail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Email Address"
-                    android:inputType="textEmailAddress"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no" />
+                <EditText android:id="@+id/etContactAddress" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Address" android:inputType="textPostalAddress" android:layout_marginTop="8dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
 
-                <EditText
-                    android:id="@+id/etContactAddress"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Address"
-                    android:inputType="textPostalAddress"
-                    android:layout_marginTop="8dp" />
+                <EditText android:id="@+id/etContactCompany" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Company" android:inputType="textCapWords" android:layout_marginTop="8dp" android:importantForAutofill="no" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
 
-                <EditText
-                    android:id="@+id/etContactCompany"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Company"
-                    android:inputType="textCapWords"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no" />
+                <EditText android:id="@+id/etContactJobTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Job Title" android:inputType="textCapWords" android:layout_marginTop="8dp" android:importantForAutofill="no" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
 
-                <EditText
-                    android:id="@+id/etContactJobTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Job Title"
-                    android:inputType="textCapWords"
-                    android:layout_marginTop="8dp"
-                    android:importantForAutofill="no" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/label_category" android:textStyle="bold" android:textColor="@color/textColorSecondary" android:textSize="12sp"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/label_category"
-                    android:textStyle="bold"
-                    android:textColor="@color/textColorSecondary"
-                    android:textSize="12sp"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <CheckBox android:id="@+id/cbRecruit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" />
-                    <CheckBox android:id="@+id/cbProspect" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" />
-                    <CheckBox android:id="@+id/cbClient" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <CheckBox android:id="@+id/cbRecruit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_recruit" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbProspect" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_prospect" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbClient" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/category_client" android:minHeight="48dp"/>
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/clientSubCategoryLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:visibility="gone"
-                    android:layout_marginStart="16dp">
-                    <CheckBox android:id="@+id/cbInvestment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" />
-                    <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" />
+                <LinearLayout android:id="@+id/clientSubCategoryLayout" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:visibility="gone" android:layout_marginStart="16dp">
+                    <CheckBox android:id="@+id/cbInvestment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:minHeight="48dp"/>
                 </LinearLayout>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardLifeInsuranceDetails"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:visibility="gone"
-                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
-                    app:cardCornerRadius="10dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="12dp">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="🛡️ Life Insurance Policy Details"
-                            android:textStyle="bold"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:layout_marginBottom="8dp"/>
-                        <Spinner
-                            android:id="@+id/spinnerInsPolicyType"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:entries="@array/ins_policy_types"
-                            android:layout_marginBottom="8dp"/>
-                        <Spinner
-                            android:id="@+id/spinnerInsStatus"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:entries="@array/ins_underwriting_status"
-                            android:layout_marginBottom="8dp"/>
-                        <EditText
-                            android:id="@+id/editInsCarrier"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Carrier (e.g., Primerica Life)"
-                            android:inputType="text"
-                            android:layout_marginBottom="8dp"/>
-                        <EditText
-                            android:id="@+id/editInsPolicyNumber"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Policy Number"
-                            android:inputType="text"
-                            android:layout_marginBottom="8dp"/>
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginBottom="8dp">
-                            <EditText
-                                android:id="@+id/editInsFaceAmount"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:hint="Face Amount ($)"
-                                android:inputType="text"
-                                android:layout_marginEnd="4dp"/>
-                            <EditText
-                                android:id="@+id/editInsMonthlyPremium"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:hint="Monthly Premium ($)"
-                                android:inputType="text"
-                                android:layout_marginStart="4dp"/>
+                <com.google.android.material.card.MaterialCardView android:id="@+id/cardLifeInsuranceDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="?attr/colorSurfaceVariant" app:cardCornerRadius="10dp" app:cardElevation="0dp">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🛡️ Life Insurance Policy Details" android:textStyle="bold" android:textColor="?attr/colorOnSurfaceVariant" android:layout_marginBottom="8dp"/>
+                        <Spinner android:id="@+id/spinnerInsPolicyType" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/ins_policy_types" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
+                        <Spinner android:id="@+id/spinnerInsStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/ins_underwriting_status" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
+                        <EditText android:id="@+id/editInsCarrier" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Carrier (e.g., Primerica Life)" android:inputType="text" android:layout_marginBottom="8dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
+                        <EditText android:id="@+id/editInsPolicyNumber" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Policy Number" android:inputType="text" android:layout_marginBottom="8dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="8dp">
+                            <EditText android:id="@+id/editInsFaceAmount" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:hint="Face Amount ($)" android:inputType="text" android:layout_marginEnd="4dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
+                            <EditText android:id="@+id/editInsMonthlyPremium" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:hint="Monthly Premium ($)" android:inputType="text" android:layout_marginStart="4dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
                         </LinearLayout>
-                        <EditText
-                            android:id="@+id/editInsBeneficiaries"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Primary / Contingent Beneficiaries"
-                            android:inputType="text"
-                            android:layout_marginBottom="8dp"/>
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-                            <TextView
-                                android:id="@+id/tvInsRenewalDate"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:text="Annual Review / Issue Date: None"
-                                android:textSize="12sp"
-                                android:textColor="?attr/colorOnSurfaceVariant"/>
-                            <Button
-                                android:id="@+id/btnSetInsRenewalDate"
-                                style="@style/Widget.MaterialComponents.Button.TextButton"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="📅 Set Issue/Review Date"
-                                android:textAllCaps="false"
-                                android:textColor="@color/colorPrimary"
-                                android:padding="0dp"
-                                android:minWidth="0dp"
-                                android:minHeight="0dp"/>
+                        <EditText android:id="@+id/editInsBeneficiaries" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Primary / Contingent Beneficiaries" android:inputType="text" android:layout_marginBottom="8dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                            <TextView android:id="@+id/tvInsRenewalDate" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Annual Review / Issue Date: None" android:textSize="12sp" android:textColor="?attr/colorOnSurfaceVariant"/>
+                            <Button android:id="@+id/btnSetInsRenewalDate" style="@style/Widget.MaterialComponents.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📅 Set Issue/Review Date" android:textAllCaps="false" android:textColor="@color/colorPrimary" android:padding="0dp" android:minWidth="0dp" android:minHeight="0dp"/>
                         </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardInvestmentDetails"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:visibility="gone"
-                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
-                    app:cardCornerRadius="10dp"
-                    app:cardElevation="0dp">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="12dp">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="📈 Investment &amp; Retirement Account"
-                            android:textStyle="bold"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:layout_marginBottom="8dp"/>
-                        <Spinner
-                            android:id="@+id/spinnerInvAccountType"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:entries="@array/inv_account_types"
-                            android:layout_marginBottom="8dp"/>
-                        <Spinner
-                            android:id="@+id/spinnerInvStatus"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:entries="@array/inv_account_status"
-                            android:layout_marginBottom="8dp"/>
-                        <EditText
-                            android:id="@+id/editInvPlatform"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Platform / Fund Family (e.g., PFSI, American Funds)"
-                            android:inputType="text"
-                            android:layout_marginBottom="8dp"/>
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal">
-                            <EditText
-                                android:id="@+id/editInvLumpSum"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:hint="Rollover / Initial ($)"
-                                android:inputType="text"
-                                android:layout_marginEnd="4dp"/>
-                            <EditText
-                                android:id="@+id/editInvMonthlyContribution"
-                                android:layout_width="0dp"
-                                android:layout_weight="1"
-                                android:layout_height="wrap_content"
-                                android:hint="Monthly PAC ($/mo)"
-                                android:inputType="text"
-                                android:layout_marginStart="4dp"/>
+                <com.google.android.material.card.MaterialCardView android:id="@+id/cardInvestmentDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="?attr/colorSurfaceVariant" app:cardCornerRadius="10dp" app:cardElevation="0dp">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📈 Investment &amp; Retirement Account" android:textStyle="bold" android:textColor="?attr/colorOnSurfaceVariant" android:layout_marginBottom="8dp"/>
+                        <Spinner android:id="@+id/spinnerInvAccountType" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/inv_account_types" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
+                        <Spinner android:id="@+id/spinnerInvStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/inv_account_status" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
+                        <EditText android:id="@+id/editInvPlatform" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Platform / Fund Family (e.g., PFSI, American Funds)" android:inputType="text" android:layout_marginBottom="8dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                            <EditText android:id="@+id/editInvLumpSum" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:hint="Rollover / Initial ($)" android:inputType="text" android:layout_marginEnd="4dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
+                            <EditText android:id="@+id/editInvMonthlyContribution" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:hint="Monthly PAC ($/mo)" android:inputType="text" android:layout_marginStart="4dp" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
                         </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Target Market"
-                    android:textStyle="bold"
-                    android:textColor="@color/textColorSecondary"
-                    android:textSize="12sp"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="Target Market" android:textStyle="bold" android:textColor="@color/textColorSecondary" android:textSize="12sp"/>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <CheckBox android:id="@+id/cbTmMarried" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Married" />
-                    <CheckBox android:id="@+id/cbTmAge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Age 25-55" />
-                    <CheckBox android:id="@+id/cbTmChildren" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Children" />
-                    <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Homeowner" />
-                    <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <CheckBox android:id="@+id/cbTmMarried" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Married" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbTmAge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Age 25-55" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbTmChildren" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Children" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbTmHomeowner" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Homeowner" android:minHeight="48dp"/>
+                    <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" android:minHeight="48dp"/>
                 </LinearLayout>
 
             </LinearLayout>
 
-            <EditText
-                android:id="@+id/etQuickNote"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/hint_quick_note_example"
-                android:inputType="textCapSentences"
-                android:layout_marginTop="8dp"
-                android:textSize="14sp"
-                android:importantForAutofill="no" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/label_schedule_followup"
-                android:textStyle="bold"
-                android:textColor="@color/textColorSecondary"
-                android:textSize="12sp"/>
+            </LinearLayout>
+            <LinearLayout style="@style/SmartLogCard">
+                <LinearLayout android:id="@+id/headerSmsIntro" style="@style/SmartLogDisclosure">
+                    <TextView style="@style/SmartLogLabel" android:layout_width="0dp" android:layout_weight="1" android:text="@string/sl_sms" />
+                    <TextView android:id="@+id/tvToggleSms" style="@style/SmartLogBody" android:text="@string/sl_show" />
+                </LinearLayout>
+                <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools" android:id="@+id/containerSmsIntro" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
-                <Button android:id="@+id/btnPlus1Week" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="@string/btn_1_week" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null"/>
-                <Button android:id="@+id/btnPlus2Weeks" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="@string/btn_2_weeks" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null" android:layout_marginHorizontal="4dp"/>
-                <Button android:id="@+id/btnPlus1Month" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="@string/btn_1_month" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null"/>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
+                <TextView android:id="@+id/tvIntroTextLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/label_quick_intro_sms" android:textColor="@color/textColorSecondary" android:textSize="12sp" android:textStyle="bold"/>
+
+                <Button android:id="@+id/btnDefaultIntro" style="?android:attr/borderlessButtonStyle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/btn_use_default" android:textColor="@color/colorPrimary" android:textSize="12sp" android:textAllCaps="false" android:minWidth="0dp" android:paddingHorizontal="8dp" android:minHeight="48dp"/>
+
+                <Button android:id="@+id/btnManagePresets" style="?android:attr/borderlessButtonStyle" android:layout_width="match_parent" android:layout_height="wrap_content" android:minWidth="0dp" android:minHeight="48dp" android:text="@string/btn_presets_dropdown" android:textColor="@color/colorPrimary" android:textSize="12sp"/>
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
-                <Button
-                    android:id="@+id/btn7pmToday"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="48dp"
-                    android:text="@string/btn_7pm_today"
-                    android:background="@drawable/bg_neon_cyan_button"
-                    app:backgroundTint="@null"
-                    android:textColor="#2EE7FF"
-                    android:textAllCaps="false"/>
-                <Button
-                    android:id="@+id/btn7pmTomorrow"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/btn_7pm_tomorrow"
-                    android:background="@drawable/bg_neon_cyan_button"
-                    app:backgroundTint="@null"
-                    android:textColor="#2EE7FF"
-                    android:textAllCaps="false"/>
-            </LinearLayout>
+            <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" app:cardCornerRadius="8dp" app:cardElevation="0dp" app:strokeColor="@color/dividerColor" app:strokeWidth="1dp">
 
-            <Button
-                android:id="@+id/btnScheduleCustom"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="4dp"
-                android:background="@drawable/bg_neon_cyan_button"
-                app:backgroundTint="@null"
-                android:text="Schedule"
-                android:textAllCaps="false"
-                android:textColor="#2EE7FF" />
-                
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnMarkAppointment"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginTop="16dp"
-                android:text="🗓️ Mark Appointment"
-                android:background="@drawable/bg_neon_green_button"
-                app:backgroundTint="@null"
-                android:textColor="#C8FFE4" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/dividerColor"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="16dp"/>
-
-            <!-- SMS Intro Toggle Header -->
-            <LinearLayout
-                android:id="@+id/headerSmsIntro"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingVertical="12dp"
-                android:background="?attr/selectableItemBackground">
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Quick Intro SMS"
-                    android:textColor="@color/textColorPrimary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/tvToggleSms"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Show ▼"
-                    android:textColor="@color/colorPrimary"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="4dp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/containerSmsIntro"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-
-                <TextView
-                    android:id="@+id/tvIntroTextLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:text="@string/label_quick_intro_sms"
-                    android:textColor="@color/textColorSecondary"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/btnDefaultIntro"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_toStartOf="@id/btnManagePresets"
-                    android:layout_centerVertical="true"
-                    android:text="@string/btn_use_default"
-                    android:textColor="@color/colorPrimary"
-                    android:textSize="12sp"
-                    android:textAllCaps="false"
-                    android:minWidth="0dp"
-                    android:paddingHorizontal="8dp" />
-
-                <Button
-                    android:id="@+id/btnManagePresets"
-                    style="?android:attr/borderlessButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:minWidth="0dp"
-                    android:minHeight="0dp"
-                    android:text="@string/btn_presets_dropdown"
-                    android:textColor="@color/colorPrimary"
-                    android:textSize="12sp" />
-            </RelativeLayout>
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/dividerColor"
-                app:strokeWidth="1dp">
-
-                <EditText
-                    android:id="@+id/etIntroText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:autofillHints="message"
-                    android:background="@android:color/transparent"
-                    android:gravity="top"
-                    android:inputType="textMultiLine"
-                    android:minHeight="80dp"
-                    android:padding="12dp"
-                    android:textSize="14sp" />
+                <EditText android:id="@+id/etIntroText" android:layout_width="match_parent" android:layout_height="wrap_content" android:autofillHints="message" android:background="@android:color/transparent" android:gravity="top" android:inputType="textMultiLine" android:minHeight="48dp" android:padding="12dp" android:textSize="14sp"/>
             </com.google.android.material.card.MaterialCardView>
 
-                <Button
-                    android:id="@+id/btnAIGenerate"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginTop="12dp"
-                    android:text="✨ AI Draft"
-                    android:textColor="#FFB3D0"
-                    android:background="@drawable/bg_neon_purple_button"
-                    app:backgroundTint="@null" />
+                <Button android:id="@+id/btnAIGenerate" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="12dp" android:text="✨ AI Draft" android:textColor="#FFB3D0" android:background="@drawable/bg_neon_purple_button" app:backgroundTint="@null" android:minHeight="48dp"/>
 
-                <Button
-                    android:id="@+id/btnSendIntroAction"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_neon_cyan_button"
-                    app:backgroundTint="@null"
-                    android:text="@string/btn_send_intro"
-                    android:textColor="#2EE7FF"
-                    android:textStyle="bold" />
+                <Button android:id="@+id/btnSendIntroAction" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="8dp" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null" android:text="@string/sl_save_text" android:textColor="#2EE7FF" android:textStyle="bold" android:minHeight="48dp"/>
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/bottomActionContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:orientation="vertical">
 
-                <Button
-                    android:id="@+id/btnSaveLeadAction"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:background="@drawable/bg_primary_gradient_button"
-                    app:backgroundTint="@null"
-                    android:text="@string/btn_save_lead"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
             </LinearLayout>
+            <Button android:id="@+id/btnSkipPersonal" style="@style/SmartLogButton" android:text="@string/sl_skip" />
+            <Button android:id="@+id/btnIgnoreCallLog" style="@style/SmartLogButton" android:text="@string/sl_ignore" />
         </LinearLayout>
-    </ScrollView>
-</RelativeLayout>
+    </androidx.core.widget.NestedScrollView>
+    <LinearLayout android:id="@+id/bottomActionContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#101828" android:paddingHorizontal="16dp" android:paddingBottom="12dp" android:paddingTop="8dp">
+        <TextView android:id="@+id/tvSmartSaveError" style="@style/SmartLogBody" android:textColor="#FFB4AB" android:visibility="gone" android:accessibilityLiveRegion="assertive" />
+        <TextView style="@style/SmartLogBody" android:text="@string/sl_save_hint" />
+        <Button android:id="@+id/btnSaveLeadAction" style="@style/SmartLogPrimaryButton" android:text="@string/sl_save" />
+    </LinearLayout>
+</LinearLayout>
