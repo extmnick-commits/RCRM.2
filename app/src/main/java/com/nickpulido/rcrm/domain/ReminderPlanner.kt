@@ -23,6 +23,7 @@ data class ReminderWritePlan(
     val error: String? = null,
     val action: NextAction? = null,
     val activity: ActivityRecord? = null,
+    val deleteActivity: Boolean = false,
     val followUp: FollowUpWrite = FollowUpWrite.UNCHANGED,
     val followUpMillis: Long? = null,
     val scheduleAlarm: Boolean = false,
@@ -356,6 +357,33 @@ object ReminderPlanner {
             followUpMillis = followUp.millis,
             scheduleAlarm = false,
             cancelAlarm = true
+        )
+    }
+
+    fun planRestore(
+        existing: NextAction,
+        pendingActions: List<NextAction>,
+        nowMillis: Long
+    ): ReminderWritePlan {
+        if (existing.status != ActionStatus.COMPLETED) {
+            return ReminderWritePlan(error = "That reminder is not completed.")
+        }
+        val restored = existing.copy(
+            status = ActionStatus.PENDING,
+            completedAt = null
+        )
+        
+        val followUp = followUpAfter(pendingActions, replacing = restored, removingId = null)
+        val shouldRestore = shouldRestoreAlarm(restored.dueTime, nowMillis)
+        
+        return ReminderWritePlan(
+            action = restored,
+            activity = null,
+            deleteActivity = true,
+            followUp = followUp.write,
+            followUpMillis = followUp.millis,
+            scheduleAlarm = shouldRestore,
+            cancelAlarm = !shouldRestore
         )
     }
 

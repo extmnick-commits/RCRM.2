@@ -70,6 +70,41 @@
                 android:textColor="#8E99B0"
                 android:textSize="13sp"
                 android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/layoutReminderActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnLaunchAction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="Call"
+                    android:textAllCaps="false"
+                    android:textColor="#2EE7FF"
+                    android:textSize="14sp"
+                    app:backgroundTint="#243656"
+                    app:cornerRadius="16dp"
+                    app:iconTint="#2EE7FF"
+                    android:visibility="gone" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnRemindLater"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:minHeight="48dp"
+                    android:text="Later"
+                    android:textAllCaps="false"
+                    android:textColor="#8E99B0"
+                    android:textSize="14sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Overflow Menu -->

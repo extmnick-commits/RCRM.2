@@ -45,8 +45,13 @@ internal fun AppCompatActivity.showReminderEditor(
     dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
     val header = content.findViewById<TextView>(R.id.tvAddReminderHeader)
+    val contactNameView = content.findViewById<TextView>(R.id.tvAddReminderContact)
     val titleInput = content.findViewById<EditText>(R.id.etReminderTitle)
+    val titleErrorView = content.findViewById<TextView>(R.id.tvReminderTitleError)
     val notesInput = content.findViewById<EditText>(R.id.etReminderNotes)
+    val btnToggleNotes = content.findViewById<View>(R.id.btnToggleNotes)
+    val ivNotesChevron = content.findViewById<android.widget.ImageView>(R.id.ivNotesChevron)
+    val tvNotesLabel = content.findViewById<TextView>(R.id.tvNotesLabel)
     val typeLayout = content.findViewById<LinearLayout>(R.id.layoutReminderTypes)
     val dateView = content.findViewById<TextView>(R.id.tvReminderDate)
     val timeView = content.findViewById<TextView>(R.id.tvReminderTime)
@@ -75,9 +80,39 @@ internal fun AppCompatActivity.showReminderEditor(
         ReminderEditorMode.EDIT -> "Save Changes"
         ReminderEditorMode.RESCHEDULE -> "Save Reminder"
     }
+    
+    contactNameView.text = contactName.ifBlank { "Contact" }
+    
     saveButton.text = saveLabel
     titleInput.setText(existing?.title.orEmpty())
     notesInput.setText(existing?.notes.orEmpty())
+
+    var isNotesExpanded = existing?.notes?.isNotBlank() == true
+    fun updateNotesVisibility() {
+        if (isNotesExpanded) {
+            notesInput.visibility = View.VISIBLE
+            tvNotesLabel.text = "Notes"
+            ivNotesChevron.setImageResource(android.R.drawable.arrow_up_float)
+        } else {
+            notesInput.visibility = View.GONE
+            tvNotesLabel.text = "Add notes"
+            ivNotesChevron.setImageResource(android.R.drawable.arrow_down_float)
+        }
+    }
+    updateNotesVisibility()
+    btnToggleNotes.setOnClickListener {
+        isNotesExpanded = !isNotesExpanded
+        updateNotesVisibility()
+    }
+
+    titleInput.addTextChangedListener(object : android.text.TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            titleErrorView.visibility = View.GONE
+            errorView.visibility = View.GONE
+        }
+        override fun afterTextChanged(s: android.text.Editable?) {}
+    })
 
     fun styleType(type: ActionType, selected: Boolean) {
         val button = typeButtons[type] ?: return
@@ -102,6 +137,26 @@ internal fun AppCompatActivity.showReminderEditor(
     fun selectType(type: ActionType) {
         selectedType = type
         choices.forEach { styleType(it, it == type) }
+        
+        // Auto-generate title if empty or matching a default pattern
+        val currentTitle = titleInput.text?.toString()?.trim().orEmpty()
+        val cName = contactName.ifBlank { "Contact" }.split(" ").firstOrNull() ?: "Contact"
+        val isDefault = currentTitle.isEmpty() || currentTitle.matches(Regex("^(Call|Message|Email) .*"))
+        
+        if (isDefault) {
+            val prefix = when (type) {
+                ActionType.CALL -> "Call"
+                ActionType.MESSAGE -> "Message"
+                ActionType.EMAIL -> "Email"
+                else -> null
+            }
+            if (prefix != null) {
+                titleInput.setText("$prefix $cName")
+                titleInput.setSelection(titleInput.text.length)
+            } else if (currentTitle.isEmpty()) {
+                titleInput.setText("")
+            }
+        }
     }
 
     choices.chunked(2).forEach { rowTypes ->
@@ -194,12 +249,22 @@ internal fun AppCompatActivity.showReminderEditor(
         } else {
             null
         }
-        val validation = titleError ?: timeError
-        if (validation != null) {
-            errorView.text = validation
+        
+        if (titleError != null) {
+            titleErrorView.text = titleError
+            titleErrorView.visibility = View.VISIBLE
+            titleInput.requestFocus()
+            return@setOnClickListener
+        } else {
+            titleErrorView.visibility = View.GONE
+        }
+        
+        if (timeError != null) {
+            errorView.text = timeError
             errorView.visibility = View.VISIBLE
             return@setOnClickListener
         }
+        
         saving = true
         saveButton.isEnabled = false
         saveButton.text = "Saving..."
@@ -271,6 +336,7 @@ internal fun AppCompatActivity.showReminderEditor(
             val behavior = BottomSheetBehavior.from(sheet)
             behavior.skipCollapsed = true
             behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            behavior.isGestureInsetBottomIgnored = true
         }
     }
     dialog.show()

@@ -785,6 +785,9 @@ class FollowUpActivity : AppCompatActivity() {
                 val ivIcon = view.findViewById<ImageView>(R.id.ivReminderTypeIcon)
                 val btnComplete = view.findViewById<ImageButton>(R.id.btnCompleteReminder)
                 val btnOverflow = view.findViewById<ImageButton>(R.id.btnReminderOverflow)
+                val btnLaunchAction = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnLaunchAction)
+                val btnRemindLater = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnRemindLater)
+                val layoutActions = view.findViewById<LinearLayout>(R.id.layoutReminderActions)
 
                 tvTitle.text = action.title
                 val notesView = view.findViewById<TextView>(R.id.tvReminderNotes)
@@ -805,6 +808,7 @@ class FollowUpActivity : AppCompatActivity() {
                     tvDue.setTextColor(Color.parseColor("#8E99B0"))
                     btnComplete.visibility = View.GONE
                     btnOverflow.visibility = View.GONE
+                    layoutActions?.visibility = View.GONE
                 } else if (action.dueTime > 0L) {
                     val dueLabel = ReminderPlanner.dueLabel(action.dueTime, System.currentTimeMillis())
                     tvDue.text = dueLabel
@@ -813,11 +817,124 @@ class FollowUpActivity : AppCompatActivity() {
                     )
                     btnComplete.visibility = View.VISIBLE
                     btnOverflow.visibility = View.VISIBLE
+                    layoutActions?.visibility = View.VISIBLE
                 } else {
                     tvDue.text = "No date"
                     tvDue.setTextColor(Color.parseColor("#2EE7FF"))
                     btnComplete.visibility = View.VISIBLE
                     btnOverflow.visibility = View.VISIBLE
+                    layoutActions?.visibility = View.VISIBLE
+                }
+
+                if (btnLaunchAction != null) {
+                    when (action.type) {
+                        ActionType.CALL -> {
+                            btnLaunchAction.visibility = View.VISIBLE
+                            btnLaunchAction.text = "Call"
+                            btnLaunchAction.setIconResource(android.R.drawable.ic_menu_call)
+                            btnLaunchAction.setOnClickListener {
+                                val phone = contactPhone()
+                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                    data = android.net.Uri.parse("tel:$phone")
+                                }
+                                try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this@FollowUpActivity, "No dialer found", Toast.LENGTH_SHORT).show() }
+                            }
+                        }
+                        ActionType.MESSAGE -> {
+                            btnLaunchAction.visibility = View.VISIBLE
+                            btnLaunchAction.text = "Message"
+                            btnLaunchAction.setIconResource(android.R.drawable.sym_action_chat)
+                            btnLaunchAction.setOnClickListener {
+                                val phone = contactPhone()
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse("sms:$phone")
+                                }
+                                try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this@FollowUpActivity, "No messaging app found", Toast.LENGTH_SHORT).show() }
+                            }
+                        }
+                        ActionType.EMAIL -> {
+                            btnLaunchAction.visibility = View.VISIBLE
+                            btnLaunchAction.text = "Email"
+                            btnLaunchAction.setIconResource(android.R.drawable.ic_dialog_email)
+                            btnLaunchAction.setOnClickListener {
+                                val email = editEmail?.text?.toString()?.trim().orEmpty().ifBlank { (lead["email"] as? String).orEmpty() }
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                                    data = android.net.Uri.parse("mailto:$email")
+                                }
+                                try { startActivity(intent) } catch (e: Exception) { Toast.makeText(this@FollowUpActivity, "No email app found", Toast.LENGTH_SHORT).show() }
+                            }
+                        }
+                        else -> {
+                            btnLaunchAction.visibility = View.GONE
+                        }
+                    }
+                }
+                
+                if (btnRemindLater != null) {
+                    btnRemindLater.setOnClickListener {
+                        val popup = android.widget.PopupMenu(this, btnRemindLater)
+                        popup.menu.add("Tomorrow").setOnMenuItemClickListener {
+                            val nextTime = ReminderPlanner.tomorrowShortcutMillis(System.currentTimeMillis(), java.util.TimeZone.getDefault())
+                            if (!reminderSavesInFlight.add(action.id)) return@setOnMenuItemClickListener true
+                            followUpRepository.rescheduleReminder(
+                                leadId = docId,
+                                ownerId = auth.currentUser?.uid ?: "",
+                                actionId = action.id,
+                                dueTime = nextTime,
+                                nowMillis = System.currentTimeMillis(),
+                                zone = java.util.TimeZone.getDefault()
+                            ) { success, _ ->
+                                reminderSavesInFlight.remove(action.id)
+                                if (success) {
+                                    ReminderAlarmStore.scheduleAction(
+                                        context = this@FollowUpActivity,
+                                        leadId = docId,
+                                        actionId = action.id,
+                                        title = action.title,
+                                        contactName = contactName(),
+                                        phone = contactPhone(),
+                                        dueTime = nextTime
+                                    )
+                                    Toast.makeText(this@FollowUpActivity, "Rescheduled for tomorrow", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            true
+                        }
+                        popup.menu.add("Next week").setOnMenuItemClickListener {
+                            val cal = java.util.Calendar.getInstance()
+                            cal.add(java.util.Calendar.DAY_OF_YEAR, 7)
+                            val nextTime = ReminderPlanner.normalizeDueMillis(cal.timeInMillis, java.util.TimeZone.getDefault())
+                            if (!reminderSavesInFlight.add(action.id)) return@setOnMenuItemClickListener true
+                            followUpRepository.rescheduleReminder(
+                                leadId = docId,
+                                ownerId = auth.currentUser?.uid ?: "",
+                                actionId = action.id,
+                                dueTime = nextTime,
+                                nowMillis = System.currentTimeMillis(),
+                                zone = java.util.TimeZone.getDefault()
+                            ) { success, _ ->
+                                reminderSavesInFlight.remove(action.id)
+                                if (success) {
+                                    ReminderAlarmStore.scheduleAction(
+                                        context = this@FollowUpActivity,
+                                        leadId = docId,
+                                        actionId = action.id,
+                                        title = action.title,
+                                        contactName = contactName(),
+                                        phone = contactPhone(),
+                                        dueTime = nextTime
+                                    )
+                                    Toast.makeText(this@FollowUpActivity, "Rescheduled for next week", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            true
+                        }
+                        popup.menu.add("Custom...").setOnMenuItemClickListener {
+                            openReminderEditor(action, ReminderEditorMode.RESCHEDULE)
+                            true
+                        }
+                        popup.show()
+                    }
                 }
 
                 when (action.type) {
@@ -858,6 +975,35 @@ class FollowUpActivity : AppCompatActivity() {
                         reminderSavesInFlight.remove(action.id)
                         if (success) {
                             ReminderAlarmStore.cancelAction(this, docId, action.id)
+                            com.google.android.material.snackbar.Snackbar.make(
+                                findViewById(android.R.id.content),
+                                "Reminder completed",
+                                com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                            ).setAction("Undo") {
+                                if (!reminderSavesInFlight.add(action.id)) return@setAction
+                                followUpRepository.restoreReminder(
+                                    leadId = docId,
+                                    ownerId = auth.currentUser?.uid ?: "",
+                                    actionId = action.id
+                                ) { restoreSuccess, restoreError ->
+                                    reminderSavesInFlight.remove(action.id)
+                                    if (restoreSuccess) {
+                                        if (ReminderPlanner.shouldRestoreAlarm(action.dueTime, System.currentTimeMillis())) {
+                                            ReminderAlarmStore.scheduleAction(
+                                                context = this,
+                                                leadId = docId,
+                                                actionId = action.id,
+                                                title = action.title,
+                                                contactName = contactName(),
+                                                phone = contactPhone(),
+                                                dueTime = action.dueTime
+                                            )
+                                        }
+                                    } else {
+                                        Toast.makeText(this, restoreError ?: "Couldn't undo.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }.show()
                         } else {
                             Toast.makeText(this, error ?: "Couldn't complete that reminder.", Toast.LENGTH_LONG).show()
                         }

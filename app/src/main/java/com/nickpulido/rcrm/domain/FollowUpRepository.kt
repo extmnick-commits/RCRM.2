@@ -444,6 +444,29 @@ class FollowUpRepository {
         }
     }
 
+    fun restoreReminder(
+        leadId: String,
+        ownerId: String,
+        actionId: String,
+        nowMillis: Long = System.currentTimeMillis(),
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        val safeId = ReminderPlanner.sanitizeId(actionId)
+        runReminderWrite(leadId, onComplete) { transaction, leadRef, actionsRef, refs ->
+            val read = readMigration(transaction, leadRef, actionsRef, leadId, ownerId, nowMillis, refs)
+            val actionRef = actionsRef.document(safeId)
+            val activityRef = leadRef.collection("activity_records")
+                .document(ReminderPlanner.completionActivityId(safeId))
+            val existing = existingAction(transaction, actionRef, leadId, safeId, read)
+            val plan = ReminderPlanner.planRestore(
+                existing = existing,
+                pendingActions = pendingAfterMigration(read),
+                nowMillis = nowMillis
+            )
+            writeReminderTransaction(transaction, leadRef, actionsRef, read.plan, actionRef, activityRef, plan)
+        }
+    }
+
     fun cancelReminder(
         leadId: String,
         ownerId: String,
@@ -543,6 +566,8 @@ class FollowUpRepository {
         }
         if (plan?.activity != null && activityRef != null) {
             transaction.set(activityRef, plan.activity)
+        } else if (plan?.deleteActivity == true && activityRef != null) {
+            transaction.delete(activityRef)
         }
         if (plan?.action != null && actionRef != null) {
             transaction.set(actionRef, plan.action)
