@@ -20,6 +20,7 @@
         android:name="android.permission.SEND_SMS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
@@ -56,6 +57,14 @@
 
         <receiver android:name=".ReminderReceiver" android:exported="false" />
 
+        <receiver
+            android:name=".ReminderBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <receiver android:name=".CallReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PHONE_STATE" />
@@ -83,7 +92,12 @@
         </activity>
         <activity android:name=".SignupActivity" android:exported="false" />
         <activity android:name=".SmartLogActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
-        <activity android:name=".FollowUpActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
+        <activity
+            android:name=".FollowUpActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.RCRM"
+            android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ContactsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
         <activity android:name=".AdminDashboardActivity" android:exported="false" />
         <activity android:name=".SideKickActivity" />

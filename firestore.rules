@@ -2,8 +2,9 @@ rules_version = '2';
 
 // Assumed data model:
 // leads/{leadId}: ownerId, name, phone, notes, category, salesStage, recruitStage,
-//   followUpDate, isPaused, isClosed, pausedReason, lastAttemptedContact, lastConnectedContact
-// leads/{leadId}/next_actions/{actionId}: ownerId, leadId, title, dueTime, status, type
+//   followUpDate, reminderMigrationVersion, isPaused, isClosed, pausedReason,
+//   lastAttemptedContact, lastConnectedContact
+// leads/{leadId}/next_actions/{actionId}: ownerId, leadId, title, notes, dueTime, status, type
 // leads/{leadId}/activity_records/{recordId}: ownerId, leadId, outcome, note, type, timestamp
 // user_settings/{uid}: role (agent | admin | super_admin), email, managed_users
 // user_settings/{uid}/daily_stats/{day}

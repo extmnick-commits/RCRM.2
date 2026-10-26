@@ -1,100 +1,184 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@drawable/bg_dialog_space_glass">
+    android:background="@drawable/bg_dialog_space_glass"
+    android:fitsSystemWindows="true"
+    android:scrollbars="vertical">
 
-    <TextView
-        android:id="@+id/tvAddReminderHeader"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Add Reminder"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
-
-    <EditText
-        android:id="@+id/etReminderTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Reminder Title (e.g. Call back)"
-        android:textColorHint="#8E99B0"
-        android:textColor="#FFFFFF"
-        android:background="@drawable/bg_edittext_outline"
-        android:padding="16dp"
-        android:layout_marginBottom="16dp"
-        android:inputType="textCapSentences"/>
-
-    <Spinner
-        android:id="@+id/spinnerReminderType"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:background="@drawable/bg_edittext_outline"
-        android:layout_marginBottom="16dp" />
-
-    <!-- Date Shortcuts -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp"
-        android:weightSum="2">
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tvAddReminderHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="Add Reminder"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Title"
+            android:textColor="#8E99B0"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/etReminderTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_edittext_outline"
+            android:hint="Reminder title"
+            android:inputType="textCapSentences"
+            android:minHeight="48dp"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#8E99B0"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Action"
+            android:textColor="#8E99B0"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/layoutReminderTypes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="vertical" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDueToday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:backgroundTint="#243656"
+                android:minHeight="48dp"
+                android:text="Today"
+                android:textAllCaps="false"
+                android:textColor="#8E99B0"
+                android:textSize="14sp"
+                app:cornerRadius="18dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDueTomorrow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:backgroundTint="#243656"
+                android:minHeight="48dp"
+                android:text="Tomorrow"
+                android:textAllCaps="false"
+                android:textColor="#8E99B0"
+                android:textSize="14sp"
+                app:cornerRadius="18dp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Date"
+            android:textColor="#8E99B0"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvReminderDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_edittext_outline"
+            android:minHeight="48dp"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Time"
+            android:textColor="#8E99B0"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvReminderTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_edittext_outline"
+            android:minHeight="48dp"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Notes"
+            android:textColor="#8E99B0"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/etReminderNotes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_edittext_outline"
+            android:gravity="top"
+            android:hint="Optional notes"
+            android:inputType="textMultiLine|textCapSentences"
+            android:minLines="2"
+            android:padding="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#8E99B0"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvReminderSaveError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:textColor="#FF5252"
+            android:textSize="14sp"
+            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnDueToday"
-            android:layout_width="0dp"
+            android:id="@+id/btnSaveReminder"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Today"
-            android:textColor="#8E99B0"
-            android:backgroundTint="#243656"
-            android:layout_marginEnd="8dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnDueTomorrow"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Tomorrow"
-            android:textColor="#8E99B0"
-            android:backgroundTint="#243656" />
+            android:background="@drawable/bg_neon_cyan_button"
+            android:minHeight="48dp"
+            android:text="Save Reminder"
+            android:textAllCaps="false"
+            android:textColor="#2EE7FF"
+            android:textSize="16sp"
+            app:backgroundTint="@null" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/tvCustomDateTime"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Set Custom Date/Time"
-        android:textColor="#2EE7FF"
-        android:textSize="15sp"
-        android:gravity="center"
-        android:padding="12dp"
-        android:layout_marginBottom="16dp"
-        android:background="?attr/selectableItemBackground" />
-
-    <EditText
-        android:id="@+id/etReminderNotes"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Optional Notes"
-        android:textColorHint="#8E99B0"
-        android:textColor="#FFFFFF"
-        android:background="@drawable/bg_edittext_outline"
-        android:padding="16dp"
-        android:layout_marginBottom="24dp"
-        android:inputType="textMultiLine"
-        android:minLines="2"/>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSaveReminder"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:text="Save Reminder"
-        android:textColor="#2EE7FF"
-        android:background="@drawable/bg_neon_cyan_button"
-        app:backgroundTint="@null" />
-</LinearLayout>
+</androidx.core.widget.NestedScrollView>

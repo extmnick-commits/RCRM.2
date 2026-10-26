@@ -61,6 +61,15 @@
                 android:text="Tomorrow 9:00 AM"
                 android:textColor="#2EE7FF"
                 android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvReminderNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#8E99B0"
+                android:textSize="13sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <!-- Overflow Menu -->

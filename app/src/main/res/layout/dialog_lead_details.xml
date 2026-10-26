@@ -529,6 +529,42 @@
                         android:visibility="visible">
 
                         <LinearLayout
+                            android:id="@+id/layoutReminderFilters"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/btnRemindersOpen"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:background="?attr/selectableItemBackground"
+                                android:gravity="center"
+                                android:minHeight="48dp"
+                                android:padding="8dp"
+                                android:text="Open"
+                                android:textColor="#2EE7FF"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/btnRemindersCompleted"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:background="?attr/selectableItemBackground"
+                                android:gravity="center"
+                                android:minHeight="48dp"
+                                android:padding="8dp"
+                                android:text="Completed"
+                                android:textColor="#8E99B0"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <LinearLayout
                             android:id="@+id/layoutRemindersList"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"

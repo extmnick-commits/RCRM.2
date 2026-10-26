@@ -205,6 +205,7 @@ class MainActivity : AppCompatActivity() {
             finish()
             return
         }
+        ReminderAlarmStore.onAppStart(this)
 
         statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
 

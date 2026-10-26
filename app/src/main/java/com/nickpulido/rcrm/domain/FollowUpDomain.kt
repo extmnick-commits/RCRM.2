@@ -22,6 +22,7 @@ data class NextAction(
     val workflow: WorkflowType = WorkflowType.GENERAL,
     val type: ActionType = ActionType.TO_DO,
     val title: String = "",
+    val notes: String = "",
     val dueTime: Long = 0L,
     val status: ActionStatus = ActionStatus.PENDING,
     val appointmentId: String? = null,
