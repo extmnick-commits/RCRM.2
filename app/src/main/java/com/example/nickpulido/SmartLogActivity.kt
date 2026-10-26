@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.ContentProviderOperation
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -17,6 +16,19 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.addCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.chip.ChipGroup
+import com.nickpulido.rcrm.domain.ActionType
+import com.nickpulido.rcrm.domain.FollowUpRepository
+import com.nickpulido.rcrm.domain.NextActionSpec
+import com.nickpulido.rcrm.domain.OutcomeSavePlanner
+import com.nickpulido.rcrm.domain.OutcomeSaveRequest
+import com.nickpulido.rcrm.domain.SmartLogPlanner
+import com.nickpulido.rcrm.domain.WorkflowLifecycle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
@@ -37,9 +49,31 @@ class SmartLogActivity : AppCompatActivity() {
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val followUpRepository = FollowUpRepository()
+    private var logOperationId = UUID.randomUUID().toString()
+    private var logTimestamp = System.currentTimeMillis()
+    private var isSavingLog = false
+    private var loadedContactId: String? = null
+    private var savedProfileForOperation = false
+    private var savedOutcomeForOperation = false
+    private var savedAppointmentForOperation = false
+    private var restoreDraft = false
+    private var canEditDraft = true
+    private var baselineProfile: Map<String, String>? = null
+    private var baselineSms = ""
+
+    private val dictateNoteLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spoken.isNullOrBlank() && canEditDraft) {
+                val input = findViewById<EditText>(R.id.etQuickNote)
+                input.setText(listOf(input.text.toString().trim(), spoken.trim()).filter { it.isNotBlank() }.joinToString("\n"))
+                input.setSelection(input.length())
+            }
+        }
+    }
     private var phoneNumber: String = ""
     private var contactName: String = ""
-    private var isNewContact: Boolean = true
     private var followUpDate: Date? = null
     private var accountDefaultSms: String? = null
     private var insRenewalDateStr: String? = null
@@ -100,14 +134,40 @@ class SmartLogActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_smart_log)
+        restoreDraft = savedInstanceState != null
+        savedInstanceState?.let {
+            logOperationId = it.getString("smart_log_operation") ?: logOperationId
+            logTimestamp = it.getLong("smart_log_timestamp", logTimestamp)
+            followUpDate = it.getLong("smart_follow_up").takeIf { value -> value > 0L }?.let(::Date)
+            appointmentDate = it.getLong("smart_appointment").takeIf { value -> value > 0L }?.let(::Date)
+            appointmentLocation = it.getString("smart_location")
+            insRenewalDateStr = it.getString("smart_renewal")
+            loadedContactId = it.getString("smart_contact_id")
+            savedProfileForOperation = it.getBoolean("smart_profile_saved")
+            savedOutcomeForOperation = it.getBoolean("smart_outcome_saved")
+            savedAppointmentForOperation = it.getBoolean("smart_appointment_saved")
+            val keys = it.getStringArrayList("smart_profile_keys")
+            val values = it.getStringArrayList("smart_profile_values")
+            if (keys != null && values != null) baselineProfile = keys.zip(values).toMap()
+            baselineSms = it.getString("smart_baseline_sms").orEmpty()
+        }
+        val root = findViewById<View>(R.id.smartLogRoot)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
+        onBackPressedDispatcher.addCallback(this) { requestLeaveSmartLog() }
 
         statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
 
         phoneNumber = intent.getStringExtra("INCOMING_NUMBER") ?: ""
-        val (name, exists) = getContactNameAndStatus(phoneNumber)
-        contactName = name
-        isNewContact = !exists
+        val (name, _) = getContactNameAndStatus(phoneNumber)
+        contactName = name.takeUnless { it == getString(R.string.unknown_contact) }.orEmpty()
 
         val etContactName = findViewById<EditText>(R.id.etContactName)
         val tvLogPhoneNumber = findViewById<TextView>(R.id.tvLogPhoneNumber)
@@ -165,10 +225,10 @@ class SmartLogActivity : AppCompatActivity() {
             android.transition.TransitionManager.beginDelayedTransition(findViewById(android.R.id.content))
             if (containerAdvancedLogging?.visibility == View.GONE) {
                 containerAdvancedLogging.visibility = View.VISIBLE
-                tvToggleAdvanced?.text = "Hide ▲"
+                tvToggleAdvanced?.setText(R.string.sl_hide)
             } else {
                 containerAdvancedLogging?.visibility = View.GONE
-                tvToggleAdvanced?.text = "Show ▼"
+                tvToggleAdvanced?.setText(R.string.sl_show)
             }
         }
 
@@ -180,15 +240,15 @@ class SmartLogActivity : AppCompatActivity() {
             android.transition.TransitionManager.beginDelayedTransition(findViewById(android.R.id.content))
             if (containerSmsIntro?.visibility == View.GONE) {
                 containerSmsIntro.visibility = View.VISIBLE
-                tvToggleSms?.text = "Hide ▲"
+                tvToggleSms?.setText(R.string.sl_hide)
             } else {
                 containerSmsIntro?.visibility = View.GONE
-                tvToggleSms?.text = "Show ▼"
+                tvToggleSms?.setText(R.string.sl_show)
             }
         }
 
         etContactName.setText(contactName)
-        tvLogPhoneNumber.text = phoneNumber
+        tvLogPhoneNumber.text = phoneNumber.ifBlank { getString(R.string.sl_unknown_phone) }
 
         // AI Draft Button
         val btnAIGenerate = findViewById<Button>(R.id.btnAIGenerate)
@@ -207,6 +267,7 @@ class SmartLogActivity : AppCompatActivity() {
                     val response = GeminiApiClient.generativeModel.generateContent(prompt)
                     
                     withContext(Dispatchers.Main) {
+                        if (isSavingLog || isFinishing || isDestroyed) return@withContext
                         etIntroText.setText(response.text?.trim() ?: "Could not generate message.")
                         btnAIGenerate.isEnabled = true
                         btnAIGenerate.text = "✨ AI Draft"
@@ -214,6 +275,7 @@ class SmartLogActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e(TAG, "AI Draft Error", e)
                     withContext(Dispatchers.Main) {
+                        if (isSavingLog || isFinishing || isDestroyed) return@withContext
                         Toast.makeText(this@SmartLogActivity, "AI Error: ${e.message}", Toast.LENGTH_LONG).show()
                         btnAIGenerate.isEnabled = true
                         btnAIGenerate.text = "✨ AI Draft"
@@ -258,37 +320,34 @@ class SmartLogActivity : AppCompatActivity() {
         tomorrowPresetMinute = sharedPrefs.getInt("tomorrow_preset_minute", 0)
         updateFollowUpButtons()
 
-        loadAccountSettings { 
-            applyDefaultIntro()
+        loadAccountSettings {
+            if (etIntroText.text.isBlank() && !restoreDraft) {
+                applyDefaultIntro()
+                baselineSms = etIntroText.text.toString()
+            }
             updateFollowUpButtons()
         }
 
-        btnSkip.setOnClickListener { finish() }
+        btnSkip.setOnClickListener { requestLeaveSmartLog() }
 
         btnIgnore.setOnClickListener {
-            if (phoneNumber.isNotEmpty()) {
-                val userId = auth.currentUser?.uid
-                if (userId != null) {
-                    // Save locally for immediate effect in CallReceiver
-                    val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-                    val ignored = prefs.getStringSet(PREFS_IGNORED, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-                    ignored.add(phoneNumber)
-                    prefs.edit { putStringSet(PREFS_IGNORED, ignored) }
-
-                    // Sync to Firestore
-                    db.collection("user_settings").document(userId)
-                        .update("ignored_numbers", FieldValue.arrayUnion(phoneNumber))
-                        .addOnFailureListener {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.sl_ignore_title)
+                .setMessage(R.string.sl_ignore_message)
+                .setPositiveButton(R.string.sl_ignore_confirm) { _, _ ->
+                    if (phoneNumber.isNotBlank()) {
+                        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+                        val ignored = prefs.getStringSet(PREFS_IGNORED, emptySet()).orEmpty().toMutableSet()
+                        ignored.add(phoneNumber)
+                        prefs.edit { putStringSet(PREFS_IGNORED, ignored) }
+                        auth.currentUser?.uid?.let { userId ->
                             db.collection("user_settings").document(userId)
-                                .set(mapOf("ignored_numbers" to listOf(phoneNumber)), SetOptions.merge())
+                                .set(mapOf("ignored_numbers" to FieldValue.arrayUnion(phoneNumber)), SetOptions.merge())
                         }
-
-                    Toast.makeText(this, "Contact ignored from future logs", Toast.LENGTH_SHORT).show()
-                    finish()
-                } else {
-                    Toast.makeText(this, "Error: Must be logged in to sync settings", Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
                 }
-            }
+                .setNegativeButton(android.R.string.cancel, null).show()
         }
 
         findViewById<Button>(R.id.btnPlus1Week).setOnClickListener {
@@ -329,9 +388,7 @@ class SmartLogActivity : AppCompatActivity() {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }
-            followUpDate = cal.time
-            val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
-            Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate!!)}", Toast.LENGTH_SHORT).show()
+            selectSmartFollowUp(cal.time)
         }
 
         btn7pmToday.setOnLongClickListener {
@@ -364,9 +421,7 @@ class SmartLogActivity : AppCompatActivity() {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }
-            followUpDate = cal.time
-            val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
-            Toast.makeText(this, "Reminder set: ${sdf.format(followUpDate!!)}", Toast.LENGTH_SHORT).show()
+            selectSmartFollowUp(cal.time)
         }
 
         btn7pmTomorrow.setOnLongClickListener {
@@ -394,50 +449,46 @@ class SmartLogActivity : AppCompatActivity() {
         btnManagePresets.setOnClickListener { showPresetManagerDialog(etIntroText, etContactName) }
         btnDefaultIntro.setOnClickListener { applyDefaultIntro() }
 
-        btnSave.setOnClickListener {
-            Log.d(TAG, "Save button clicked")
-            val rawName = etContactName.text.toString().trim()
-            val newName = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
-                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
-            }
-            if (newName != contactName) {
-                saveOrUpdateSystemContact(newName, phoneNumber)
-                contactName = newName
-            }
-        val cbTmMarried = findViewById<CheckBox>(R.id.cbTmMarried)
-        val cbTmAge = findViewById<CheckBox>(R.id.cbTmAge)
-        val cbTmChildren = findViewById<CheckBox>(R.id.cbTmChildren)
-        val cbTmHomeowner = findViewById<CheckBox>(R.id.cbTmHomeowner)
-        val cbTmOccupation = findViewById<CheckBox>(R.id.cbTmOccupation)
-        performSaveLeadAction(cbRecruit, cbProspect, cbClient, cbInvestment, cbLifeInsurance, cbTmMarried, cbTmAge, cbTmChildren, cbTmHomeowner, cbTmOccupation, etContactEmail, etContactAddress, etContactCompany, etContactJobTitle, etNotes) {
-                Toast.makeText(this, "Lead History Saved", Toast.LENGTH_SHORT).show()
-                finish()
+        btnSave.setOnClickListener { saveSmartLog(openText = false) }
+        btnSms.setOnClickListener { saveSmartLog(openText = true) }
+        findViewById<Button>(R.id.btnDictateSmartNote).setOnClickListener {
+            try {
+                dictateNoteLauncher.launch(Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+                    putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, getString(R.string.sl_note))
+                })
+            } catch (_: Exception) {
+                Toast.makeText(this, R.string.sl_dictation_unavailable, Toast.LENGTH_LONG).show()
             }
         }
-
-        btnSms.setOnClickListener {
-            Log.d(TAG, "SMS button clicked")
-            val rawName = etContactName.text.toString().trim()
-            val newName = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
-                if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
-            }
-            if (newName != contactName) {
-                saveOrUpdateSystemContact(newName, phoneNumber)
-                contactName = newName
-            }
-        val cbTmMarried2 = findViewById<CheckBox>(R.id.cbTmMarried)
-        val cbTmAge2 = findViewById<CheckBox>(R.id.cbTmAge)
-        val cbTmChildren2 = findViewById<CheckBox>(R.id.cbTmChildren)
-        val cbTmHomeowner2 = findViewById<CheckBox>(R.id.cbTmHomeowner)
-        val cbTmOccupation2 = findViewById<CheckBox>(R.id.cbTmOccupation)
-        performSaveLeadAction(cbRecruit, cbProspect, cbClient, cbInvestment, cbLifeInsurance, cbTmMarried2, cbTmAge2, cbTmChildren2, cbTmHomeowner2, cbTmOccupation2, etContactEmail, etContactAddress, etContactCompany, etContactJobTitle, etNotes) {
-                val message = etIntroText.text.toString()
-                val smsIntent = Intent(Intent.ACTION_VIEW, "sms:$phoneNumber".toUri())
-                smsIntent.putExtra("sms_body", message)
-                startActivity(smsIntent)
-                finish()
+        findViewById<Button>(R.id.btnMoreSmartDates).setOnClickListener {
+            val more = findViewById<View>(R.id.containerSmartDates)
+            more.visibility = if (more.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+        findViewById<Button>(R.id.btnClearSmartReminder).setOnClickListener {
+            followUpDate = null
+            renderSmartNextStep()
+        }
+        findViewById<Button>(R.id.btnClearSmartAppointment).setOnClickListener {
+            appointmentDate = null
+            appointmentLocation = null
+            renderSmartNextStep()
+        }
+        findViewById<ChipGroup>(R.id.chipSmartActionType).setOnCheckedStateChangeListener { _, ids ->
+            val title = findViewById<EditText>(R.id.etSmartActionTitle)
+            val defaults = setOf(getString(R.string.sl_default_action), getString(R.string.sl_call), getString(R.string.sl_text), getString(R.string.sl_task))
+            if (title.text.isBlank() || title.text.toString() in defaults) {
+                title.setText(when (ids.firstOrNull()) {
+                    R.id.chipSmartText -> getString(R.string.sl_text)
+                    R.id.chipSmartTodo -> getString(R.string.sl_task)
+                    else -> getString(R.string.sl_default_action)
+                })
             }
         }
+        renderSmartNextStep()
+        if (baselineProfile == null) baselineProfile = smartProfileDraft()
+        loadSmartContact()
     }
 
     private fun performCrop(sourceUri: Uri) {
@@ -888,13 +939,15 @@ class SmartLogActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            if (tempCal!!.timeInMillis <= System.currentTimeMillis()) {
+                Toast.makeText(this, R.string.sl_past_date, Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             appointmentDate = tempCal!!.time
             appointmentLocation = finalLoc
+            savedAppointmentForOperation = false
             
-            val summarySdf = SimpleDateFormat("MMM dd h:mm a", Locale.getDefault())
-            findViewById<Button>(R.id.btnMarkAppointment)?.text = "Appt: ${summarySdf.format(appointmentDate!!)}"
-            
-            Toast.makeText(this, "Appointment scheduled for saving", Toast.LENGTH_SHORT).show()
+            renderSmartNextStep()
             dialog.dismiss()
         }
 
@@ -909,14 +962,9 @@ class SmartLogActivity : AppCompatActivity() {
             TimePickerDialog(this, theme, { _, hour, minute ->
                 initialCal.set(Calendar.HOUR_OF_DAY, hour)
                 initialCal.set(Calendar.MINUTE, minute)
-                val selectedDate = initialCal.time
-                followUpDate = selectedDate
-                
-                val sdf = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault())
-                val formattedDate = sdf.format(selectedDate)
-                Toast.makeText(this, "Reminder set: $formattedDate", Toast.LENGTH_SHORT).show()
-                
-                findViewById<Button>(R.id.btnScheduleCustom)?.text = formattedDate
+                initialCal.set(Calendar.SECOND, 0)
+                initialCal.set(Calendar.MILLISECOND, 0)
+                selectSmartFollowUp(initialCal.time)
             }, initialCal.get(Calendar.HOUR_OF_DAY), initialCal.get(Calendar.MINUTE), false).show()
         }, initialCal.get(Calendar.YEAR), initialCal.get(Calendar.MONTH), initialCal.get(Calendar.DAY_OF_MONTH)).show()
     }
@@ -997,270 +1045,281 @@ class SmartLogActivity : AppCompatActivity() {
             }.show()
     }
 
-    private fun performSaveLeadAction(
-        cbR: CheckBox, cbP: CheckBox, cbC: CheckBox, cbInv: CheckBox, cbLife: CheckBox,
-        cbTmMarried: CheckBox?, cbTmAge: CheckBox?, cbTmChildren: CheckBox?, cbTmHomeowner: CheckBox?, cbTmOccupation: CheckBox?,
-        etEmail: EditText, etAddress: EditText, etCompany: EditText, etTitle: EditText, etN: EditText,
-        onSuccess: () -> Unit
-    ) {
-        val cats = mutableListOf<String>()
-        if (cbR.isChecked) cats.add(getString(R.string.category_recruit))
-        if (cbP.isChecked) cats.add(getString(R.string.category_prospect))
-        if (cbC.isChecked) {
-            cats.add(getString(R.string.category_client))
-            if (cbInv.isChecked) cats.add("Investment")
-            if (cbLife.isChecked) cats.add("Life Insurance")
-        }
-
-        val tmList = mutableListOf<String>()
-        if (cbTmMarried?.isChecked == true) tmList.add("Married")
-        if (cbTmAge?.isChecked == true) tmList.add("Age 25-55")
-        if (cbTmChildren?.isChecked == true) tmList.add("Children")
-        if (cbTmHomeowner?.isChecked == true) tmList.add("Homeowner")
-        if (cbTmOccupation?.isChecked == true) tmList.add("Occupation")
-        val targetMarket = tmList.joinToString(", ")
-
-        val finalCategory = cats.joinToString(", ")
-        val noteText = etN.text.toString()
-        val emailText = etEmail.text.toString().trim()
-        val rawAddress = etAddress.text.toString().trim()
-        val formattedAddress = rawAddress.split("\\s+".toRegex()).joinToString(" ") { word ->
-            val cleanWord = word.replace(Regex("[^A-Za-z]"), "")
-            if (cleanWord.length == 2) word.uppercase() else word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-        }
-        val companyText = etCompany.text.toString().trim()
-        val titleText = etTitle.text.toString().trim()
-        val currentUserId = auth.currentUser?.uid
-
-        val spinnerInsPolicyType = findViewById<Spinner>(R.id.spinnerInsPolicyType)
-        val spinnerInsStatus = findViewById<Spinner>(R.id.spinnerInsStatus)
-        val editInsCarrier = findViewById<EditText>(R.id.editInsCarrier)
-        val editInsPolicyNumber = findViewById<EditText>(R.id.editInsPolicyNumber)
-        val editInsFaceAmount = findViewById<EditText>(R.id.editInsFaceAmount)
-        val editInsMonthlyPremium = findViewById<EditText>(R.id.editInsMonthlyPremium)
-        val editInsBeneficiaries = findViewById<EditText>(R.id.editInsBeneficiaries)
-        val tvInsRenewalDate = findViewById<TextView>(R.id.tvInsRenewalDate)
-        
-        val spinnerInvAccountType = findViewById<Spinner>(R.id.spinnerInvAccountType)
-        val spinnerInvStatus = findViewById<Spinner>(R.id.spinnerInvStatus)
-        val editInvPlatform = findViewById<EditText>(R.id.editInvPlatform)
-        val editInvLumpSum = findViewById<EditText>(R.id.editInvLumpSum)
-        val editInvMonthlyContribution = findViewById<EditText>(R.id.editInvMonthlyContribution)
-
-        if (currentUserId == null) {
-            Log.e(TAG, "No user logged in")
-            Toast.makeText(this, "Error: You must be logged in to save leads", Toast.LENGTH_LONG).show()
+    private fun selectSmartFollowUp(date: Date) {
+        if (date.time <= System.currentTimeMillis()) {
+            showSmartError(getString(R.string.sl_past_date))
+            showDateTimePicker(Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 1) })
             return
         }
+        followUpDate = date
+        val title = findViewById<EditText>(R.id.etSmartActionTitle)
+        if (title.text.isBlank()) title.setText(R.string.sl_default_action)
+        findViewById<View>(R.id.tvSmartSaveError).visibility = View.GONE
+        renderSmartNextStep()
+    }
 
-        // Normalize phone number for more accurate matching
-        val normalizedIncoming = phoneNumber.replace(Regex("[^0-9]"), "")
+    private fun renderSmartNextStep() {
+        val format = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
+        findViewById<TextView>(R.id.tvSmartNextSummary).text = followUpDate?.let {
+            getString(R.string.sl_reminder_due, format.format(it))
+        } ?: getString(R.string.sl_no_reminder)
+        findViewById<View>(R.id.containerSmartReminder).visibility = if (followUpDate == null) View.GONE else View.VISIBLE
+        val appointmentSummary = findViewById<TextView>(R.id.tvSmartAppointmentSummary)
+        appointmentSummary.visibility = if (appointmentDate == null) View.GONE else View.VISIBLE
+        appointmentSummary.text = appointmentDate?.let {
+            getString(if (savedAppointmentForOperation) R.string.sl_appointment_saved else R.string.sl_appointment_due, format.format(it)) + "\n" + appointmentLocation.orEmpty()
+        }.orEmpty()
+        findViewById<View>(R.id.btnClearSmartAppointment).visibility = if (savedAppointmentForOperation) View.GONE else appointmentSummary.visibility
+        findViewById<Button>(R.id.btnMarkAppointment).apply {
+            setText(R.string.sl_appointment)
+            isEnabled = !isSavingLog && !savedAppointmentForOperation
+        }
+    }
 
-        db.collection("leads")
-            .whereEqualTo("ownerId", currentUserId)
-            .get()
-            .addOnSuccessListener { snapshots ->
-                // Check for existing contact manually to handle formatting differences
-                val existingLead = snapshots.documents.find { doc ->
-                    val storedPhone = doc.getString("phone") ?: ""
-                    val storedName = doc.getString("name") ?: ""
-                    val normalizedStored = storedPhone.replace(Regex("[^0-9]"), "")
-                    
-                    val phoneMatches = normalizedIncoming.isNotEmpty() && normalizedStored.isNotEmpty() && normalizedStored == normalizedIncoming
-                    val rawPhoneMatches = phoneNumber.isNotEmpty() && storedPhone.isNotEmpty() && storedPhone == phoneNumber
-                    val nameMatches = contactName.isNotEmpty() && storedName.equals(contactName, ignoreCase = true)
-                    
-                    if (phoneNumber.isNotEmpty()) {
-                        phoneMatches || rawPhoneMatches
+    private fun selectedSmartOutcome(): String? = when (findViewById<ChipGroup>(R.id.chipSmartOutcome).checkedChipId) {
+        R.id.chipSmartConnected -> "Connected"
+        R.id.chipSmartNoAnswer -> "No answer"
+        R.id.chipSmartVoicemail -> "Voicemail left"
+        else -> null
+    }
+
+    private fun smartActionType(): ActionType = when (findViewById<ChipGroup>(R.id.chipSmartActionType).checkedChipId) {
+        R.id.chipSmartText -> ActionType.MESSAGE
+        R.id.chipSmartTodo -> ActionType.TO_DO
+        else -> ActionType.CALL
+    }
+
+    private fun smartProfileDraft(): Map<String, String> {
+        val fields = mapOf(
+            "name" to R.id.etContactName, "email" to R.id.etContactEmail,
+            "address" to R.id.etContactAddress, "company" to R.id.etContactCompany, "jobTitle" to R.id.etContactJobTitle,
+            "insCarrier" to R.id.editInsCarrier, "insPolicyNumber" to R.id.editInsPolicyNumber,
+            "insFaceAmount" to R.id.editInsFaceAmount, "insMonthlyPremium" to R.id.editInsMonthlyPremium,
+            "insBeneficiaries" to R.id.editInsBeneficiaries, "invPlatform" to R.id.editInvPlatform,
+            "invLumpSumRollover" to R.id.editInvLumpSum, "invMonthlyContribution" to R.id.editInvMonthlyContribution
+        )
+        val draft = fields.mapValues { (_, id) -> findViewById<EditText>(id).text.toString().trim() }.toMutableMap()
+        val categories = listOf(R.id.cbRecruit to getString(R.string.category_recruit), R.id.cbProspect to getString(R.string.category_prospect),
+            R.id.cbClient to getString(R.string.category_client), R.id.cbInvestment to "Investment", R.id.cbLifeInsurance to "Life Insurance")
+        draft["category"] = categories.filter { findViewById<CheckBox>(it.first).isChecked }.joinToString(", ") { it.second }
+        draft["targetMarket"] = listOf(R.id.cbTmMarried to "Married", R.id.cbTmAge to "Age 25-55", R.id.cbTmChildren to "Children",
+            R.id.cbTmHomeowner to "Homeowner", R.id.cbTmOccupation to "Occupation")
+            .filter { findViewById<CheckBox>(it.first).isChecked }.joinToString(", ") { it.second }
+        mapOf("insPolicyType" to R.id.spinnerInsPolicyType, "insUnderwritingStatus" to R.id.spinnerInsStatus,
+            "invAccountType" to R.id.spinnerInvAccountType, "invAccountStatus" to R.id.spinnerInvStatus).forEach { (key, id) ->
+            val spinner = findViewById<Spinner>(id)
+            if (spinner.selectedItemPosition > 0) draft[key] = spinner.selectedItem?.toString().orEmpty()
+        }
+        insRenewalDateStr?.let { draft["insRenewalDate"] = it }
+        return draft
+    }
+
+    private fun loadSmartContact() {
+        val owner = auth.currentUser?.uid ?: return
+        db.collection("leads").whereEqualTo("ownerId", owner).get().addOnSuccessListener { snapshot ->
+            if (isFinishing || isDestroyed || isSavingLog) return@addOnSuccessListener
+            val matches = snapshot.documents.filter { SmartLogPlanner.phonesMatch(phoneNumber, it.getString("phone").orEmpty()) }
+            val lead = matches.singleOrNull()
+            loadedContactId = lead?.id
+            findViewById<TextView>(R.id.tvSmartContactStatus).setText(if (lead == null) R.string.sl_new_contact else R.string.sl_existing_contact)
+            if (lead == null || restoreDraft) return@addOnSuccessListener
+            val nameInput = findViewById<EditText>(R.id.etContactName)
+            if (nameInput.text.toString() == contactName) {
+                contactName = lead.getString("name").orEmpty().ifBlank { contactName }
+                nameInput.setText(contactName)
+            }
+            if (findViewById<View>(R.id.containerAdvancedLogging).visibility == View.VISIBLE) return@addOnSuccessListener
+            val categories = lead.getString("category").orEmpty()
+            listOf(R.id.cbRecruit to getString(R.string.category_recruit), R.id.cbProspect to getString(R.string.category_prospect),
+                R.id.cbClient to getString(R.string.category_client), R.id.cbInvestment to "Investment", R.id.cbLifeInsurance to "Life Insurance")
+                .forEach { (id, label) -> findViewById<CheckBox>(id).isChecked = categories.contains(label, ignoreCase = true) }
+            val market = lead.getString("targetMarket").orEmpty()
+            listOf(R.id.cbTmMarried to "Married", R.id.cbTmAge to "Age 25-55", R.id.cbTmChildren to "Children",
+                R.id.cbTmHomeowner to "Homeowner", R.id.cbTmOccupation to "Occupation")
+                .forEach { (id, label) -> findViewById<CheckBox>(id).isChecked = market.contains(label) }
+            mapOf("email" to R.id.etContactEmail, "address" to R.id.etContactAddress, "company" to R.id.etContactCompany,
+                "jobTitle" to R.id.etContactJobTitle, "insCarrier" to R.id.editInsCarrier, "insPolicyNumber" to R.id.editInsPolicyNumber,
+                "insFaceAmount" to R.id.editInsFaceAmount, "insMonthlyPremium" to R.id.editInsMonthlyPremium,
+                "insBeneficiaries" to R.id.editInsBeneficiaries, "invPlatform" to R.id.editInvPlatform,
+                "invLumpSumRollover" to R.id.editInvLumpSum, "invMonthlyContribution" to R.id.editInvMonthlyContribution).forEach { (key, id) ->
+                val input = findViewById<EditText>(id)
+                if (input.text.isBlank()) input.setText(lead.getString(key).orEmpty())
+            }
+            baselineProfile = smartProfileDraft()
+        }
+    }
+
+    private fun saveSmartLog(openText: Boolean) {
+        if (isSavingLog) return
+        val owner = auth.currentUser?.uid ?: run {
+            showSmartError("Sign in again before saving.")
+            return
+        }
+        val profile = smartProfileDraft()
+        val name = profile["name"].orEmpty()
+        val note = findViewById<EditText>(R.id.etQuickNote).text.toString().trim()
+        val outcome = selectedSmartOutcome()
+        val actionTitle = findViewById<EditText>(R.id.etSmartActionTitle).text.toString().trim()
+        if (name.isBlank()) {
+            findViewById<EditText>(R.id.etContactName).apply { error = getString(R.string.sl_name_required); requestFocus() }
+            return
+        }
+        if (followUpDate != null && actionTitle.isBlank()) {
+            findViewById<EditText>(R.id.etSmartActionTitle).apply { error = getString(R.string.sl_reminder_title_required); requestFocus() }
+            return
+        }
+        if (!savedOutcomeForOperation && listOfNotNull(followUpDate, appointmentDate).any { it.time <= System.currentTimeMillis() }) {
+            showSmartError(getString(R.string.sl_past_date)); return
+        }
+        val message = findViewById<EditText>(R.id.etIntroText).text.toString().trim()
+        if (openText && (message.isBlank() || phoneNumber.isBlank())) {
+            showSmartError("Add a message and phone number before opening a text."); return
+        }
+        contactName = name
+        setSmartSaving(true)
+        val finishSave: (String, Boolean) -> Unit = { leadId, isNew ->
+            val saveActivity = {
+                followUpRepository.saveOutcome(
+                    OutcomeSaveRequest(
+                        operationId = logOperationId, leadId = leadId, ownerId = owner,
+                        outcome = outcome ?: "Call logged", note = note, activityType = ActionType.CALL,
+                        stage = null, currentActionId = null, resolveCurrentActionIfMissing = false,
+                        nextAction = followUpDate?.let { NextActionSpec(actionTitle, it.time, smartActionType()) },
+                        clearExistingNextAction = false, lifecycle = WorkflowLifecycle.UNCHANGED,
+                        lifecycleReason = null, nowMillis = logTimestamp
+                    )
+                ) { success, error ->
+                    if (!success) {
+                        setSmartSaving(false)
+                        showSmartError(getString(R.string.sl_save_error))
                     } else {
-                        nameMatches
+                        savedOutcomeForOperation = true
+                        followUpDate?.let { due ->
+                            ReminderAlarmStore.scheduleAction(this, leadId,
+                                OutcomeSavePlanner.nextActionDocumentId(logOperationId), actionTitle, name, phoneNumber, due.time)
+                        }
+                        recordSmartLogStat(leadId, if (isNew) "total_count" else "followup_count")
+                        Toast.makeText(this, R.string.sl_saved, Toast.LENGTH_SHORT).show()
+                        if (openText) {
+                            try {
+                                startActivity(Intent(Intent.ACTION_SENDTO, "smsto:$phoneNumber".toUri()).putExtra("sms_body", message))
+                            } catch (_: Exception) {
+                                Toast.makeText(this, R.string.sl_open_text_error, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        finish()
                     }
                 }
-
-                val time = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(Date())
-                
-                if (existingLead == null) {
-                    // REALLY a new contact for this user
-                    Log.d(TAG, "New lead detected, incrementing goal")
-                    val formattedNote = if (noteText.isNotEmpty()) "[$time]: $noteText" else ""
-                    val createdAppointmentId = appointmentDate?.let { AppointmentAgenda.newAppointmentId() }
-                    val data = hashMapOf<String, Any?>(
-                        "name" to contactName, 
-                        "phone" to phoneNumber, 
-                        "email" to emailText,
-                        "address" to formattedAddress,
-                        "company" to companyText,
-                        "jobTitle" to titleText,
-                        "category" to finalCategory,
-                        "targetMarket" to targetMarket,
-                        "notes" to formattedNote, 
-                        "followUpDate" to followUpDate?.let { Timestamp(it) },
-                        "insCarrier" to editInsCarrier?.text.toString(),
-                        "insPolicyType" to spinnerInsPolicyType?.selectedItem?.toString()?.takeIf { it != "Select Policy Type..." },
-                        "insPolicyNumber" to editInsPolicyNumber?.text.toString(),
-                        "insFaceAmount" to editInsFaceAmount?.text.toString(),
-                        "insMonthlyPremium" to editInsMonthlyPremium?.text.toString(),
-                        "insUnderwritingStatus" to spinnerInsStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." },
-                        "insBeneficiaries" to editInsBeneficiaries?.text.toString(),
-                        "insRenewalDate" to insRenewalDateStr,
-                        "invAccountType" to spinnerInvAccountType?.selectedItem?.toString()?.takeIf { it != "Select Account Type..." },
-                        "invPlatform" to editInvPlatform?.text.toString(),
-                        "invLumpSumRollover" to editInvLumpSum?.text.toString(),
-                        "invMonthlyContribution" to editInvMonthlyContribution?.text.toString(),
-                        "invAccountStatus" to spinnerInvStatus?.selectedItem?.toString()?.takeIf { it != "Select Status..." },
-                        "timestamp" to Timestamp.now(),
-                        "ownerId" to currentUserId,
-                        "source" to "smart_log"
+            }
+            val start = appointmentDate?.time
+            if (start == null || savedAppointmentForOperation) {
+                saveActivity()
+            } else {
+                val appointmentId = "smart_$logOperationId"
+                val ref = db.collection("leads").document(leadId)
+                db.runTransaction { transaction ->
+                    val fresh = transaction.get(ref)
+                    val records = SmartLogPlanner.addAppointment(
+                        leadId, LeadAppointmentSync.readRecords(fresh.get(AppointmentAgenda.FIELD_APPOINTMENTS)),
+                        fresh.getTimestamp("appointmentDate")?.toDate()?.time, fresh.getString("appointmentLocation"),
+                        GoogleCalendarManager.readStoredEventId(fresh.get("googleCalendarEventId")),
+                        appointmentId, start, appointmentLocation, logTimestamp
                     )
-                    if (appointmentDate != null && createdAppointmentId != null) {
-                        val record = AppointmentAgenda.AppointmentRecord(
-                            id = createdAppointmentId,
-                            startMillis = appointmentDate!!.time,
-                            location = appointmentLocation,
-                            eventId = null,
-                            status = AppointmentAgenda.AppointmentStatus.SCHEDULED,
-                            originalInstanceTime = null,
-                            updatedAtMillis = System.currentTimeMillis()
-                        )
-                        LeadAppointmentSync.fields(listOf(record), System.currentTimeMillis(), forUpdate = false)
-                            .forEach { (key, value) -> data[key] = value }
-                    }
-                    db.collection("leads").add(data)
-                        .addOnSuccessListener { 
-                            incrementDailyStat("total_count")
-                            val phoneToNotify = phoneNumber.ifEmpty { contactName }
-                            if (followUpDate != null) {
-                                ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
-                            }
-                            if (appointmentDate != null && createdAppointmentId != null) {
-                                ReminderReceiver.scheduleReminder(
-                                    this,
-                                    AppointmentAgenda.appointmentReminderKey(createdAppointmentId),
-                                    "Appointment: $contactName",
-                                    appointmentDate!!.time
-                                )
-                                syncSmartLogAppointment(it.id, null, createdAppointmentId)
-                            }
-                            onSuccess() 
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e(TAG, "Failed to add lead", e)
-                            Toast.makeText(this, "Failed to save lead", Toast.LENGTH_SHORT).show()
-                        }
-                } else {
-                    // Lead exists, just update it
-                    Log.d(TAG, "Existing lead found, updating notes only")
-                    val docId = existingLead.id
-                    val existingNotes = existingLead.getString("notes") ?: ""
-                    val formatted = if (noteText.isNotEmpty()) "[$time]: $noteText" else ""
-                    val combined = if (existingNotes.isNotEmpty() && formatted.isNotEmpty()) "$existingNotes\n\n$formatted" else formatted.ifEmpty { existingNotes }
-
-                    val update = mutableMapOf<String, Any?>(
-                        "name" to contactName,
-                        "email" to emailText,
-                        "address" to formattedAddress,
-                        "company" to companyText,
-                        "jobTitle" to titleText,
-                        "category" to finalCategory,
-                        "targetMarket" to targetMarket,
-                        "notes" to combined, 
-                        "timestamp" to Timestamp.now()
-                    )
-                    followUpDate?.let { update["followUpDate"] = Timestamp(it) }
-                    val previousStart = existingLead.getTimestamp("appointmentDate")?.toDate()?.time
-                    val previousLocation = existingLead.getString("appointmentLocation")
-                    val previousEventId = GoogleCalendarManager.readStoredEventId(existingLead.get("googleCalendarEventId"))
-                    val createdAppointmentForEdit = if (appointmentDate != null) AppointmentAgenda.newAppointmentId() else null
-                    if (createdAppointmentForEdit == null) {
-                        db.collection("leads").document(docId).update(update)
-                            .addOnSuccessListener {
-                                finishSmartLogSave(docId, noteText, null, null, onSuccess)
-                            }
-                        return@addOnSuccessListener
-                    }
-                    LeadAppointmentWriter.commit(
-                        db = db,
-                        leadId = docId,
-                        mutationFor = { fresh, _, _, _ ->
-                            val preview = AppointmentAgenda.describeSingleAppointmentEdit(
-                                leadId = docId,
-                                existing = fresh,
-                                previousStartMillis = previousStart,
-                                previousLocation = previousLocation,
-                                previousEventId = previousEventId,
-                                newStartMillis = appointmentDate!!.time,
-                                newLocation = appointmentLocation,
-                                newEventId = previousEventId,
-                                nowMillis = System.currentTimeMillis(),
-                                createdId = createdAppointmentForEdit
-                            )
-                            val baseUpdatedAt = fresh.firstOrNull { it.id == preview.editedId }?.updatedAtMillis ?: 0L
-                            AppointmentSync.AppointmentMutation.SingleEdit(
-                                previousStartMillis = previousStart,
-                                previousLocation = previousLocation,
-                                previousEventId = previousEventId,
-                                newStartMillis = appointmentDate!!.time,
-                                newLocation = appointmentLocation,
-                                newEventId = previousEventId,
-                                nowMillis = System.currentTimeMillis(),
-                                createdId = createdAppointmentForEdit,
-                                baseUpdatedAtMillis = baseUpdatedAt
-                            )
-                        },
-                        extras = { _ -> update },
-                        onSuccess = { result ->
-                            val target = result.records.firstOrNull { it.id == result.targetId }
-                            finishSmartLogSave(
-                                docId,
-                                noteText,
-                                if (result.keptNewer) null else target?.id,
-                                target?.eventId ?: previousEventId,
-                                onSuccess
-                            )
-                        },
-                        onFailure = {
-                            Toast.makeText(this, "Failed to save lead", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                    transaction.set(ref, LeadAppointmentSync.fields(records, System.currentTimeMillis(), forUpdate = true), SetOptions.merge())
+                    records.first { it.id == appointmentId }
+                }.addOnSuccessListener { record ->
+                    savedAppointmentForOperation = true
+                    ReminderReceiver.scheduleReminder(this, AppointmentAgenda.appointmentReminderKey(appointmentId), "Appointment: $name", start)
+                    syncSmartLogAppointment(leadId, record.eventId, appointmentId) { saveActivity() }
+                }.addOnFailureListener {
+                    setSmartSaving(false); showSmartError(getString(R.string.sl_save_error))
                 }
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Error checking for existing lead", e)
+        }
+        db.collection("leads").whereEqualTo("ownerId", owner).get().addOnSuccessListener { snapshot ->
+            val matches = snapshot.documents.filter {
+                SmartLogPlanner.phonesMatch(phoneNumber, it.getString("phone").orEmpty()) ||
+                    (phoneNumber.isBlank() && it.id == loadedContactId)
             }
+            if (matches.size > 1) {
+                setSmartSaving(false)
+                showSmartError("More than one contact has this number. Merge duplicates in Contacts before saving.")
+                return@addOnSuccessListener
+            }
+            val existing = matches.singleOrNull()
+            val ref = existing?.reference ?: db.collection("leads").document("smart_$logOperationId")
+            loadedContactId = ref.id
+            val update = SmartLogPlanner.profileUpdates(profile).toMutableMap()
+            update["timestamp"] = Timestamp.now()
+            if (existing == null) {
+                update["ownerId"] = owner
+                update["phone"] = phoneNumber
+                update["source"] = "smart_log"
+                update["smartLogCreatedBy"] = logOperationId
+            }
+            // Create directly: the repository rules do not permit reading a nonexistent lead.
+            ref.set(update, SetOptions.merge()).addOnSuccessListener {
+                savedProfileForOperation = true
+                followUpRepository.migrateLegacyReminder(ref.id, owner) { migration ->
+                    if (migration == null) {
+                        setSmartSaving(false)
+                        showSmartError(getString(R.string.sl_save_error))
+                    } else {
+                        if (migration.cancelLegacyPhoneAlarm) {
+                            ReminderAlarmStore.cancelLegacyPhone(this, phoneNumber, ref.id)
+                        }
+                        migration.actionToCreate?.let { action ->
+                            ReminderAlarmStore.scheduleAction(this, ref.id, action.id, action.title, name, phoneNumber, action.dueTime)
+                        }
+                        finishSave(ref.id, existing == null || existing.getString("smartLogCreatedBy") == logOperationId)
+                    }
+                }
+            }.addOnFailureListener {
+                setSmartSaving(false); showSmartError(getString(R.string.sl_save_error))
+            }
+        }.addOnFailureListener {
+            setSmartSaving(false); showSmartError(getString(R.string.sl_save_error))
+        }
     }
 
-    private fun finishSmartLogSave(
-        leadId: String,
-        noteText: String,
-        editedAppointmentId: String?,
-        existingEventId: Long?,
-        onSuccess: () -> Unit
-    ) {
-        if (noteText.isNotEmpty()) {
-            incrementDailyStat("followup_count")
+    private fun showSmartError(message: String) {
+        findViewById<TextView>(R.id.tvSmartSaveError).apply {
+            text = if (savedProfileForOperation) getString(R.string.sl_partial_save, message) else message
+            visibility = View.VISIBLE
         }
-        val phoneToNotify = phoneNumber.ifEmpty { contactName }
-        if (appointmentDate != null && editedAppointmentId != null) {
-            ReminderReceiver.scheduleReminder(
-                this,
-                AppointmentAgenda.appointmentReminderKey(editedAppointmentId),
-                "Appointment: $contactName",
-                appointmentDate!!.time
-            )
-            syncSmartLogAppointment(leadId, existingEventId, editedAppointmentId)
-        } else if (appointmentDate != null) {
-            Toast.makeText(this, "A newer appointment change was kept.", Toast.LENGTH_LONG).show()
-        } else if (followUpDate != null) {
-            ReminderReceiver.scheduleReminder(this, phoneToNotify, contactName, followUpDate!!.time)
-        } else {
-            ReminderReceiver.cancelReminder(this, phoneToNotify)
-        }
-        onSuccess()
     }
 
-    private fun syncSmartLogAppointment(leadId: String, existingEventId: Long?, appointmentId: String) {
-        val startMillis = appointmentDate?.time ?: return
-        if (leadId.isBlank()) return
+    private fun setSmartSaving(saving: Boolean) {
+        isSavingLog = saving
+        canEditDraft = !saving
+        fun enable(view: View) {
+            view.isEnabled = !saving
+            if (view is ViewGroup) for (index in 0 until view.childCount) enable(view.getChildAt(index))
+        }
+        enable(findViewById(R.id.smartLogScroll))
+        findViewById<Button>(R.id.btnSaveLeadAction).apply {
+            isEnabled = !saving
+            setText(if (saving) R.string.sl_saving else R.string.sl_save)
+        }
+        if (saving) findViewById<View>(R.id.tvSmartSaveError).visibility = View.GONE
+        renderSmartNextStep()
+    }
+
+    private fun requestLeaveSmartLog() {
+        if (isSavingLog) return
+        val hasDraft = findViewById<EditText>(R.id.etQuickNote).text.isNotBlank() || selectedSmartOutcome() != null ||
+            followUpDate != null || appointmentDate != null || savedProfileForOperation ||
+            smartProfileDraft() != baselineProfile ||
+            findViewById<EditText>(R.id.etIntroText).text.toString() != baselineSms
+        if (!hasDraft) { finish(); return }
+        AlertDialog.Builder(this).setTitle(R.string.sl_discard_title).setMessage(R.string.sl_discard_message)
+            .setPositiveButton(R.string.sl_discard) { _, _ -> finish() }
+            .setNegativeButton(R.string.sl_keep_editing, null).show()
+    }
+
+    private fun syncSmartLogAppointment(leadId: String, existingEventId: Long?, appointmentId: String, onDone: () -> Unit) {
+        val startMillis = appointmentDate?.time ?: run { onDone(); return }
+        if (leadId.isBlank()) { onDone(); return }
         val runSync = {
             GoogleCalendarManager.syncCrmAppointmentAsync(
                 context = this,
@@ -1296,6 +1355,7 @@ class SmartLogActivity : AppCompatActivity() {
                     GoogleCalendarManager.AppointmentSyncResult.Cleared,
                     GoogleCalendarManager.AppointmentSyncResult.Skipped -> Unit
                 }
+                onDone()
             }
         }
         if (GoogleCalendarManager.hasCalendarPermissions(this)) {
@@ -1310,6 +1370,7 @@ class SmartLogActivity : AppCompatActivity() {
                         "Appointment saved. Allow calendar access to sync with Google Calendar.",
                         Toast.LENGTH_LONG
                     ).show()
+                    onDone()
                 }
             }
             calendarPermissionLauncher.launch(
@@ -1318,77 +1379,24 @@ class SmartLogActivity : AppCompatActivity() {
         }
     }
 
-    private fun incrementDailyStat(field: String) {
-        val userId = auth.currentUser?.uid ?: return
-        val dateStr = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-        
-        // 1. Update Local Prefs for immediate UI feedback in MainActivity
-        val currentLocalCount = statsPrefs.getInt("${dateStr}_$field", 0)
-        statsPrefs.edit { putInt("${dateStr}_$field", currentLocalCount + 1) }
-        Log.d(TAG, "Incremented local stat $field to ${currentLocalCount + 1}")
-
-        // 2. Sync to Firestore
-        db.collection("user_settings").document(userId)
-            .collection("daily_stats").document(dateStr)
-            .set(hashMapOf(field to FieldValue.increment(1)), SetOptions.merge())
-            .addOnSuccessListener {
-                Log.d(TAG, "Successfully synced increment to Firestore")
+    private fun recordSmartLogStat(leadId: String, field: String) {
+        val owner = auth.currentUser?.uid ?: return
+        val day = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date(logTimestamp))
+        val activity = db.collection("leads").document(leadId).collection("activity_records")
+            .document(OutcomeSavePlanner.activityDocumentId(logOperationId))
+        val stats = db.collection("user_settings").document(owner).collection("daily_stats").document(day)
+        db.runTransaction { transaction ->
+            val saved = transaction.get(activity)
+            if (!saved.exists() || saved.getBoolean("smartLogStatsCounted") == true) return@runTransaction false
+            transaction.set(stats, mapOf(field to FieldValue.increment(1)), SetOptions.merge())
+            transaction.update(activity, "smartLogStatsCounted", true)
+            true
+        }.addOnSuccessListener { counted ->
+            if (counted) {
+                val key = "${day}_$field"
+                statsPrefs.edit { putInt(key, statsPrefs.getInt(key, 0) + 1) }
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Failed to sync increment to Firestore", e)
-            }
-    }
-
-    private fun saveOrUpdateSystemContact(name: String, phone: String) {
-        val contactId = getContactId(phone)
-        val ops = arrayListOf<ContentProviderOperation>()
-
-        if (contactId == null) {
-            ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, null)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
-                .build())
-            ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, name)
-                .build())
-            ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
-                .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, phone)
-                .withValue(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)
-                .build())
-        } else {
-            ops.add(ContentProviderOperation.newUpdate(ContactsContract.Data.CONTENT_URI)
-                .withSelection(
-                    "${ContactsContract.Data.CONTACT_ID}=? AND ${ContactsContract.Data.MIMETYPE}=?",
-                    arrayOf(contactId.toString(), ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
-                )
-                .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, name)
-                .build())
-        }
-
-        try {
-            contentResolver.applyBatch(ContactsContract.AUTHORITY, ops)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving/updating system contact", e)
-        }
-    }
-
-    private fun getContactId(phone: String): Long? {
-        val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phone))
-        val projection = arrayOf(ContactsContract.PhoneLookup._ID)
-        try {
-            contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    return cursor.getLong(0)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting contact ID", e)
-        }
-        return null
+        }.addOnFailureListener { Log.w(TAG, "Couldn't update Smart Log progress", it) }
     }
 
     private fun saveAllPresetsLocally(list: List<String>) {
@@ -1457,6 +1465,23 @@ class SmartLogActivity : AppCompatActivity() {
         cardImageUri?.let { outState.putParcelable("CARD_IMAGE_URI", it) }
         croppedImageUri?.let { outState.putParcelable("CROPPED_IMAGE_URI", it) }
         currentPhotoPath?.let { outState.putString("CURRENT_PHOTO_PATH", it) }
+        outState.putString("smart_log_operation", logOperationId)
+        outState.putLong("smart_log_timestamp", logTimestamp)
+        outState.putLong("smart_follow_up", followUpDate?.time ?: 0L)
+        outState.putLong("smart_appointment", appointmentDate?.time ?: 0L)
+        outState.putString("smart_location", appointmentLocation)
+        outState.putString("smart_renewal", insRenewalDateStr)
+        outState.putString("smart_contact_id", loadedContactId)
+        outState.putBoolean("smart_profile_saved", savedProfileForOperation)
+        outState.putBoolean("smart_outcome_saved", savedOutcomeForOperation)
+        outState.putBoolean("smart_appointment_saved", savedAppointmentForOperation)
+        outState.putInt("smart_details_visibility", findViewById<View>(R.id.containerAdvancedLogging).visibility)
+        outState.putInt("smart_sms_visibility", findViewById<View>(R.id.containerSmsIntro).visibility)
+        baselineProfile?.let { baseline ->
+            outState.putStringArrayList("smart_profile_keys", ArrayList(baseline.keys))
+            outState.putStringArrayList("smart_profile_values", ArrayList(baseline.values))
+        }
+        outState.putString("smart_baseline_sms", baselineSms)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
@@ -1466,5 +1491,10 @@ class SmartLogActivity : AppCompatActivity() {
         @Suppress("DEPRECATION")
         croppedImageUri = savedInstanceState.getParcelable("CROPPED_IMAGE_URI")
         currentPhotoPath = savedInstanceState.getString("CURRENT_PHOTO_PATH")
+        findViewById<View>(R.id.containerAdvancedLogging).visibility = savedInstanceState.getInt("smart_details_visibility", View.GONE)
+        findViewById<View>(R.id.containerSmsIntro).visibility = savedInstanceState.getInt("smart_sms_visibility", View.GONE)
+        findViewById<TextView>(R.id.tvToggleAdvanced).setText(if (findViewById<View>(R.id.containerAdvancedLogging).visibility == View.VISIBLE) R.string.sl_hide else R.string.sl_show)
+        findViewById<TextView>(R.id.tvToggleSms).setText(if (findViewById<View>(R.id.containerSmsIntro).visibility == View.VISIBLE) R.string.sl_hide else R.string.sl_show)
+        renderSmartNextStep()
     }
 }

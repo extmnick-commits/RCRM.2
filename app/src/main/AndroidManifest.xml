@@ -91,7 +91,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".SignupActivity" android:exported="false" />
-        <activity android:name=".SmartLogActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
+        <activity android:name=".SmartLogActivity" android:exported="true" android:theme="@style/Theme.RCRM" android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".FollowUpActivity"
             android:exported="false"

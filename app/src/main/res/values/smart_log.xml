@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+    <style name="SmartLogCard">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item><item name="android:padding">16dp</item>
+        <item name="android:layout_marginTop">12dp</item><item name="android:background">@drawable/bg_frosted_card</item>
+    </style>
+    <style name="SmartLogBody">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">13sp</item><item name="android:textColor">#AFBCD1</item>
+        <item name="android:paddingVertical">4dp</item>
+    </style>
+    <style name="SmartLogLabel" parent="SmartLogBody">
+        <item name="android:textSize">15sp</item><item name="android:textColor">#F2F5FA</item><item name="android:textStyle">bold</item>
+    </style>
+    <style name="SmartLogTitle" parent="SmartLogLabel"><item name="android:textSize">24sp</item></style>
+    <style name="SmartLogInput">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">48dp</item><item name="android:padding">12dp</item><item name="android:layout_marginTop">6dp</item>
+        <item name="android:background">@drawable/bg_edittext_outline</item><item name="android:textColor">#F2F5FA</item>
+        <item name="android:textColorHint">#9AA6BD</item><item name="android:textSize">16sp</item><item name="android:importantForAutofill">no</item>
+    </style>
+    <style name="SmartLogButton" parent="Widget.AppCompat.Button">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">48dp</item><item name="android:minWidth">0dp</item><item name="android:paddingHorizontal">12dp</item>
+        <item name="android:paddingVertical">10dp</item><item name="android:layout_marginTop">6dp</item>
+        <item name="android:textAllCaps">false</item><item name="android:textSize">14sp</item><item name="android:textColor">#2EE7FF</item>
+        <item name="android:background">@drawable/bg_neon_cyan_button</item><item name="backgroundTint">@null</item>
+    </style>
+    <style name="SmartLogPrimaryButton" parent="SmartLogButton">
+        <item name="android:minHeight">54dp</item><item name="android:textColor">#FFFFFF</item><item name="android:textStyle">bold</item>
+        <item name="android:textSize">16sp</item><item name="android:background">@drawable/bg_primary_gradient_button</item>
+    </style>
+    <style name="SmartLogDisclosure">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">36dp</item><item name="android:orientation">horizontal</item><item name="android:gravity">center_vertical</item>
+        <item name="android:background">?attr/selectableItemBackground</item><item name="android:clickable">true</item><item name="android:focusable">true</item>
+    </style>
+    <style name="SmartLogDisclosureCard">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item><item name="android:paddingHorizontal">14dp</item>
+        <item name="android:paddingVertical">8dp</item><item name="android:layout_marginTop">8dp</item>
+        <item name="android:background">@drawable/bg_frosted_card</item>
+    </style>
+    <style name="SmartLogChip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:textSize">14sp</item>
+        <item name="android:textColor">#F2F5FA</item><item name="chipBackgroundColor">@color/smart_log_chip_fill</item>
+        <item name="chipStrokeColor">@color/smart_log_chip_stroke</item><item name="chipStrokeWidth">1dp</item>
+        <item name="ensureMinTouchTargetSize">true</item><item name="chipMinTouchTargetSize">48dp</item>
+    </style>
+<string name="sl_title">Log call</string><string name="sl_subtitle">Capture the conversation. Plan the next step.</string><string name="sl_contact">Contact</string><string name="sl_contact_hint">Your log will be saved to this contact in RCRM.</string><string name="sl_outcome">What happened? (optional)</string><string name="sl_connected">Connected</string><string name="sl_no_answer">No answer</string><string name="sl_voicemail">Voicemail left</string><string name="sl_note">Quick note</string><string name="sl_note_hint">What did you discuss? What did you promise to send?</string><string name="sl_dictate">Dictate note</string><string name="sl_next_step">What happens next?</string><string name="sl_next_hint">Add a follow-up or appointment when you need one.</string><string name="sl_today">Today</string><string name="sl_tomorrow">Tomorrow</string><string name="sl_pick_date">Pick date &amp; time</string><string name="sl_more_dates">More dates</string><string name="sl_week">In 1 week</string><string name="sl_two_weeks">In 2 weeks</string><string name="sl_month">In 1 month</string><string name="sl_no_reminder">No new follow-up selected. Existing reminders stay as they are.</string><string name="sl_action_title">Reminder title</string><string name="sl_action_hint">For example: Send the requested information</string><string name="sl_call">Call</string><string name="sl_text">Text</string><string name="sl_task">Task</string><string name="sl_clear_reminder">Remove new follow-up</string><string name="sl_appointment">Schedule appointment</string><string name="sl_clear_appointment">Remove new appointment</string><string name="sl_details">Contact details &amp; categories</string><string name="sl_show">Show ▾</string><string name="sl_hide">Hide ▴</string><string name="sl_sms">Optional follow-up text</string><string name="sl_scan_card">Scan business card</string><string name="sl_save_text">Save log &amp; open text</string><string name="sl_skip">Skip this call</string><string name="sl_ignore">Stop showing logs for this number</string><string name="sl_save_hint">Save adds this log and any new next steps to the contact.</string><string name="sl_save">Save log</string><string name="sl_saving">Saving…</string><string name="sl_saved">Call log saved</string><string name="sl_reminder_due">New follow-up: %1$s</string><string name="sl_appointment_due">New appointment: %1$s</string><string name="sl_unknown_phone">No phone number provided</string><string name="sl_save_error">Could not save. Your entries are still here. Check your connection and try again.</string><string name="sl_name_required">Enter a contact name.</string><string name="sl_past_date">Choose a time in the future.</string><string name="sl_reminder_title_required">Add a reminder title.</string><string name="sl_discard_title">Discard this call log?</string><string name="sl_discard_message">Your unsaved note and next steps will be discarded.</string><string name="sl_discard">Discard</string><string name="sl_keep_editing">Keep editing</string><string name="sl_ignore_title">Stop call logs for this number?</string><string name="sl_ignore_message">You can turn logs back on in Settings &amp; Tools → Ignored contacts.</string><string name="sl_ignore_confirm">Stop logs</string><string name="sl_existing_contact">Existing RCRM contact · saved details are preserved</string><string name="sl_new_contact">New RCRM contact</string><string name="sl_open_text_error">Log saved. No texting app is available.</string><string name="sl_dictation_unavailable">Speech recognition is not available on this device.</string><string name="sl_default_action">Follow up</string><string name="sl_nothing_to_log">Choose an outcome, add a note, or select a next step.</string><string name="sl_partial_save">Contact details were saved. Finish saving this log: %1$s</string>
+<string name="sl_appointment_saved">Appointment saved: %1$s</string>
+</resources>
