@@ -483,6 +483,14 @@
                                 android:maxLines="4"
                                 android:textSize="15sp" />
 
+                            <ProgressBar
+                                android:id="@+id/pbSendNoteLoading"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_margin="4dp"
+                                android:indeterminateTint="#2EE7FF"
+                                android:visibility="gone" />
+
                             <ImageButton
                                 android:id="@+id/btnSendNote"
                                 android:layout_width="40dp"

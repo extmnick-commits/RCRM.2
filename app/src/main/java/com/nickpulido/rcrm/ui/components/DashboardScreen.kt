@@ -23,12 +23,15 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,7 +67,14 @@ data class DashboardLead(
     val docId: String,
     val name: String,
     val details: String,
-    val phone: String
+    val phone: String,
+    val reminderId: String? = null,
+    val reminderTitle: String? = null,
+    val reminderType: String? = null,
+    val dueLabel: String? = null,
+    val isOverdue: Boolean = false,
+    val isPaused: Boolean = false,
+    val isClosed: Boolean = false
 )
 
 @Composable
@@ -94,8 +104,11 @@ fun DashboardScreen(
     leads: List<DashboardLead>,
     onLeadClick: (String) -> Unit,
     onCallLead: (String) -> Unit,
-    onCompleteLead: (String) -> Unit,
+    onCompleteLead: (DashboardLead) -> Unit,
     modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {},
     upNext: UpNextUi? = null,
     onUpNextOpenAgenda: () -> Unit = {},
     onUpNextConfirm: () -> Unit = {},
@@ -134,59 +147,22 @@ fun DashboardScreen(
                     onSettingsClick = onSettingsClick
                 )
             }
-            item { Spacer(modifier = Modifier.height(20.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
             item {
                 DashboardHeader(
                     dateLabel = dateLabel,
-                    onHistoryClick = onHistoryClick
+                    onHistoryClick = onHistoryClick,
+                    totalCount = totalCount,
+                    totalGoal = totalGoal,
+                    followUpCount = followUpCount,
+                    followUpGoal = followUpGoal,
+                    onTotalGoalClick = onTotalGoalClick,
+                    onFollowUpGoalClick = onFollowUpGoalClick,
+                    onTotalCountLongClick = onTotalCountLongClick,
+                    onFollowUpCountLongClick = onFollowUpCountLongClick
                 )
             }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            item {
-                QuickActionsGrid(
-                    onQuickAdd = onQuickAdd,
-                    onAppointments = onAppointments,
-                    onFollowUps = onFollowUps,
-                    onContacts = onContacts,
-                    onPipelines = onPipelines
-                )
-            }
-            if (adminLabel != null) {
-                item { Spacer(modifier = Modifier.height(6.dp)) }
-                item {
-                    AdminGlassPill(
-                        label = adminLabel,
-                        onClick = onAdminClick
-                    )
-                }
-            }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    DashboardMeter(
-                        title = "Contacts",
-                        count = totalCount,
-                        goal = totalGoal,
-                        color = NeonCyan,
-                        onClick = onTotalGoalClick,
-                        onLongClick = onTotalCountLongClick,
-                        modifier = Modifier.weight(1f)
-                    )
-                    DashboardMeter(
-                        title = "Follow-Ups",
-                        count = followUpCount,
-                        goal = followUpGoal,
-                        color = NeonGreen,
-                        onClick = onFollowUpGoalClick,
-                        onLongClick = onFollowUpCountLongClick,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            item { Spacer(modifier = Modifier.height(18.dp)) }
+            item { Spacer(modifier = Modifier.height(14.dp)) }
             if (upNext != null) {
                 item {
                     UpNextBanner(
@@ -198,7 +174,7 @@ fun DashboardScreen(
                         onJoinLocation = onUpNextJoinLocation
                     )
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item { Spacer(modifier = Modifier.height(14.dp)) }
             }
             item {
                 FollowUpTabs(
@@ -206,20 +182,80 @@ fun DashboardScreen(
                     onTabSelected = onTabSelected
                 )
             }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            if (leads.isEmpty()) {
+            item { Spacer(modifier = Modifier.height(10.dp)) }
+            if (isLoading) {
                 item {
-                    Text(
-                        text = when (selectedTab) {
-                            0 -> "No urgent attention needed"
-                            1 -> "No tasks today"
-                            2 -> "No upcoming tasks"
-                            else -> "No tasks"
-                        },
-                        color = TextMuted,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(vertical = 28.dp, horizontal = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = NeonCyan,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Loading contacts...",
+                            color = TextSecondary,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            } else if (errorMessage != null) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = Color(0xFFFF5252),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = onRetry) {
+                            Text("Retry", color = NeonCyan, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else if (leads.isEmpty()) {
+                item {
+                    if (searchQuery.isNotBlank()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "No contacts match \"$searchQuery\"",
+                                color = TextMuted,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            TextButton(onClick = { onSearchQueryChange("") }) {
+                                Text("Clear search", color = NeonCyan, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = when (selectedTab) {
+                                0 -> "No urgent attention needed"
+                                1 -> "No tasks today"
+                                2 -> "No upcoming tasks"
+                                else -> "No tasks"
+                            },
+                            color = TextMuted,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp)
+                        )
+                    }
                 }
             } else {
                 items(leads, key = { lead -> lead.docId.ifBlank { "${lead.name}-${lead.details}" } }) { lead ->
@@ -227,9 +263,28 @@ fun DashboardScreen(
                         lead = lead,
                         onClick = { onLeadClick(lead.docId) },
                         onCall = { onCallLead(lead.phone) },
-                        onComplete = { onCompleteLead(lead.docId) }
+                        onComplete = { onCompleteLead(lead) }
                     )
                     Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+            item { Spacer(modifier = Modifier.height(18.dp)) }
+            item {
+                QuickActionsGrid(
+                    onQuickAdd = onQuickAdd,
+                    onAppointments = onAppointments,
+                    onFollowUps = onFollowUps,
+                    onContacts = onContacts,
+                    onPipelines = onPipelines
+                )
+            }
+            if (adminLabel != null) {
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item {
+                    AdminGlassPill(
+                        label = adminLabel,
+                        onClick = onAdminClick
+                    )
                 }
             }
         }
@@ -265,7 +320,7 @@ private fun DashboardSearchBar(
         ) {
             if (query.isEmpty()) {
                 Text(
-                    text = "Search contacts, tasks, or follow-ups...",
+                    text = "Search contacts by name or phone...",
                     color = TextMuted,
                     fontSize = 14.sp,
                     maxLines = 1,
@@ -282,6 +337,23 @@ private fun DashboardSearchBar(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
             )
+        }
+        if (query.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 4.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(role = Role.Button, onClick = { onQueryChange("") }),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Clear search",
+                    tint = TextMuted,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
         Box(
             modifier = Modifier
@@ -304,7 +376,15 @@ private fun DashboardSearchBar(
 @Composable
 private fun DashboardHeader(
     dateLabel: String,
-    onHistoryClick: () -> Unit
+    onHistoryClick: () -> Unit,
+    totalCount: Int,
+    totalGoal: Int,
+    followUpCount: Int,
+    followUpGoal: Int,
+    onTotalGoalClick: () -> Unit,
+    onFollowUpGoalClick: () -> Unit,
+    onTotalCountLongClick: () -> Unit,
+    onFollowUpCountLongClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -314,19 +394,38 @@ private fun DashboardHeader(
             Text(
                 text = "RCRM",
                 color = TextPrimary,
-                fontSize = 30.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.6).sp
             )
             Text(
                 text = dateLabel,
                 color = NeonCyan,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = 1.dp)
             )
         }
-        HistoryPill(onClick = onHistoryClick)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            HeaderGoalBadge(
+                count = totalCount,
+                goal = totalGoal,
+                color = NeonCyan,
+                onClick = onTotalGoalClick,
+                onLongClick = onTotalCountLongClick
+            )
+            HeaderGoalBadge(
+                count = followUpCount,
+                goal = followUpGoal,
+                color = NeonGreen,
+                onClick = onFollowUpGoalClick,
+                onLongClick = onFollowUpCountLongClick
+            )
+            HistoryPill(onClick = onHistoryClick)
+        }
     }
 }
 
@@ -438,18 +537,53 @@ private fun LeadGlassCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = lead.name,
-                color = TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = lead.name,
+                    color = TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (lead.isPaused) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0x33FFB300))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "PAUSED",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFFB300)
+                        )
+                    }
+                }
+                if (lead.isClosed) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0x338E99B0))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "CLOSED",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8E99B0)
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = lead.details,
-                color = TextSecondary,
+                color = if (lead.isOverdue) Color(0xFFFF5252) else TextSecondary,
                 fontSize = 12.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -458,16 +592,16 @@ private fun LeadGlassCard(
         Spacer(modifier = Modifier.width(8.dp))
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(44.dp)
                 .neonGlow(
                     color = NeonGreen,
-                    cornerRadius = 26.dp,
-                    blurRadius = 7.dp,
-                    strokeWidth = 2.dp,
+                    cornerRadius = 22.dp,
+                    blurRadius = 6.dp,
+                    strokeWidth = 1.5.dp,
                     alpha = 0.9f,
-                    inset = 8.dp
+                    inset = 6.dp
                 )
-                .padding(8.dp)
+                .padding(6.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF0E3A28))
                 .clickable(role = Role.Button, onClick = onCall),
@@ -477,21 +611,35 @@ private fun LeadGlassCard(
                 imageVector = Icons.Filled.Phone,
                 contentDescription = "Call",
                 tint = NeonGreen,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
-        Box(
+        Spacer(modifier = Modifier.width(6.dp))
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(role = Role.Button, onClick = onComplete),
-            contentAlignment = Alignment.Center
+                .height(34.dp)
+                .frostedGlass(
+                    shape = RoundedCornerShape(17.dp),
+                    fillColor = Color(0x2E2EE7FF),
+                    borderBrush = Brush.horizontalGradient(listOf(NeonCyan, NeonBlue)),
+                    borderWidth = 1.dp
+                )
+                .clickable(role = Role.Button, onClick = onComplete)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = "Complete follow-up",
-                tint = TextSecondary,
-                modifier = Modifier.size(18.dp)
+                imageVector = Icons.Filled.Check,
+                contentDescription = "Log outcome",
+                tint = NeonCyan,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Log",
+                color = NeonCyan,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -546,3 +694,4 @@ private fun DashboardScreenPreview() {
         )
     }
 }
+

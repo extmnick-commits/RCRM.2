@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -253,19 +254,55 @@ class FollowUpActivity : AppCompatActivity() {
                     val data = doc.data.toMutableMap()
                     data["id"] = doc.id
                     allLeads.add(data)
+                    loadEarliestReminderForLead(data)
                 }
                 applyFilters()
             }
     }
 
+    private fun loadEarliestReminderForLead(leadMap: MutableMap<String, Any>) {
+        val docId = leadMap["id"] as? String ?: return
+        db.collection("leads").document(docId)
+            .collection("next_actions")
+            .whereEqualTo("status", ActionStatus.PENDING.name)
+            .limit(5)
+            .get()
+            .addOnSuccessListener { snap ->
+                val actions = snap.documents.mapNotNull { d ->
+                    ReminderPlanner.actionFrom(
+                        id = d.id,
+                        leadId = docId,
+                        typeName = d.getString("type"),
+                        title = d.getString("title") ?: "",
+                        dueTime = (d.get("dueTime") as? Number)?.toLong() ?: 0L,
+                        statusName = d.getString("status")
+                    )
+                }
+                val earliest = actions.filter { it.status == ActionStatus.PENDING && it.dueTime > 0L }.minByOrNull { it.dueTime }
+                    ?: actions.firstOrNull { it.status == ActionStatus.PENDING }
+                if (earliest != null) {
+                    leadMap["reminderTitle"] = earliest.title
+                    leadMap["reminderType"] = earliest.type.name
+                    leadMap["reminderDueTime"] = earliest.dueTime
+                    leadMap["reminderId"] = earliest.id
+                    adapter.notifyDataSetChanged()
+                }
+            }
+    }
+
     private fun applyFilters() {
         leads.clear()
+        val isSearching = currentSearchQuery.isNotEmpty()
         val filtered = allLeads.filter { lead ->
-            val matchesSearch = currentSearchQuery.isEmpty() ||
-                    (lead["name"] as? String)?.contains(currentSearchQuery, ignoreCase = true) == true
+            val matchesSearch = !isSearching ||
+                    (lead["name"] as? String)?.contains(currentSearchQuery, ignoreCase = true) == true ||
+                    (lead["phone"] as? String)?.contains(currentSearchQuery, ignoreCase = true) == true
             val matchesCategory = currentCategoryFilter == "All" ||
                     (lead["category"] as? String)?.contains(currentCategoryFilter, ignoreCase = true) == true
             val matchesSideKick = !showOnlySideKick || lead["sideKickSuggestion"] != null
+
+            val isClosed = lead["isClosed"] as? Boolean == true
+            if (isClosed && !isSearching) return@filter false
 
             matchesSearch && matchesCategory && matchesSideKick
         }
@@ -320,6 +357,14 @@ class FollowUpActivity : AppCompatActivity() {
         val editAddress = dialogView.findViewById<EditText>(R.id.editDetailAddress)
         val editCompany = dialogView.findViewById<EditText>(R.id.editDetailCompany)
         val editJobTitle = dialogView.findViewById<EditText>(R.id.editDetailJobTitle)
+
+        val initialName = (lead["name"] as? String).orEmpty()
+        val initialPhone = (lead["phone"] as? String).orEmpty()
+        val initialEmail = (lead["email"] as? String).orEmpty()
+        val initialAddress = (lead["address"] as? String).orEmpty()
+        val initialCompany = (lead["company"] as? String).orEmpty()
+        val initialJobTitle = (lead["jobTitle"] as? String).orEmpty()
+        var hasSavedChanges = false
         
         val btnSmsDetail = dialogView.findViewById<View>(R.id.btnSmsDetail)
         val btnCallDetail = dialogView.findViewById<View>(R.id.btnCallDetail)
@@ -1096,11 +1141,17 @@ class FollowUpActivity : AppCompatActivity() {
                 tvOutcome.text = item.outcome.ifBlank { "Activity" }
                 tvTimestamp.text = item.dateDisplay
 
+                val btnViewPipeline = itemView.findViewById<View>(R.id.btnActivityViewPipeline)
                 if (!item.stageContext.isNullOrBlank()) {
                     tvStageBadge.text = item.stageContext
                     tvStageBadge.visibility = View.VISIBLE
+                    btnViewPipeline?.visibility = View.VISIBLE
+                    btnViewPipeline?.setOnClickListener {
+                        startActivity(createPipelineIntent(item.stageContext))
+                    }
                 } else {
                     tvStageBadge.visibility = View.GONE
+                    btnViewPipeline?.visibility = View.GONE
                 }
 
                 if (item.note.isNotBlank()) {
@@ -1188,7 +1239,28 @@ class FollowUpActivity : AppCompatActivity() {
                 }
 
                 itemView.setOnClickListener {
-                    startActivity(createPipelineIntent(item.stageContext))
+                    val detailBuilder = AlertDialog.Builder(this@FollowUpActivity)
+                        .setTitle("${item.outcome.ifBlank { "Activity" }} · ${item.dateDisplay}")
+                    val detailMessage = buildString {
+                        if (!item.stageContext.isNullOrBlank()) {
+                            append("Pipeline Stage: ${item.stageContext}\n\n")
+                        }
+                        if (item.note.isNotBlank()) {
+                            append(item.note)
+                        } else {
+                            append("No note recorded for this activity.")
+                        }
+                    }
+                    detailBuilder.setMessage(detailMessage)
+                        .setPositiveButton("Close", null)
+                    if (!item.stageContext.isNullOrBlank()) {
+                        detailBuilder.setNeutralButton("View in Pipeline") { _, _ ->
+                            startActivity(createPipelineIntent(item.stageContext))
+                        }
+                    }
+                    val detailDialog = detailBuilder.create()
+                    detailDialog.window?.setBackgroundDrawableResource(R.drawable.bg_dialog_space_glass)
+                    detailDialog.show()
                 }
                 activityContainer?.addView(itemView)
             }
@@ -1638,12 +1710,41 @@ class FollowUpActivity : AppCompatActivity() {
             }
         }
 
+        val pbSendNoteLoading = dialogView.findViewById<ProgressBar>(R.id.pbSendNoteLoading)
+        var isNoteSaving = false
+
         btnSendNote?.setOnClickListener {
-            val text = etQuickNote?.text.toString().trim()
-            if (text.isNotEmpty()) {
-                currentRawNotes = NoteUtils.prependNote(currentRawNotes, text)
-                renderActivityTimelineUI()
+            val text = etQuickNote?.text?.toString()?.trim().orEmpty()
+            if (text.isEmpty() || isNoteSaving) return@setOnClickListener
+
+            isNoteSaving = true
+            btnSendNote.visibility = View.INVISIBLE
+            pbSendNoteLoading?.visibility = View.VISIBLE
+            etQuickNote?.isEnabled = false
+
+            db.runTransaction { transaction ->
+                val ref = db.collection("leads").document(docId)
+                val snap = transaction.get(ref)
+                val remoteNotes = snap.getString("notes").orEmpty()
+                val updated = NoteUtils.prependNote(remoteNotes, text)
+                transaction.update(ref, "notes", updated)
+                updated
+            }.addOnSuccessListener { newNotes ->
+                isNoteSaving = false
+                btnSendNote.visibility = View.VISIBLE
+                pbSendNoteLoading?.visibility = View.GONE
+                etQuickNote?.isEnabled = true
                 etQuickNote?.text?.clear()
+                currentRawNotes = newNotes
+                initialRawNotes = newNotes
+                renderActivityTimelineUI()
+                Toast.makeText(this@FollowUpActivity, "Note saved", Toast.LENGTH_SHORT).show()
+            }.addOnFailureListener { e ->
+                isNoteSaving = false
+                btnSendNote.visibility = View.VISIBLE
+                pbSendNoteLoading?.visibility = View.GONE
+                etQuickNote?.isEnabled = true
+                Toast.makeText(this@FollowUpActivity, "Couldn't save note: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -2065,8 +2166,15 @@ class FollowUpActivity : AppCompatActivity() {
                         baseUpdatedAtMillis = editedBaseUpdatedAt
                     )
                 },
-                extras = { _ -> updates },
+                extras = { snapData ->
+                    val freshRemoteNotes = snapData["notes"] as? String ?: ""
+                    val merged = NoteUtils.mergeNotesWithoutDuplicates(freshRemoteNotes, updatedNotes)
+                    val freshUpdates = updates.toMutableMap()
+                    freshUpdates["notes"] = merged
+                    freshUpdates
+                },
                 onSuccess = { result ->
+                    hasSavedChanges = true
                     val phoneToNotify = editPhone?.text.toString().trim().ifEmpty { docId }
                     val leadName = editName?.text.toString()
 
@@ -2108,6 +2216,36 @@ class FollowUpActivity : AppCompatActivity() {
                     Toast.makeText(this, "Couldn't save that lead.", Toast.LENGTH_LONG).show()
                 }
             )
+        }
+
+        fun hasUnsavedEdits(): Boolean {
+            val nameChanged = (editName?.text?.toString().orEmpty().trim()) != initialName.trim()
+            val phoneChanged = (editPhone?.text?.toString().orEmpty().trim()) != initialPhone.trim()
+            val emailChanged = (editEmail?.text?.toString().orEmpty().trim()) != initialEmail.trim()
+            val addressChanged = (editAddress?.text?.toString().orEmpty().trim()) != initialAddress.trim()
+            val companyChanged = (editCompany?.text?.toString().orEmpty().trim()) != initialCompany.trim()
+            val jobTitleChanged = (editJobTitle?.text?.toString().orEmpty().trim()) != initialJobTitle.trim()
+            val pendingNote = !etQuickNote?.text.isNullOrBlank()
+            return nameChanged || phoneChanged || emailChanged || addressChanged || companyChanged || jobTitleChanged || pendingNote
+        }
+
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setOnKeyListener { _, keyCode, event ->
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                if (hasUnsavedEdits() && !hasSavedChanges) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Discard Changes?")
+                        .setMessage("You have unsaved edits to this contact profile. Discard them?")
+                        .setPositiveButton("Discard") { _, _ ->
+                            hasSavedChanges = true
+                            dialog.dismiss()
+                        }
+                        .setNegativeButton("Keep Editing", null)
+                        .show()
+                    return@setOnKeyListener true
+                }
+            }
+            false
         }
 
         dialog.show()

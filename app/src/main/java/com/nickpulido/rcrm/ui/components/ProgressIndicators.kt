@@ -25,13 +25,14 @@ fun GlowingProgressIndicator(
     progress: Float,
     modifier: Modifier = Modifier,
     color: Color = NeonCyan,
+    indicatorSize: Dp = 116.dp,
     strokeWidth: Dp = 8.dp,
     glowRadius: Dp = 12.dp,
     content: @Composable () -> Unit
 ) {
     val clamped = progress.coerceIn(0f, 1f)
     Box(
-        modifier = modifier.size(116.dp),
+        modifier = modifier.size(indicatorSize),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.matchParentSize()) {

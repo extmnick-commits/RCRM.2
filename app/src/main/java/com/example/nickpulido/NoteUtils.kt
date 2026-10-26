@@ -35,4 +35,38 @@ object NoteUtils {
     fun wrapVoiceLog(originalNotes: String, newVoiceText: String): String {
         return if (originalNotes.isEmpty()) newVoiceText else "$originalNotes\n\n[Voice Log]: $newVoiceText"
     }
+
+    fun mergeNotesWithoutDuplicates(remote: String, local: String): String {
+        if (remote.isBlank()) return local
+        if (local.isBlank()) return remote
+
+        val parsedRemote = com.nickpulido.rcrm.domain.ContactActivityTimeline.parseNotes(remote)
+        val parsedLocal = com.nickpulido.rcrm.domain.ContactActivityTimeline.parseNotes(local)
+
+        val newFromLocal = mutableListOf<com.nickpulido.rcrm.domain.ParsedNote>()
+        for (localNote in parsedLocal) {
+            val existsInRemote = parsedRemote.any { remoteNote ->
+                if (localNote.eventId != null && remoteNote.eventId != null) {
+                    localNote.eventId == remoteNote.eventId
+                } else {
+                    localNote.content.trim() == remoteNote.content.trim() &&
+                        (localNote.date == remoteNote.date || localNote.date == "Unknown date" || remoteNote.date == "Unknown date")
+                }
+            }
+            if (!existsInRemote && localNote.content.isNotBlank()) {
+                newFromLocal.add(localNote)
+            }
+        }
+
+        if (newFromLocal.isEmpty()) {
+            return remote
+        }
+
+        val prepended = newFromLocal.joinToString("\n\n") { p ->
+            if (p.eventId != null) "[${p.date} | eid:${p.eventId}]: ${p.content}"
+            else if (p.date == "Unknown date") p.content
+            else "[${p.date}]: ${p.content}"
+        }
+        return "$prepended\n\n$remote"
+    }
 }

@@ -77,6 +77,8 @@ class MainActivity : AppCompatActivity() {
     private val allLeadsData = mutableListOf<Map<String, Any>>()
     private var dashboardLeads by mutableStateOf<List<DashboardLead>>(emptyList())
     private var searchQuery by mutableStateOf("")
+    private var isHotListLoading by mutableStateOf(false)
+    private var hotListError by mutableStateOf<String?>(null)
     private var dateLabel by mutableStateOf("Today")
     private var adminLabel by mutableStateOf<String?>(null)
     private var adminRole by mutableStateOf("agent")
@@ -269,6 +271,9 @@ class MainActivity : AppCompatActivity() {
                     onLeadClick = { openLead(it) },
                     onCallLead = { dialLead(it) },
                     onCompleteLead = { completeFollowUp(it) },
+                    isLoading = isHotListLoading,
+                    errorMessage = hotListError,
+                    onRetry = { loadHotList() },
                     upNext = upNextBanner,
                     onUpNextOpenAgenda = {
                         startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
@@ -2008,19 +2013,58 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadHotList() {
         val userId = auth.currentUser?.uid ?: return
+        isHotListLoading = true
+        hotListError = null
         db.collection("leads")
             .whereEqualTo("ownerId", userId)
             .get()
             .addOnSuccessListener { snapshot ->
+                isHotListLoading = false
+                hotListError = null
                 allLeadsData.clear()
                 for (doc in snapshot.documents) {
                     val data = doc.data?.toMutableMap() ?: continue
                     data["__docId"] = doc.id
                     allLeadsData.add(data)
+                    loadEarliestReminderForLead(data)
                 }
                 filterHotList(searchQuery)
                 refreshUpNextLabels()
                 enrichOutcomeRequest()
+            }
+            .addOnFailureListener { e ->
+                isHotListLoading = false
+                hotListError = e.message ?: "Failed to load leads"
+            }
+    }
+
+    private fun loadEarliestReminderForLead(leadMap: MutableMap<String, Any>) {
+        val docId = leadMap["__docId"] as? String ?: return
+        db.collection("leads").document(docId)
+            .collection("next_actions")
+            .whereEqualTo("status", com.nickpulido.rcrm.domain.ActionStatus.PENDING.name)
+            .limit(5)
+            .get()
+            .addOnSuccessListener { snap ->
+                val actions = snap.documents.mapNotNull { d ->
+                    com.nickpulido.rcrm.domain.ReminderPlanner.actionFrom(
+                        id = d.id,
+                        leadId = docId,
+                        typeName = d.getString("type"),
+                        title = d.getString("title") ?: "",
+                        dueTime = (d.get("dueTime") as? Number)?.toLong() ?: 0L,
+                        statusName = d.getString("status")
+                    )
+                }
+                val earliest = actions.filter { it.status == com.nickpulido.rcrm.domain.ActionStatus.PENDING && it.dueTime > 0L }.minByOrNull { it.dueTime }
+                    ?: actions.firstOrNull { it.status == com.nickpulido.rcrm.domain.ActionStatus.PENDING }
+                if (earliest != null) {
+                    leadMap["reminderTitle"] = earliest.title
+                    leadMap["reminderType"] = earliest.type.name
+                    leadMap["reminderDueTime"] = earliest.dueTime
+                    leadMap["reminderId"] = earliest.id
+                    filterHotList(searchQuery)
+                }
             }
     }
 
@@ -2034,6 +2078,7 @@ class MainActivity : AppCompatActivity() {
         
         val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val selectedDateStr = sdf.format(selectedDate)
+        val isSearching = query.isNotBlank()
         
         val filtered = allLeadsData.filter { lead ->
             val name = lead["name"] as? String ?: ""
@@ -2048,13 +2093,17 @@ class MainActivity : AppCompatActivity() {
             val isClosed = lead["isClosed"] as? Boolean == true
             val hasContent = name.isNotBlank() || phone.isNotBlank()
             
-            if (isClosed) return@filter false
-            when (currentTabPosition) {
-                0 -> (leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr) || 
-                     (followUpDate == null && !isPaused && hasContent) // Needs Attention
-                1 -> leadDateStr == selectedDateStr // Today
-                2 -> leadDateStr.isNotEmpty() && leadDateStr > selectedDateStr // Upcoming
-                else -> true
+            if (isClosed && !isSearching) return@filter false
+            if (isSearching) {
+                true
+            } else {
+                when (currentTabPosition) {
+                    0 -> (leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr) || 
+                         (followUpDate == null && !isPaused && hasContent) // Needs Attention
+                    1 -> leadDateStr == selectedDateStr // Today
+                    2 -> leadDateStr.isNotEmpty() && leadDateStr > selectedDateStr // Upcoming
+                    else -> true
+                }
             }
         }
         val detailFormat = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
@@ -2074,20 +2123,47 @@ class MainActivity : AppCompatActivity() {
         val docId = this["__docId"] as? String ?: ""
         val appointment = this["appointmentDate"] as? Timestamp
         val followUp = this["followUpDate"] as? Timestamp
-        val details = mutableListOf<String>()
-        if (appointment != null) {
-            details.add("Appt: ${detailFormat.format(appointment.toDate())}")
+        val reminderTitle = this["reminderTitle"] as? String
+        val reminderType = this["reminderType"] as? String
+        val reminderDueTime = this["reminderDueTime"] as? Long
+        val reminderId = this["reminderId"] as? String
+        val isPaused = this["isPaused"] as? Boolean == true
+        val isClosed = this["isClosed"] as? Boolean == true
+
+        var dueLabel: String? = null
+        var isOverdue = false
+        if (reminderDueTime != null && reminderDueTime > 0L) {
+            dueLabel = com.nickpulido.rcrm.domain.ReminderPlanner.dueLabel(reminderDueTime, System.currentTimeMillis())
+            isOverdue = dueLabel.startsWith("Overdue")
         } else if (followUp != null) {
-            details.add("Due: ${detailFormat.format(followUp.toDate())}")
+            dueLabel = "Due: ${detailFormat.format(followUp.toDate())}"
+            isOverdue = followUp.toDate().time < System.currentTimeMillis()
+        }
+
+        val details = mutableListOf<String>()
+        if (!reminderTitle.isNullOrBlank()) {
+            details.add(reminderTitle)
+        } else if (appointment != null) {
+            details.add("Appt: ${detailFormat.format(appointment.toDate())}")
+        } else if (dueLabel != null) {
+            details.add(dueLabel)
         } else {
             details.add("Needs a next step")
         }
         details.add(phone.ifEmpty { "No Phone" })
+
         return DashboardLead(
             docId = docId,
             name = name,
             details = details.joinToString(" | "),
-            phone = phone
+            phone = phone,
+            reminderId = reminderId,
+            reminderTitle = reminderTitle,
+            reminderType = reminderType,
+            dueLabel = dueLabel,
+            isOverdue = isOverdue,
+            isPaused = isPaused,
+            isClosed = isClosed
         )
     }
 
@@ -2107,26 +2183,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun completeFollowUp(docId: String) {
-        val lead = allLeadsData.find { it["__docId"] == docId }
-        outcomeRequest = if (lead == null) {
+    private fun completeFollowUp(lead: DashboardLead) {
+        val rawLead = allLeadsData.find { it["__docId"] == lead.docId }
+        val baseRequest = if (rawLead == null) {
             OutcomeSheetRequest(
-                leadId = docId,
-                contactName = "Contact",
+                leadId = lead.docId,
+                contactName = lead.name.ifBlank { "Contact" },
                 subtitle = "",
-                currentActionId = null,
+                currentActionId = lead.reminderId,
                 existingFollowUpMillis = null,
                 appointments = emptyList(),
                 outcomeRequired = true,
                 stage = null
             )
         } else {
-            requestForLead(lead)
+            requestForLead(rawLead).copy(currentActionId = lead.reminderId)
         }
-        followUpRepository.loadEarliestPendingActionId(docId) { actionId ->
-            val current = outcomeRequest ?: return@loadEarliestPendingActionId
-            if (current.leadId == docId && !actionId.isNullOrBlank()) {
-                outcomeRequest = current.copy(currentActionId = actionId)
+        outcomeRequest = baseRequest
+
+        if (lead.reminderId.isNullOrBlank()) {
+            followUpRepository.loadEarliestPendingActionId(lead.docId) { actionId ->
+                val current = outcomeRequest ?: return@loadEarliestPendingActionId
+                if (current.leadId == lead.docId && !actionId.isNullOrBlank()) {
+                    outcomeRequest = current.copy(currentActionId = actionId)
+                }
             }
         }
     }

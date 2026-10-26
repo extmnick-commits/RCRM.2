@@ -100,10 +100,19 @@ class ContactsActivity : AppCompatActivity() {
             showLeadDetailsDialog(lead)
         }
 
-        loadContacts()
+        refreshContactsPreservingState()
     }
 
-    private fun loadContacts() {
+    override fun onResume() {
+        super.onResume()
+        refreshContactsPreservingState()
+    }
+
+    private fun refreshContactsPreservingState() {
+        val index = listView.firstVisiblePosition
+        val v = listView.getChildAt(0)
+        val top = v?.top ?: 0
+
         val userId = auth.currentUser?.uid ?: return
         db.collection("leads")
             .whereEqualTo("ownerId", userId)
@@ -117,7 +126,12 @@ class ContactsActivity : AppCompatActivity() {
                 }
                 allLeadsData.sortBy { (it["name"] as? String ?: "").lowercase() }
                 filterContacts()
+                listView.setSelectionFromTop(index, top)
             }
+    }
+
+    private fun loadContacts() {
+        refreshContactsPreservingState()
     }
 
     private fun filterContacts() {
