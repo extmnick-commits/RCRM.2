@@ -65,12 +65,21 @@
                 <TextView android:id="@+id/tvSmartAppointmentSummary" style="@style/SmartLogBody" android:visibility="gone" android:accessibilityLiveRegion="polite" />
                 <Button android:id="@+id/btnClearSmartAppointment" style="@style/SmartLogButton" android:text="@string/sl_clear_appointment" android:visibility="gone"/>
             </LinearLayout>
-            <LinearLayout style="@style/SmartLogCard">
+            <LinearLayout style="@style/SmartLogDisclosureCard">
                 <LinearLayout android:id="@+id/headerAdvancedLogging" style="@style/SmartLogDisclosure">
                     <TextView style="@style/SmartLogLabel" android:layout_width="0dp" android:layout_weight="1" android:text="@string/sl_details" />
-                    <TextView android:id="@+id/tvToggleAdvanced" style="@style/SmartLogBody" android:text="@string/sl_show" />
+                    <TextView android:id="@+id/tvToggleAdvanced"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#2EE7FF"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:background="@drawable/bg_tab_container_pill"
+                        android:text="@string/sl_show" />
                 </LinearLayout>
-                <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools" android:id="@+id/containerAdvancedLogging" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools" android:id="@+id/containerAdvancedLogging" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:layout_marginTop="8dp">
 
                 <Button android:id="@+id/btnScanCardSmartLog" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/sl_scan_card" android:textColor="#2EE7FF" android:background="@drawable/bg_neon_cyan_button" app:backgroundTint="@null" android:minHeight="48dp"/>
                 <EditText android:id="@+id/etContactEmail" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Email Address" android:inputType="textEmailAddress" android:layout_marginTop="8dp" android:importantForAutofill="no" android:minHeight="48dp" android:textColor="#F2F5FA" android:textColorHint="#9AA6BD"/>
@@ -94,7 +103,7 @@
                     <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:minHeight="48dp"/>
                 </LinearLayout>
 
-                <com.google.android.material.card.MaterialCardView android:id="@+id/cardLifeInsuranceDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="?attr/colorSurfaceVariant" app:cardCornerRadius="10dp" app:cardElevation="0dp">
+                <com.google.android.material.card.MaterialCardView android:id="@+id/cardLifeInsuranceDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="#CC121A2C" app:strokeColor="#664C8DFF" app:strokeWidth="1.25dp" app:cardCornerRadius="16dp" app:cardElevation="0dp">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🛡️ Life Insurance Policy Details" android:textStyle="bold" android:textColor="?attr/colorOnSurfaceVariant" android:layout_marginBottom="8dp"/>
                         <Spinner android:id="@+id/spinnerInsPolicyType" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/ins_policy_types" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
@@ -113,7 +122,7 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView android:id="@+id/cardInvestmentDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="?attr/colorSurfaceVariant" app:cardCornerRadius="10dp" app:cardElevation="0dp">
+                <com.google.android.material.card.MaterialCardView android:id="@+id/cardInvestmentDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="#CC121A2C" app:strokeColor="#664C8DFF" app:strokeWidth="1.25dp" app:cardCornerRadius="16dp" app:cardElevation="0dp">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📈 Investment &amp; Retirement Account" android:textStyle="bold" android:textColor="?attr/colorOnSurfaceVariant" android:layout_marginBottom="8dp"/>
                         <Spinner android:id="@+id/spinnerInvAccountType" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/inv_account_types" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
@@ -140,12 +149,21 @@
 
 
             </LinearLayout>
-            <LinearLayout style="@style/SmartLogCard">
+            <LinearLayout style="@style/SmartLogDisclosureCard">
                 <LinearLayout android:id="@+id/headerSmsIntro" style="@style/SmartLogDisclosure">
                     <TextView style="@style/SmartLogLabel" android:layout_width="0dp" android:layout_weight="1" android:text="@string/sl_sms" />
-                    <TextView android:id="@+id/tvToggleSms" style="@style/SmartLogBody" android:text="@string/sl_show" />
+                    <TextView android:id="@+id/tvToggleSms"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#2EE7FF"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:background="@drawable/bg_tab_container_pill"
+                        android:text="@string/sl_show" />
                 </LinearLayout>
-                <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools" android:id="@+id/containerSmsIntro" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+                <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:tools="http://schemas.android.com/tools" android:id="@+id/containerSmsIntro" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:layout_marginTop="8dp">
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
 
@@ -156,7 +174,7 @@
                 <Button android:id="@+id/btnManagePresets" style="?android:attr/borderlessButtonStyle" android:layout_width="match_parent" android:layout_height="wrap_content" android:minWidth="0dp" android:minHeight="48dp" android:text="@string/btn_presets_dropdown" android:textColor="@color/colorPrimary" android:textSize="12sp"/>
             </LinearLayout>
 
-            <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" app:cardCornerRadius="8dp" app:cardElevation="0dp" app:strokeColor="@color/dividerColor" app:strokeWidth="1dp">
+            <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" app:cardBackgroundColor="#CC121A2C" app:strokeColor="#664C8DFF" app:strokeWidth="1.25dp" app:cardCornerRadius="14dp" app:cardElevation="0dp">
 
                 <EditText android:id="@+id/etIntroText" android:layout_width="match_parent" android:layout_height="wrap_content" android:autofillHints="message" android:background="@android:color/transparent" android:gravity="top" android:inputType="textMultiLine" android:minHeight="48dp" android:padding="12dp" android:textSize="14sp"/>
             </com.google.android.material.card.MaterialCardView>
@@ -168,8 +186,32 @@
 
 
             </LinearLayout>
-            <Button android:id="@+id/btnSkipPersonal" style="@style/SmartLogButton" android:text="@string/sl_skip" />
-            <Button android:id="@+id/btnIgnoreCallLog" style="@style/SmartLogButton" android:text="@string/sl_ignore" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                <Button
+                    android:id="@+id/btnSkipPersonal"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="44dp"
+                    android:text="@string/sl_skip"
+                    android:textColor="#9AA6BD"
+                    android:textSize="13sp"
+                    android:textAllCaps="false" />
+                <Button
+                    android:id="@+id/btnIgnoreCallLog"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="44dp"
+                    android:text="@string/sl_ignore"
+                    android:textColor="#9AA6BD"
+                    android:textSize="13sp"
+                    android:textAllCaps="false" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
     <LinearLayout android:id="@+id/bottomActionContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#101828" android:paddingHorizontal="16dp" android:paddingBottom="12dp" android:paddingTop="8dp">
