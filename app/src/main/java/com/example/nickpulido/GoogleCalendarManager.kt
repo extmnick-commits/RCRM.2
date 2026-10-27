@@ -463,6 +463,23 @@ object GoogleCalendarManager {
         }
     }
 
+    fun editEventInGoogleCalendar(context: Context, eventId: Long, startMillis: Long, endMillis: Long) {
+        if (eventId <= 0L) {
+            Toast.makeText(context, R.string.calendar_edit_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+        val intent = Intent(Intent.ACTION_EDIT).apply {
+            data = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+            putExtra(CalendarContract.EXTRA_EVENT_END_TIME,
+                if (endMillis > startMillis) endMillis else startMillis + DEFAULT_DURATION_MS)
+        }
+        if (!tryLaunchCalendarIntent(context, intent)) {
+            Toast.makeText(context, R.string.calendar_edit_no_editor, Toast.LENGTH_LONG).show()
+            openEventInGoogleCalendar(context, eventId, startMillis, endMillis)
+        }
+    }
+
     fun openEventInGoogleCalendar(context: Context, eventId: Long, startMillis: Long, endMillis: Long) {
         if (eventId <= 0L) {
             openGoogleCalendarAtTime(context, startMillis)
@@ -940,39 +957,24 @@ object GoogleCalendarManager {
         }
     }
 
-    private fun launchCalendarIntent(context: Context, intent: Intent) {
-        try {
-            if (context !is Activity) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            val googleIntent = Intent(intent).setPackage(GOOGLE_CALENDAR_PACKAGE)
-            val resolved = try {
-                googleIntent.resolveActivity(context.packageManager) != null
-            } catch (e: Exception) {
-                false
-            }
-            if (resolved) {
-                context.startActivity(googleIntent)
-            } else {
-                context.startActivity(intent)
-            }
-        } catch (e: Exception) {
+    private fun tryLaunchCalendarIntent(context: Context, intent: Intent): Boolean {
+        // Explicit launch works even when Android package visibility hides Google Calendar from resolveActivity.
+        for (packageName in listOf(GOOGLE_CALENDAR_PACKAGE, null)) {
             try {
-                val fallback = Intent(intent).apply {
-                    setPackage(null)
-                    if (context !is Activity) {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-                context.startActivity(fallback)
-            } catch (fallbackError: Exception) {
-                Log.e(TAG, "No calendar app available", fallbackError)
-                Toast.makeText(
-                    context,
-                    "Google Calendar isn't available on this device.",
-                    Toast.LENGTH_LONG
-                ).show()
+                val target = Intent(intent).setPackage(packageName)
+                if (context !is Activity) target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(target)
+                return true
+            } catch (error: Exception) {
+                Log.w(TAG, "Calendar action ${intent.action} unavailable for $packageName", error)
             }
+        }
+        return false
+    }
+
+    private fun launchCalendarIntent(context: Context, intent: Intent) {
+        if (!tryLaunchCalendarIntent(context, intent)) {
+            Toast.makeText(context, "Google Calendar isn't available on this device.", Toast.LENGTH_LONG).show()
         }
     }
 

@@ -1222,8 +1222,7 @@ object AppointmentAgenda {
             appointmentId = appointment.appointmentId,
             leadName = appointment.leadName,
             phone = appointment.phone,
-            location = appointment.location?.takeIf { it.isNotBlank() }
-                ?: event.location?.takeIf { it.isNotBlank() },
+            location = event.location?.takeIf { it.isNotBlank() },
             explicitCrm = true,
             suggestedLeadId = null,
             calendarDisplayName = event.calendarDisplayName,

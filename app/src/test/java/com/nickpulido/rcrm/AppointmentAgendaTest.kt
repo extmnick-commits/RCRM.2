@@ -15,6 +15,28 @@ class AppointmentAgendaTest {
     private val locale: Locale = Locale.US
 
     @Test
+    fun linkedEventUsesTheLocationEditedInGoogleCalendar() {
+        val start = local(2026, Calendar.OCTOBER, 26, 17)
+        val appointment = appointment(start, 42L, "appt-42")
+        val event = calendarEvent(42L, "Appointment", start, start + 3_600_000L).copy(
+            explicitLeadId = "lead-1", explicitAppointmentId = "appt-42", location = "New office")
+        val (from, to) = monthRange(2026, Calendar.OCTOBER)
+        val entries = AppointmentAgenda.reconcile(listOf(appointment), listOf(event), emptyMap(), from, to, zone)
+        assertEquals("New office", entries.single().location)
+    }
+
+    @Test
+    fun clearingTheGoogleCalendarLocationDoesNotResurrectTheOldContactLocation() {
+        val start = local(2026, Calendar.OCTOBER, 26, 17)
+        val appointment = appointment(start, 42L, "appt-42")
+        val event = calendarEvent(42L, "Appointment", start, start + 3_600_000L).copy(
+            explicitLeadId = "lead-1", explicitAppointmentId = "appt-42", location = null)
+        val (from, to) = monthRange(2026, Calendar.OCTOBER)
+        val entries = AppointmentAgenda.reconcile(listOf(appointment), listOf(event), emptyMap(), from, to, zone)
+        assertNull(entries.single().location)
+    }
+
+    @Test
     fun nextMonthStartsTheDayStripOnDayOne() {
         val today = local(2026, Calendar.OCTOBER, 22, 18, 24)
         val todayStart = AppointmentAgenda.startOfDay(today, zone)
