@@ -329,6 +329,7 @@ object GoogleCalendarManager {
         location: String?,
         existingEventId: Long?,
         appointmentId: String? = null,
+        notes: String? = null,
         allowInsert: Boolean = true,
         soleAppointmentForLead: Boolean = false
     ): AppointmentSyncResult {
@@ -347,7 +348,7 @@ object GoogleCalendarManager {
         val preferred = existingEventId?.takeIf { it > 0L }?.let { lookupEvent(context, it) }
         if (preferred != null && linkedToAppointment(preferred, leadId, appointmentId, soleAppointmentForLead)) {
             val preferredResult = updateLinkedEvent(
-                context, preferred, leadId, leadName, phone, startMillis, location, appointmentId
+                context, preferred, leadId, leadName, phone, startMillis, location, notes, appointmentId
             )
             if (preferredResult is AppointmentSyncResult.Linked || preferredResult is AppointmentSyncResult.Failed) {
                 return preferredResult
@@ -359,7 +360,7 @@ object GoogleCalendarManager {
             val found = lookupEvent(context, foundId)
             if (found != null && linkedToAppointment(found, leadId, appointmentId, soleAppointmentForLead)) {
                 val updated = updateLinkedEvent(
-                    context, found, leadId, leadName, phone, startMillis, location, appointmentId
+                    context, found, leadId, leadName, phone, startMillis, location, notes, appointmentId
                 )
                 if (updated is AppointmentSyncResult.Linked || updated is AppointmentSyncResult.Failed) return updated
             }
@@ -369,7 +370,7 @@ object GoogleCalendarManager {
                 "The calendar event could not be found on this device. Tap retry to add it once."
             )
         }
-        return insertLinkedEvent(context, leadId, leadName, phone, startMillis, location, appointmentId)
+        return insertLinkedEvent(context, leadId, leadName, phone, startMillis, location, notes, appointmentId)
     }
 
     fun syncCrmAppointmentAsync(
@@ -381,6 +382,7 @@ object GoogleCalendarManager {
         location: String?,
         existingEventId: Long?,
         appointmentId: String? = null,
+        notes: String? = null,
         allowInsert: Boolean = true,
         soleAppointmentForLead: Boolean = false,
         onResult: (AppointmentSyncResult) -> Unit
@@ -401,6 +403,7 @@ object GoogleCalendarManager {
                     location = location,
                     existingEventId = existingEventId,
                     appointmentId = appointmentId,
+                    notes = notes,
                     allowInsert = allowInsert,
                     soleAppointmentForLead = soleAppointmentForLead
                 )
@@ -468,16 +471,7 @@ object GoogleCalendarManager {
             Toast.makeText(context, R.string.calendar_edit_missing, Toast.LENGTH_LONG).show()
             return
         }
-        val intent = Intent(Intent.ACTION_EDIT).apply {
-            data = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
-            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
-            putExtra(CalendarContract.EXTRA_EVENT_END_TIME,
-                if (endMillis > startMillis) endMillis else startMillis + DEFAULT_DURATION_MS)
-        }
-        if (!tryLaunchCalendarIntent(context, intent)) {
-            Toast.makeText(context, R.string.calendar_edit_no_editor, Toast.LENGTH_LONG).show()
-            openEventInGoogleCalendar(context, eventId, startMillis, endMillis)
-        }
+        openEventInGoogleCalendar(context, eventId, startMillis, endMillis)
     }
 
     fun openEventInGoogleCalendar(context: Context, eventId: Long, startMillis: Long, endMillis: Long) {
@@ -528,10 +522,18 @@ object GoogleCalendarManager {
         leadName: String,
         phone: String?,
         location: String?,
+        notes: String?,
         leadId: String,
         appointmentId: String?
     ): String {
-        return AppointmentAgenda.crmDescription(leadName, phone, location, leadId, appointmentId)
+        return AppointmentAgenda.crmDescription(
+            leadName = leadName,
+            phone = phone,
+            location = location,
+            leadId = leadId,
+            appointmentId = appointmentId,
+            notes = notes
+        )
     }
 
     private fun instanceProjection(extended: Boolean): Array<String> {
@@ -681,6 +683,7 @@ object GoogleCalendarManager {
         phone: String?,
         startMillis: Long,
         location: String?,
+        notes: String?,
         appointmentId: String?
     ): AppointmentSyncResult {
         if (existing.recurring && existing.originalInstanceTime == null) {
@@ -698,6 +701,7 @@ object GoogleCalendarManager {
             leadName = leadName.trim().ifEmpty { "Lead" },
             phone = phone,
             location = location,
+            notes = notes,
             leadId = leadId,
             appointmentId = appointmentId
         )
@@ -733,6 +737,7 @@ object GoogleCalendarManager {
         phone: String?,
         startMillis: Long,
         location: String?,
+        notes: String?,
         appointmentId: String?
     ): AppointmentSyncResult {
         val targetCalendarId = getDefaultCalendarId(context)?.takeIf { id ->
@@ -747,7 +752,7 @@ object GoogleCalendarManager {
             put(CalendarContract.Events.TITLE, "Appointment: $safeName")
             put(
                 CalendarContract.Events.DESCRIPTION,
-                buildCrmDescription(safeName, phone, location, leadId, appointmentId)
+                buildCrmDescription(safeName, phone, location, notes, leadId, appointmentId)
             )
             put(CalendarContract.Events.EVENT_LOCATION, location?.trim().orEmpty())
             put(CalendarContract.Events.DTSTART, startMillis)

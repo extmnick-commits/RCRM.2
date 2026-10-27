@@ -74,21 +74,9 @@ object CalendarEventStore {
             put(CalendarContract.Events.EVENT_LOCATION, draft.location.trim())
             put(CalendarContract.Events.DESCRIPTION, draft.description)
         }
-        // Compare the editable values again in the update, so a concurrent edit is not overwritten.
-        val selection = "${CalendarContract.Events.CALENDAR_ID} = ? AND " +
-            "COALESCE(${CalendarContract.Events.TITLE}, '') = ? AND ${CalendarContract.Events.DTSTART} = ? AND " +
-            "${CalendarContract.Events.DTEND} = ? AND COALESCE(${CalendarContract.Events.EVENT_LOCATION}, '') = ? AND " +
-            "COALESCE(${CalendarContract.Events.DESCRIPTION}, '') = ? AND ${CalendarContract.Events.ALL_DAY} = 0 AND " +
-            "COALESCE(${CalendarContract.Events.RRULE}, '') = '' AND COALESCE(${CalendarContract.Events.RDATE}, '') = '' AND " +
-            "COALESCE(${CalendarContract.Events.ORIGINAL_ID}, 0) = 0 AND " +
-            "COALESCE(${CalendarContract.Events.ORIGINAL_INSTANCE_TIME}, 0) = 0 AND " +
-            "COALESCE(${CalendarContract.Events.HAS_ATTENDEE_DATA}, 0) != 0 AND " +
-            "COALESCE(${CalendarContract.Events.STATUS}, 0) != ${CalendarContract.Events.STATUS_CANCELED}"
-        val args = arrayOf(original.calendarId.toString(), original.title, original.startMillis.toString(),
-            original.endMillis.toString(), original.location, original.description)
         return try {
             val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, original.eventId)
-            if (context.contentResolver.update(uri, values, selection, args) == 1) SaveResult.SAVED else SaveResult.CONFLICT
+            if (context.contentResolver.update(uri, values, null, null) == 1) SaveResult.SAVED else SaveResult.CONFLICT
         } catch (error: Exception) {
             Log.w("CalendarEventStore", "Couldn't update event ${original.eventId}", error)
             SaveResult.FAILED

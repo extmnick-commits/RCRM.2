@@ -805,6 +805,20 @@ class AppointmentAgendaTest {
     }
 
     @Test
+    fun crmDescriptionIncludesNotes() {
+        val desc = AppointmentAgenda.crmDescription(
+            leadName = "Alex",
+            phone = "(209) 549-6004",
+            location = "Office",
+            leadId = "lead-1",
+            appointmentId = "a1",
+            notes = "Client wants to discuss life insurance options"
+        )
+        assertTrue(desc.contains("Notes:\nClient wants to discuss life insurance options"))
+        assertTrue(desc.contains("Open Lead in RCRM: rcrm://lead/lead-1"))
+    }
+
+    @Test
     fun phoneIsFoundInEventTextButNotInDatesOrDialIns() {
         val crmDescription = AppointmentAgenda.crmDescription("Alex", "(209) 549-6004", "Office", "lead-1", "a1")
         assertEquals("2095496004", AppointmentAgenda.extractPhone(crmDescription))
