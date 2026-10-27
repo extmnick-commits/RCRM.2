@@ -284,11 +284,17 @@ object AppointmentAgenda {
         phone: String?,
         location: String?,
         leadId: String,
-        appointmentId: String?
+        appointmentId: String?,
+        notes: String? = null
     ): String {
         val lines = mutableListOf("Appointment with $leadName")
         if (!phone.isNullOrBlank()) lines += "Phone: ${phone.trim()}"
         if (!location.isNullOrBlank()) lines += "Location: ${location.trim()}"
+        if (!notes.isNullOrBlank()) {
+            lines += ""
+            lines += "Notes:"
+            lines += notes.trim()
+        }
         lines += ""
         lines += "---"
         lines += "Open Lead in RCRM: rcrm://lead/$leadId"
@@ -302,12 +308,16 @@ object AppointmentAgenda {
         phone: String?,
         location: String?,
         leadId: String,
-        appointmentId: String?
+        appointmentId: String?,
+        notes: String? = null
     ): String {
         if (existing.isNullOrBlank()) {
-            return crmDescription(leadName, phone, location, leadId, appointmentId)
+            return crmDescription(leadName, phone, location, leadId, appointmentId, notes)
         }
         var text = existing.trimEnd()
+        if (!notes.isNullOrBlank() && !text.contains(notes.trim())) {
+            text += "\n\nNotes:\n${notes.trim()}"
+        }
         if (!text.contains("rcrm://lead/$leadId")) {
             text += "\n\nOpen Lead in RCRM: rcrm://lead/$leadId"
         }
@@ -1222,8 +1232,7 @@ object AppointmentAgenda {
             appointmentId = appointment.appointmentId,
             leadName = appointment.leadName,
             phone = appointment.phone,
-            location = appointment.location?.takeIf { it.isNotBlank() }
-                ?: event.location?.takeIf { it.isNotBlank() },
+            location = event.location?.takeIf { it.isNotBlank() },
             explicitCrm = true,
             suggestedLeadId = null,
             calendarDisplayName = event.calendarDisplayName,

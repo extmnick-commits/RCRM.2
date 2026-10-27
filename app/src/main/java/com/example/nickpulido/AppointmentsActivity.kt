@@ -41,6 +41,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.nickpulido.rcrm.domain.CalendarEditSession
+import com.nickpulido.rcrm.domain.CalendarEventEdit
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -93,6 +95,9 @@ class AppointmentsActivity : AppCompatActivity() {
     private var contactNameTarget: EditText? = null
     private var contactPhoneTarget: EditText? = null
     private var pendingCalendarSync: AppointmentSync.SyncOperation? = null
+    private var activeCalendarEditor: CalendarEventEditor? = null
+    private var openingCalendarEditor = false
+    private var editedCalendarEventId: Long? = null
 
     private sealed interface PendingCalendarAction {
         data object ShowFilter : PendingCalendarAction
@@ -177,6 +182,7 @@ class AppointmentsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_appointments)
 
         if (savedInstanceState != null) {
+            editedCalendarEventId = savedInstanceState.getLong(STATE_EDITED_EVENT, -1L).takeIf { it > 0L }
             visibleMonth.timeInMillis = savedInstanceState.getLong(STATE_MONTH, visibleMonth.timeInMillis)
             zeroTime(visibleMonth)
             visibleMonth.set(Calendar.DAY_OF_MONTH, 1)
@@ -281,11 +287,17 @@ class AppointmentsActivity : AppCompatActivity() {
         }
         if (savedInstanceState == null) {
             maybeShowImmediateFocusDialog()
+        } else {
+            @Suppress("DEPRECATION")
+            val session = savedInstanceState.getSerializable(STATE_CALENDAR_EDIT) as? CalendarEditSession
+            if (session != null) showCalendarEditor(session)
         }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
+        activeCalendarEditor?.session()?.let { outState.putSerializable(STATE_CALENDAR_EDIT, it) }
+        editedCalendarEventId?.let { outState.putLong(STATE_EDITED_EVENT, it) }
         outState.putLong(STATE_MONTH, visibleMonth.timeInMillis)
         outState.putString(STATE_FILTER, monthFilter.name)
         outState.putString(STATE_SOURCE, sourceFilter.name)
@@ -295,7 +307,23 @@ class AppointmentsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        loadAgenda()
+        val eventId = editedCalendarEventId
+        editedCalendarEventId = null
+        if (eventId == null) {
+            loadAgenda()
+        } else {
+            lifecycleScope.launch {
+                val edited = withContext(Dispatchers.IO) { GoogleCalendarManager.lookupEvent(this@AppointmentsActivity, eventId) }
+                if (isDestroyed || isFinishing) return@launch
+                if (edited != null && !edited.recurring && !edited.allDay) focusOnAppointment(edited.startMillis)
+                else loadAgenda()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        activeCalendarEditor?.dismissForLifecycle()
+        super.onDestroy()
     }
 
     private fun readFocusRequest(source: Intent?) {
@@ -1078,12 +1106,19 @@ class AppointmentsActivity : AppCompatActivity() {
             btnOpenLead.visibility = View.GONE
         }
 
-        dialogView.findViewById<View>(R.id.btnEditCalendar).setOnClickListener {
-            dialog.dismiss()
-            openInGoogleCalendar(item)
+        dialogView.findViewById<Button>(R.id.btnEditCalendar).apply {
+            setText(when {
+                item.eventId == null -> R.string.calendar_edit_local_contact
+                !item.canWrite -> R.string.calendar_edit_open
+                item.explicitCrm || item.recurring || item.allDay -> R.string.calendar_edit_google
+                else -> R.string.calendar_edit_action
+            })
+            setOnClickListener { dialog.dismiss(); requestEditAppointment(item) }
         }
 
         dialog.show()
+        dialog.behavior.skipCollapsed = true
+        dialog.behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
     }
 
     private fun canRecordOutcome(item: AgendaItem): Boolean {
@@ -2603,6 +2638,53 @@ class AppointmentsActivity : AppCompatActivity() {
         }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH)).show()
     }
 
+    private fun requestEditAppointment(item: AgendaItem) {
+        if (activeCalendarEditor?.session() != null || openingCalendarEditor) return
+        val eventId = item.eventId?.takeIf { it > 0L }
+        if (eventId == null) {
+            val leadId = item.leadId
+            if (!leadId.isNullOrBlank()) openLeadInRcrm(leadId)
+            else Toast.makeText(this, R.string.calendar_edit_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!item.canWrite) {
+            GoogleCalendarManager.openEventInGoogleCalendar(this, eventId, item.startMillis, item.endMillis)
+            return
+        }
+        if (item.explicitCrm || item.recurring || item.allDay) {
+            if (!item.recurring && !item.allDay) editedCalendarEventId = eventId
+            GoogleCalendarManager.editEventInGoogleCalendar(this, eventId, item.startMillis, item.endMillis)
+            return
+        }
+        openingCalendarEditor = true
+        lifecycleScope.launch {
+            val snapshot = withContext(Dispatchers.IO) { CalendarEventStore.read(this@AppointmentsActivity, eventId) }
+            openingCalendarEditor = false
+            if (isDestroyed || isFinishing) return@launch
+            if (snapshot != null && CalendarEventEdit.route(snapshot) == CalendarEventEdit.Route.IN_APP) {
+                showCalendarEditor(CalendarEditSession(snapshot, CalendarEventEdit.draft(snapshot)))
+            } else if (snapshot != null && CalendarEventEdit.route(snapshot) == CalendarEventEdit.Route.GOOGLE_VIEW) {
+                GoogleCalendarManager.openEventInGoogleCalendar(this@AppointmentsActivity, eventId, item.startMillis, item.endMillis)
+            } else {
+                if (!item.recurring && !item.allDay) editedCalendarEventId = eventId
+                GoogleCalendarManager.editEventInGoogleCalendar(this@AppointmentsActivity, eventId, item.startMillis, item.endMillis)
+            }
+        }
+    }
+
+    private fun showCalendarEditor(session: CalendarEditSession) {
+        activeCalendarEditor = CalendarEventEditor(
+            activity = this, original = session.original, restored = session.draft,
+            onSaved = { draft -> focusOnAppointment(draft.startMillis) },
+            onGoogle = {
+                editedCalendarEventId = session.original.eventId
+                GoogleCalendarManager.editEventInGoogleCalendar(this, session.original.eventId,
+                    session.original.startMillis, session.original.endMillis)
+            },
+            onDismiss = { activeCalendarEditor = null }
+        ).also { it.show() }
+    }
+
     private fun openInGoogleCalendar(item: AgendaItem) {
         val eventId = item.eventId
         if (eventId != null && eventId > 0L) {
@@ -3153,6 +3235,7 @@ class AppointmentsActivity : AppCompatActivity() {
             private val whenLabel: TextView = view.findViewById(R.id.tvEventWhen)
             private val meta: TextView = view.findViewById(R.id.tvEventMeta)
             private val crmBadge: TextView = view.findViewById(R.id.tvCrmLinkedBadge)
+            private val edit: Button = view.findViewById(R.id.btnAgendaEdit)
 
             fun bind(item: AgendaItem) {
                 colorBar.background = GradientDrawable().apply {
@@ -3177,6 +3260,9 @@ class AppointmentsActivity : AppCompatActivity() {
                 itemView.contentDescription = listOf(item.title, item.whenLabel, item.meta, badge.orEmpty())
                     .filter { it.isNotBlank() }
                     .joinToString(", ")
+                edit.setText(if (item.canWrite || item.eventId == null) R.string.calendar_edit_short else R.string.calendar_edit_view_short)
+                edit.contentDescription = getString(if (item.canWrite || item.eventId == null) R.string.calendar_edit_for else R.string.calendar_edit_view_for, item.title)
+                edit.setOnClickListener { requestEditAppointment(item) }
                 itemView.setOnClickListener { showEventActions(item) }
             }
         }
@@ -3303,6 +3389,8 @@ class AppointmentsActivity : AppCompatActivity() {
         private const val VIEW_OPEN_SLOT = 2
         private const val VIEW_PREFS = "appointments_view"
         private const val KEY_SHOW_OPEN_SLOTS = "show_open_slots"
+        private const val STATE_CALENDAR_EDIT = "appointments_calendar_edit"
+        private const val STATE_EDITED_EVENT = "appointments_edited_event"
         private const val STATE_MONTH = "appointments_month"
         private const val STATE_FILTER = "appointments_filter"
         private const val STATE_DAY = "appointments_day"

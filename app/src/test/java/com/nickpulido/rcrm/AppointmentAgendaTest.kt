@@ -15,6 +15,28 @@ class AppointmentAgendaTest {
     private val locale: Locale = Locale.US
 
     @Test
+    fun linkedEventUsesTheLocationEditedInGoogleCalendar() {
+        val start = local(2026, Calendar.OCTOBER, 26, 17)
+        val appointment = appointment(start, 42L, "appt-42")
+        val event = calendarEvent(42L, "Appointment", start, start + 3_600_000L).copy(
+            explicitLeadId = "lead-1", explicitAppointmentId = "appt-42", location = "New office")
+        val (from, to) = monthRange(2026, Calendar.OCTOBER)
+        val entries = AppointmentAgenda.reconcile(listOf(appointment), listOf(event), emptyMap(), from, to, zone)
+        assertEquals("New office", entries.single().location)
+    }
+
+    @Test
+    fun clearingTheGoogleCalendarLocationDoesNotResurrectTheOldContactLocation() {
+        val start = local(2026, Calendar.OCTOBER, 26, 17)
+        val appointment = appointment(start, 42L, "appt-42")
+        val event = calendarEvent(42L, "Appointment", start, start + 3_600_000L).copy(
+            explicitLeadId = "lead-1", explicitAppointmentId = "appt-42", location = null)
+        val (from, to) = monthRange(2026, Calendar.OCTOBER)
+        val entries = AppointmentAgenda.reconcile(listOf(appointment), listOf(event), emptyMap(), from, to, zone)
+        assertNull(entries.single().location)
+    }
+
+    @Test
     fun nextMonthStartsTheDayStripOnDayOne() {
         val today = local(2026, Calendar.OCTOBER, 22, 18, 24)
         val todayStart = AppointmentAgenda.startOfDay(today, zone)
@@ -780,6 +802,20 @@ class AppointmentAgendaTest {
         assertEquals("45m", AppointmentAgenda.durationLabel(45))
         assertEquals("1h", AppointmentAgenda.durationLabel(60))
         assertEquals("1h 30m", AppointmentAgenda.durationLabel(90))
+    }
+
+    @Test
+    fun crmDescriptionIncludesNotes() {
+        val desc = AppointmentAgenda.crmDescription(
+            leadName = "Alex",
+            phone = "(209) 549-6004",
+            location = "Office",
+            leadId = "lead-1",
+            appointmentId = "a1",
+            notes = "Client wants to discuss life insurance options"
+        )
+        assertTrue(desc.contains("Notes:\nClient wants to discuss life insurance options"))
+        assertTrue(desc.contains("Open Lead in RCRM: rcrm://lead/lead-1"))
     }
 
     @Test

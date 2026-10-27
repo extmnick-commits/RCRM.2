@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calendar_edit_action">Edit appointment</string>
+    <string name="calendar_edit_google">Edit in Google Calendar</string>
+    <string name="calendar_edit_open">Open in Google Calendar</string>
+    <string name="calendar_edit_local_contact">Edit contact appointment</string>
+    <string name="calendar_edit_title">Edit appointment</string>
+    <string name="calendar_edit_name">Title</string>
+    <string name="calendar_edit_location">Location or meeting link</string>
+    <string name="calendar_edit_notes">Calendar description</string>
+    <string name="calendar_edit_start">Starts: %1$s</string>
+    <string name="calendar_edit_end">Ends: %1$s</string>
+    <string name="calendar_edit_zone">Times shown in %1$s</string>
+    <string name="calendar_edit_save">Save changes</string>
+    <string name="calendar_edit_cancel">Cancel</string>
+    <string name="calendar_edit_saving">Saving…</string>
+    <string name="calendar_edit_saved">Appointment updated</string>
+    <string name="calendar_edit_failed">Could not save. Your changes are still here. Try again or use Google Calendar.</string>
+    <string name="calendar_edit_conflict">This event changed while you were editing. Reopen it to load the latest details. Your edits have not been saved.</string>
+    <string name="calendar_edit_external_needed">Use Google Calendar to edit this event. Your changes here have not been saved.</string>
+    <string name="calendar_edit_name_required">Enter an appointment title.</string>
+    <string name="calendar_edit_end_required">Choose an end time after the start time.</string>
+    <string name="calendar_edit_discard_title">Discard these changes?</string>
+    <string name="calendar_edit_discard_message">Your appointment edits have not been saved.</string>
+    <string name="calendar_edit_discard">Discard changes</string>
+    <string name="calendar_edit_keep">Keep editing</string>
+    <string name="calendar_edit_missing">This appointment is not linked to a device calendar event.</string>
+    <string name="calendar_edit_no_editor">No calendar editor is available. Opening the event instead.</string>
+    <style name="CalendarEditLabel">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#F2F5FA</item><item name="android:textSize">14sp</item>
+        <item name="android:layout_marginTop">12dp</item><item name="android:layout_marginBottom">6dp</item>
+    </style>
+    <style name="CalendarEditInput">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">48dp</item><item name="android:padding">12dp</item>
+        <item name="android:textColor">#F2F5FA</item><item name="android:textColorHint">#9AA6BD</item>
+        <item name="android:textSize">16sp</item><item name="android:background">@drawable/bg_edittext_outline</item>
+        <item name="android:importantForAutofill">no</item>
+    </style>
+    <style name="CalendarEditButton" parent="Widget.AppCompat.Button">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">48dp</item><item name="android:padding">10dp</item>
+        <item name="android:textAllCaps">false</item><item name="android:textColor">#2EE7FF</item>
+        <item name="android:textSize">14sp</item><item name="android:layout_marginTop">8dp</item>
+        <item name="android:background">@drawable/bg_neon_cyan_button</item><item name="backgroundTint">@null</item>
+    </style>
+    <string name="calendar_edit_short">Edit</string>
+    <string name="calendar_edit_view_short">Open</string>
+    <string name="calendar_edit_for">Edit %1$s</string>
+    <string name="calendar_edit_view_for">Open %1$s</string>
+</resources>

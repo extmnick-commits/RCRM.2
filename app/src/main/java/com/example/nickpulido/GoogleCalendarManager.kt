@@ -329,6 +329,7 @@ object GoogleCalendarManager {
         location: String?,
         existingEventId: Long?,
         appointmentId: String? = null,
+        notes: String? = null,
         allowInsert: Boolean = true,
         soleAppointmentForLead: Boolean = false
     ): AppointmentSyncResult {
@@ -347,7 +348,7 @@ object GoogleCalendarManager {
         val preferred = existingEventId?.takeIf { it > 0L }?.let { lookupEvent(context, it) }
         if (preferred != null && linkedToAppointment(preferred, leadId, appointmentId, soleAppointmentForLead)) {
             val preferredResult = updateLinkedEvent(
-                context, preferred, leadId, leadName, phone, startMillis, location, appointmentId
+                context, preferred, leadId, leadName, phone, startMillis, location, notes, appointmentId
             )
             if (preferredResult is AppointmentSyncResult.Linked || preferredResult is AppointmentSyncResult.Failed) {
                 return preferredResult
@@ -359,7 +360,7 @@ object GoogleCalendarManager {
             val found = lookupEvent(context, foundId)
             if (found != null && linkedToAppointment(found, leadId, appointmentId, soleAppointmentForLead)) {
                 val updated = updateLinkedEvent(
-                    context, found, leadId, leadName, phone, startMillis, location, appointmentId
+                    context, found, leadId, leadName, phone, startMillis, location, notes, appointmentId
                 )
                 if (updated is AppointmentSyncResult.Linked || updated is AppointmentSyncResult.Failed) return updated
             }
@@ -369,7 +370,7 @@ object GoogleCalendarManager {
                 "The calendar event could not be found on this device. Tap retry to add it once."
             )
         }
-        return insertLinkedEvent(context, leadId, leadName, phone, startMillis, location, appointmentId)
+        return insertLinkedEvent(context, leadId, leadName, phone, startMillis, location, notes, appointmentId)
     }
 
     fun syncCrmAppointmentAsync(
@@ -381,6 +382,7 @@ object GoogleCalendarManager {
         location: String?,
         existingEventId: Long?,
         appointmentId: String? = null,
+        notes: String? = null,
         allowInsert: Boolean = true,
         soleAppointmentForLead: Boolean = false,
         onResult: (AppointmentSyncResult) -> Unit
@@ -401,6 +403,7 @@ object GoogleCalendarManager {
                     location = location,
                     existingEventId = existingEventId,
                     appointmentId = appointmentId,
+                    notes = notes,
                     allowInsert = allowInsert,
                     soleAppointmentForLead = soleAppointmentForLead
                 )
@@ -463,6 +466,14 @@ object GoogleCalendarManager {
         }
     }
 
+    fun editEventInGoogleCalendar(context: Context, eventId: Long, startMillis: Long, endMillis: Long) {
+        if (eventId <= 0L) {
+            Toast.makeText(context, R.string.calendar_edit_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+        openEventInGoogleCalendar(context, eventId, startMillis, endMillis)
+    }
+
     fun openEventInGoogleCalendar(context: Context, eventId: Long, startMillis: Long, endMillis: Long) {
         if (eventId <= 0L) {
             openGoogleCalendarAtTime(context, startMillis)
@@ -511,10 +522,18 @@ object GoogleCalendarManager {
         leadName: String,
         phone: String?,
         location: String?,
+        notes: String?,
         leadId: String,
         appointmentId: String?
     ): String {
-        return AppointmentAgenda.crmDescription(leadName, phone, location, leadId, appointmentId)
+        return AppointmentAgenda.crmDescription(
+            leadName = leadName,
+            phone = phone,
+            location = location,
+            leadId = leadId,
+            appointmentId = appointmentId,
+            notes = notes
+        )
     }
 
     private fun instanceProjection(extended: Boolean): Array<String> {
@@ -664,6 +683,7 @@ object GoogleCalendarManager {
         phone: String?,
         startMillis: Long,
         location: String?,
+        notes: String?,
         appointmentId: String?
     ): AppointmentSyncResult {
         if (existing.recurring && existing.originalInstanceTime == null) {
@@ -681,6 +701,7 @@ object GoogleCalendarManager {
             leadName = leadName.trim().ifEmpty { "Lead" },
             phone = phone,
             location = location,
+            notes = notes,
             leadId = leadId,
             appointmentId = appointmentId
         )
@@ -716,6 +737,7 @@ object GoogleCalendarManager {
         phone: String?,
         startMillis: Long,
         location: String?,
+        notes: String?,
         appointmentId: String?
     ): AppointmentSyncResult {
         val targetCalendarId = getDefaultCalendarId(context)?.takeIf { id ->
@@ -730,7 +752,7 @@ object GoogleCalendarManager {
             put(CalendarContract.Events.TITLE, "Appointment: $safeName")
             put(
                 CalendarContract.Events.DESCRIPTION,
-                buildCrmDescription(safeName, phone, location, leadId, appointmentId)
+                buildCrmDescription(safeName, phone, location, notes, leadId, appointmentId)
             )
             put(CalendarContract.Events.EVENT_LOCATION, location?.trim().orEmpty())
             put(CalendarContract.Events.DTSTART, startMillis)
@@ -940,39 +962,24 @@ object GoogleCalendarManager {
         }
     }
 
-    private fun launchCalendarIntent(context: Context, intent: Intent) {
-        try {
-            if (context !is Activity) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            val googleIntent = Intent(intent).setPackage(GOOGLE_CALENDAR_PACKAGE)
-            val resolved = try {
-                googleIntent.resolveActivity(context.packageManager) != null
-            } catch (e: Exception) {
-                false
-            }
-            if (resolved) {
-                context.startActivity(googleIntent)
-            } else {
-                context.startActivity(intent)
-            }
-        } catch (e: Exception) {
+    private fun tryLaunchCalendarIntent(context: Context, intent: Intent): Boolean {
+        // Explicit launch works even when Android package visibility hides Google Calendar from resolveActivity.
+        for (packageName in listOf(GOOGLE_CALENDAR_PACKAGE, null)) {
             try {
-                val fallback = Intent(intent).apply {
-                    setPackage(null)
-                    if (context !is Activity) {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-                context.startActivity(fallback)
-            } catch (fallbackError: Exception) {
-                Log.e(TAG, "No calendar app available", fallbackError)
-                Toast.makeText(
-                    context,
-                    "Google Calendar isn't available on this device.",
-                    Toast.LENGTH_LONG
-                ).show()
+                val target = Intent(intent).setPackage(packageName)
+                if (context !is Activity) target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(target)
+                return true
+            } catch (error: Exception) {
+                Log.w(TAG, "Calendar action ${intent.action} unavailable for $packageName", error)
             }
+        }
+        return false
+    }
+
+    private fun launchCalendarIntent(context: Context, intent: Intent) {
+        if (!tryLaunchCalendarIntent(context, intent)) {
+            Toast.makeText(context, "Google Calendar isn't available on this device.", Toast.LENGTH_LONG).show()
         }
     }
 

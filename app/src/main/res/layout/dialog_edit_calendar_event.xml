@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/bg_dialog_space_glass">
+    <TextView
+        style="@style/CalendarEditLabel"
+        android:text="@string/calendar_edit_title"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/calendarEditScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="false">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="12dp">
+            <TextView
+                style="@style/CalendarEditLabel"
+                android:text="@string/calendar_edit_name"
+                android:labelFor="@id/calendarEditTitle" />
+            <EditText
+                android:id="@+id/calendarEditTitle"
+                style="@style/CalendarEditInput"
+                android:inputType="textCapSentences"
+                android:imeOptions="actionNext" />
+            <TextView
+                android:id="@+id/calendarEditZone"
+                style="@style/CalendarEditLabel"
+                android:textColor="#AFBCD1" />
+            <Button
+                android:id="@+id/calendarEditStart"
+                style="@style/CalendarEditButton" />
+            <Button
+                android:id="@+id/calendarEditEnd"
+                style="@style/CalendarEditButton" />
+            <TextView
+                style="@style/CalendarEditLabel"
+                android:text="@string/calendar_edit_location"
+                android:labelFor="@id/calendarEditLocation" />
+            <EditText
+                android:id="@+id/calendarEditLocation"
+                style="@style/CalendarEditInput"
+                android:inputType="textCapSentences"
+                android:imeOptions="actionNext" />
+            <TextView
+                style="@style/CalendarEditLabel"
+                android:text="@string/calendar_edit_notes"
+                android:labelFor="@id/calendarEditDescription" />
+            <EditText
+                android:id="@+id/calendarEditDescription"
+                style="@style/CalendarEditInput"
+                android:inputType="textCapSentences|textMultiLine"
+                android:gravity="top"
+                android:minLines="3"
+                android:imeOptions="flagNoExtractUi" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+    <TextView
+        android:id="@+id/calendarEditError"
+        style="@style/CalendarEditLabel"
+        android:textColor="#FFB4AB"
+        android:visibility="gone"
+        android:accessibilityLiveRegion="assertive" />
+    <Button
+        android:id="@+id/calendarEditSave"
+        style="@style/CalendarEditButton"
+        android:background="@drawable/bg_primary_gradient_button"
+        android:textColor="#FFFFFF"
+        android:text="@string/calendar_edit_save" />
+    <Button
+        android:id="@+id/calendarEditGoogle"
+        style="@style/CalendarEditButton"
+        android:text="@string/calendar_edit_google" />
+    <Button
+        android:id="@+id/calendarEditCancel"
+        style="@style/CalendarEditButton"
+        android:background="@drawable/bg_frosted_pill_input"
+        android:text="@string/calendar_edit_cancel" />
+</LinearLayout>
