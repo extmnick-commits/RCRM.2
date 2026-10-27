@@ -676,6 +676,19 @@ private fun DueShortcuts(
         GlassButton(
             modifier = Modifier.heightIn(min = 48.dp),
             onClick = {
+                val calendar = Calendar.getInstance().apply {
+                    add(Calendar.DAY_OF_YEAR, 7)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                onDueChange(calendar.timeInMillis)
+            }
+        ) {
+            Text("Next week", maxLines = 1, softWrap = false)
+        }
+        GlassButton(
+            modifier = Modifier.heightIn(min = 48.dp),
+            onClick = {
                 val calendar = Calendar.getInstance()
                 if (dueMillis != null) calendar.timeInMillis = dueMillis
                 DatePickerDialog(

@@ -29,10 +29,16 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +47,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -85,10 +93,6 @@ fun DashboardScreen(
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onQuickAdd: () -> Unit,
-    onAppointments: () -> Unit,
-    onFollowUps: () -> Unit,
-    onContacts: () -> Unit,
-    onPipelines: () -> Unit,
     adminLabel: String?,
     onAdminClick: () -> Unit,
     totalCount: Int,
@@ -103,7 +107,11 @@ fun DashboardScreen(
     onTabSelected: (Int) -> Unit,
     leads: List<DashboardLead>,
     onLeadClick: (String) -> Unit,
-    onCallLead: (String) -> Unit,
+    onCallLead: (DashboardLead) -> Unit,
+    onTextLead: (DashboardLead) -> Unit,
+    onRescheduleLead: (DashboardLead) -> Unit,
+    overdueCount: Int,
+    dueTodayCount: Int,
     onCompleteLead: (DashboardLead) -> Unit,
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
@@ -162,7 +170,11 @@ fun DashboardScreen(
                     onFollowUpCountLongClick = onFollowUpCountLongClick
                 )
             }
-            item { Spacer(modifier = Modifier.height(14.dp)) }
+            item { Spacer(modifier = Modifier.height(12.dp)) }
+            item {
+                CompactNavigation(onQuickAdd)
+            }
+            item { Spacer(modifier = Modifier.height(20.dp)) }
             if (upNext != null) {
                 item {
                     UpNextBanner(
@@ -174,8 +186,26 @@ fun DashboardScreen(
                         onJoinLocation = onUpNextJoinLocation
                     )
                 }
-                item { Spacer(modifier = Modifier.height(14.dp)) }
+                item { Spacer(modifier = Modifier.height(20.dp)) }
+            } else {
+                item {
+                    Column(modifier = Modifier.fillMaxWidth().frostedGlass(shape = RoundedCornerShape(20.dp), fillColor = GlassFill)
+                        .clickable(role = Role.Button, onClick = onUpNextOpenAgenda).padding(16.dp)) {
+                        Text("UP NEXT", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("No upcoming appointment to show", color = TextPrimary, fontSize = 15.sp,
+                            modifier = Modifier.padding(top = 6.dp))
+                        Text("Open agenda", color = NeonCyan, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+                item { Spacer(modifier = Modifier.height(20.dp)) }
             }
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Follow-ups", color = TextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("$overdueCount overdue · $dueTodayCount due", color = TextSecondary, fontSize = 12.sp)
+                }
+            }
+            item { Spacer(modifier = Modifier.height(4.dp)) }
             item {
                 FollowUpTabs(
                     selectedTab = selectedTab,
@@ -247,7 +277,7 @@ fun DashboardScreen(
                         Text(
                             text = when (selectedTab) {
                                 0 -> "No urgent attention needed"
-                                1 -> "No tasks today"
+                                1 -> "You're caught up. No follow-ups due today."
                                 2 -> "No upcoming tasks"
                                 else -> "No tasks"
                             },
@@ -262,32 +292,29 @@ fun DashboardScreen(
                     LeadGlassCard(
                         lead = lead,
                         onClick = { onLeadClick(lead.docId) },
-                        onCall = { onCallLead(lead.phone) },
+                        onCall = { onCallLead(lead) },
+                        onText = { onTextLead(lead) },
+                        onReschedule = { onRescheduleLead(lead) },
                         onComplete = { onCompleteLead(lead) }
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                 }
             }
-            item { Spacer(modifier = Modifier.height(18.dp)) }
-            item {
-                QuickActionsGrid(
-                    onQuickAdd = onQuickAdd,
-                    onAppointments = onAppointments,
-                    onFollowUps = onFollowUps,
-                    onContacts = onContacts,
-                    onPipelines = onPipelines
-                )
-            }
             if (adminLabel != null) {
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                item {
-                    AdminGlassPill(
-                        label = adminLabel,
-                        onClick = onAdminClick
-                    )
-                }
+                item { Spacer(modifier = Modifier.height(18.dp)) }
+                item { AdminGlassPill(label = adminLabel, onClick = onAdminClick) }
             }
         }
+    }
+}
+
+@Composable
+private fun CompactNavigation(onQuickAdd: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+        .background(NeonCyan.copy(alpha = 0.16f)).clickable(role = Role.Button, onClick = onQuickAdd)
+        .padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("+", color = NeonCyan, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+        Text("  Quick add / import", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -386,44 +413,16 @@ private fun DashboardHeader(
     onTotalCountLongClick: () -> Unit,
     onFollowUpCountLongClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "RCRM",
-                color = TextPrimary,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.6).sp
-            )
-            Text(
-                text = dateLabel,
-                color = NeonCyan,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 1.dp)
-            )
+            Text("RCRM", color = TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Text(dateLabel, color = NeonCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            HeaderGoalBadge(
-                count = totalCount,
-                goal = totalGoal,
-                color = NeonCyan,
-                onClick = onTotalGoalClick,
-                onLongClick = onTotalCountLongClick
-            )
-            HeaderGoalBadge(
-                count = followUpCount,
-                goal = followUpGoal,
-                color = NeonGreen,
-                onClick = onFollowUpGoalClick,
-                onLongClick = onFollowUpCountLongClick
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            HeaderGoalBadge(totalCount, totalGoal, NeonCyan, onTotalGoalClick, onTotalCountLongClick,
+                modifier = Modifier.semantics { contentDescription = "Contacts goal: $totalCount of $totalGoal" })
+            HeaderGoalBadge(followUpCount, followUpGoal, NeonGreen, onFollowUpGoalClick, onFollowUpCountLongClick,
+                modifier = Modifier.semantics { contentDescription = "Follow-up goal: $followUpCount of $followUpGoal" })
             HistoryPill(onClick = onHistoryClick)
         }
     }
@@ -525,122 +524,40 @@ private fun LeadGlassCard(
     lead: DashboardLead,
     onClick: () -> Unit,
     onCall: () -> Unit,
+    onText: () -> Unit,
+    onReschedule: () -> Unit,
     onComplete: () -> Unit
 ) {
     val shape = RoundedCornerShape(18.dp)
+    var menuExpanded by remember(lead.docId) { mutableStateOf(false) }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .frostedGlass(shape = shape, fillColor = GlassFill)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().frostedGlass(shape = shape, fillColor = GlassFill)
+            .clickable(onClick = onClick).padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = lead.name,
-                    color = TextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                if (lead.isPaused) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0x33FFB300))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "PAUSED",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFFB300)
-                        )
-                    }
-                }
-                if (lead.isClosed) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0x338E99B0))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "CLOSED",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8E99B0)
-                        )
-                    }
-                }
+            Text(lead.name, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(lead.details, color = if (lead.isOverdue) Color(0xFFFF8A80) else TextSecondary,
+                fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp))
+            if (lead.isPaused || lead.isClosed) {
+                Text(if (lead.isPaused) "Paused" else "Closed", color = TextMuted, fontSize = 11.sp)
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = lead.details,
-                color = if (lead.isOverdue) Color(0xFFFF5252) else TextSecondary,
-                fontSize = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .neonGlow(
-                    color = NeonGreen,
-                    cornerRadius = 22.dp,
-                    blurRadius = 6.dp,
-                    strokeWidth = 1.5.dp,
-                    alpha = 0.9f,
-                    inset = 6.dp
-                )
-                .padding(6.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF0E3A28))
-                .clickable(role = Role.Button, onClick = onCall),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Phone,
-                contentDescription = "Call",
-                tint = NeonGreen,
-                modifier = Modifier.size(16.dp)
-            )
+        TextButton(onClick = onCall, enabled = lead.phone.isNotBlank(), contentPadding = PaddingValues(horizontal = 8.dp)) {
+            Text("Call", color = if (lead.phone.isNotBlank()) NeonGreen else TextMuted, fontSize = 13.sp)
         }
-        Spacer(modifier = Modifier.width(6.dp))
-        Row(
-            modifier = Modifier
-                .height(34.dp)
-                .frostedGlass(
-                    shape = RoundedCornerShape(17.dp),
-                    fillColor = Color(0x2E2EE7FF),
-                    borderBrush = Brush.horizontalGradient(listOf(NeonCyan, NeonBlue)),
-                    borderWidth = 1.dp
-                )
-                .clickable(role = Role.Button, onClick = onComplete)
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = "Log outcome",
-                tint = NeonCyan,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "Log",
-                color = NeonCyan,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+        Box {
+            TextButton(onClick = { menuExpanded = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Text("More", color = NeonCyan, fontSize = 13.sp)
+            }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                DropdownMenuItem(text = { Text("Text") }, enabled = lead.phone.isNotBlank(), onClick = { menuExpanded = false; onText() })
+                DropdownMenuItem(text = { Text("Reschedule") }, onClick = { menuExpanded = false; onReschedule() })
+                DropdownMenuItem(text = { Text("Log outcome") }, onClick = { menuExpanded = false; onComplete() })
+                DropdownMenuItem(text = { Text("Open contact") }, onClick = { menuExpanded = false; onClick() })
+            }
         }
     }
 }
@@ -656,10 +573,6 @@ private fun DashboardScreenPreview() {
             onHistoryClick = {},
             onSettingsClick = {},
             onQuickAdd = {},
-            onAppointments = {},
-            onFollowUps = {},
-            onContacts = {},
-            onPipelines = {},
             adminLabel = "Super Admin Panel",
             onAdminClick = {},
             totalCount = 1,
@@ -682,6 +595,10 @@ private fun DashboardScreenPreview() {
             ),
             onLeadClick = {},
             onCallLead = {},
+            onTextLead = {},
+            onRescheduleLead = {},
+            overdueCount = 1,
+            dueTodayCount = 2,
             onCompleteLead = {},
             upNext = UpNextUi(
                 headline = "Up Next Today",

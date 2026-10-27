@@ -98,7 +98,8 @@ class MainActivity : AppCompatActivity() {
     private var hasPulsedTotalGoal = false
     private var hasPulsedFollowUpGoal = false
 
-    private var currentTabPosition by mutableIntStateOf(0)
+    private var currentTabPosition by mutableIntStateOf(1)
+    private var pendingInteractionLeadId: String? = null
 
     private var upNextBanner by mutableStateOf<UpNextUi?>(null)
     private var upNextEvents: List<SyncedCalendarEvent> = emptyList()
@@ -107,6 +108,23 @@ class MainActivity : AppCompatActivity() {
 
     private var outcomeRequest by mutableStateOf<OutcomeSheetRequest?>(null)
     private val followUpRepository = FollowUpRepository()
+
+    private val interactionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val leadId = pendingInteractionLeadId
+        pendingInteractionLeadId = null
+        if (!leadId.isNullOrBlank()) {
+            AlertDialog.Builder(this)
+                .setTitle("Log your interaction?")
+                .setMessage("Add an outcome and decide when to follow up.")
+                .setPositiveButton("Log interaction") { _, _ ->
+                    val lead = allLeadsData.find { it["__docId"] == leadId }
+                    if (lead != null) completeFollowUp(lead.toDashboardLead(SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())))
+                    else openLeadFromCalendarLink(leadId)
+                }
+                .setNegativeButton("Not now", null)
+                .show()
+        }
+    }
 
     private val backupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { writeBackupToFile(it) }
@@ -191,6 +209,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         outcomeRequest = readOutcomeRequest(savedInstanceState)
+        pendingInteractionLeadId = savedInstanceState?.getString("pending_interaction_lead")
         
         // --- Apply Theme from Prefs Before setContentView ---
         prefs = getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
@@ -221,18 +240,6 @@ class MainActivity : AppCompatActivity() {
                     onHistoryClick = { showDatePicker() },
                     onSettingsClick = { showSettingsDialog() },
                     onQuickAdd = { showQuickAddDialog() },
-                    onAppointments = {
-                        startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
-                    },
-                    onFollowUps = {
-                        startActivity(Intent(this@MainActivity, FollowUpActivity::class.java))
-                    },
-                    onContacts = {
-                        startActivity(Intent(this@MainActivity, ContactsActivity::class.java))
-                    },
-                    onPipelines = {
-                        startActivity(Intent(this@MainActivity, PipelinesActivity::class.java))
-                    },
                     adminLabel = adminLabel,
                     onAdminClick = {
                         when (adminRole) {
@@ -267,7 +274,11 @@ class MainActivity : AppCompatActivity() {
                     },
                     leads = dashboardLeads,
                     onLeadClick = { openLead(it) },
-                    onCallLead = { dialLead(it) },
+                    onCallLead = { launchInteraction(it, false) },
+                    onTextLead = { launchInteraction(it, true) },
+                    onRescheduleLead = { rescheduleDashboardLead(it) },
+                    overdueCount = todayCounts().first,
+                    dueTodayCount = todayCounts().second,
                     onCompleteLead = { completeFollowUp(it) },
                     isLoading = isHotListLoading,
                     errorMessage = hotListError,
@@ -305,6 +316,13 @@ class MainActivity : AppCompatActivity() {
                                 )
                             ) { success, error ->
                                 if (success) {
+                                    request.currentActionId?.let { ReminderAlarmStore.cancelAction(this@MainActivity, request.leadId, it) }
+                                    if (submission.scheduleNext && submission.nextTime != null) {
+                                        val phone = allLeadsData.find { it["__docId"] == request.leadId }?.get("phone") as? String
+                                        ReminderAlarmStore.scheduleAction(this@MainActivity, request.leadId,
+                                            OutcomeSavePlanner.nextActionDocumentId(submission.operationId),
+                                            submission.nextTitle, request.contactName, phone, submission.nextTime)
+                                    }
                                     val name = request.contactName.trim().ifEmpty { "contact" }
                                     com.google.android.material.snackbar.Snackbar.make(
                                         findViewById(android.R.id.content),
@@ -330,6 +348,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        SectionSwipeNavigation.install(this, 0)
         checkPermissions()
         loadLocalStats()
         loadAccountSettings()
@@ -1571,6 +1590,7 @@ class MainActivity : AppCompatActivity() {
         croppedImageUri?.let { outState.putParcelable("CROPPED_IMAGE_URI", it) }
         currentPhotoPath?.let { outState.putString("CURRENT_PHOTO_PATH", it) }
         outcomeRequest?.writeTo(outState)
+        outState.putString("pending_interaction_lead", pendingInteractionLeadId)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
@@ -1645,6 +1665,29 @@ class MainActivity : AppCompatActivity() {
         val companyInput = dialogView.findViewById<EditText>(R.id.editQuickCompany)
         val titleInput = dialogView.findViewById<EditText>(R.id.editQuickJobTitle)
         val btnScanCard = dialogView.findViewById<Button>(R.id.btnScanCard)
+        val moreDetails = dialogView.findViewById<View>(R.id.quickMoreDetails)
+        val targetMarket = dialogView.findViewById<View>(R.id.quickTargetMarket)
+        val moreDetailsButton = dialogView.findViewById<Button>(R.id.btnQuickMoreDetails)
+        val targetMarketButton = dialogView.findViewById<Button>(R.id.btnQuickTargetMarket)
+
+        fun showMoreDetails() {
+            moreDetails.visibility = View.VISIBLE
+            moreDetailsButton.text = "− More contact details"
+        }
+
+        moreDetailsButton.setOnClickListener {
+            if (moreDetails.visibility == View.VISIBLE) {
+                moreDetails.visibility = View.GONE
+                moreDetailsButton.text = "+ More contact details"
+            } else {
+                showMoreDetails()
+            }
+        }
+        targetMarketButton.setOnClickListener {
+            val expanded = targetMarket.visibility != View.VISIBLE
+            targetMarket.visibility = if (expanded) View.VISIBLE else View.GONE
+            targetMarketButton.text = if (expanded) "− Target market" else "+ Target market"
+        }
         
         phoneInput.addTextChangedListener(android.telephony.PhoneNumberFormattingTextWatcher())
         
@@ -1764,6 +1807,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnScanCard?.setOnClickListener {
+            showMoreDetails()
             val options = arrayOf("📷 Take Photo", "🖼️ Choose from Gallery")
             AlertDialog.Builder(this)
                 .setTitle("Scan Business Card")
@@ -1783,6 +1827,7 @@ class MainActivity : AppCompatActivity() {
 
         val btnQuickAddImport = dialogView.findViewById<Button>(R.id.btnQuickAddImport)
         btnQuickAddImport?.setOnClickListener {
+            showMoreDetails()
             pickContactLauncher.launch(null)
         }
 
@@ -1790,7 +1835,11 @@ class MainActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener {
             val rawName = nameInput.text.toString().trim()
-            if (rawName.isEmpty()) return@setOnClickListener
+            if (rawName.isEmpty()) {
+                nameInput.error = "Enter a name"
+                nameInput.requestFocus()
+                return@setOnClickListener
+            }
             val name = rawName.split("\\s+".toRegex()).joinToString(" ") { word ->
                 if (word.isNotEmpty()) word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() } else ""
             }
@@ -2086,19 +2135,20 @@ class MainActivity : AppCompatActivity() {
             if (!matchesSearch) return@filter false
             
             val followUpDate = lead["followUpDate"] as? Timestamp
-            val leadDateStr = followUpDate?.toDate()?.let { sdf.format(it) } ?: ""
+            val reminderMillis = (lead["reminderDueTime"] as? Long)?.takeIf { it > 0L }
+            val leadDateStr = (reminderMillis?.let { Date(it) } ?: followUpDate?.toDate())?.let { sdf.format(it) } ?: ""
             val isPaused = lead["isPaused"] as? Boolean == true
             val isClosed = lead["isClosed"] as? Boolean == true
             val hasContent = name.isNotBlank() || phone.isNotBlank()
             
-            if (isClosed && !isSearching) return@filter false
+            if ((isClosed || isPaused) && !isSearching) return@filter false
             if (isSearching) {
                 true
             } else {
                 when (currentTabPosition) {
                     0 -> (leadDateStr.isNotEmpty() && leadDateStr < selectedDateStr) || 
-                         (followUpDate == null && !isPaused && hasContent) // Needs Attention
-                    1 -> leadDateStr == selectedDateStr // Today
+                         (leadDateStr.isEmpty() && !isPaused && hasContent) // Needs Attention
+                    1 -> leadDateStr.isNotEmpty() && leadDateStr <= selectedDateStr // Due and overdue
                     2 -> leadDateStr.isNotEmpty() && leadDateStr > selectedDateStr // Upcoming
                     else -> true
                 }
@@ -2108,7 +2158,7 @@ class MainActivity : AppCompatActivity() {
         
         val sortedFiltered = filtered.sortedBy { lead -> 
             val followUpDate = lead["followUpDate"] as? Timestamp
-            followUpDate?.toDate()?.time ?: Long.MAX_VALUE 
+            (lead["reminderDueTime"] as? Long)?.takeIf { it > 0L } ?: followUpDate?.toDate()?.time ?: Long.MAX_VALUE
         }
         
         hotListData.addAll(sortedFiltered)
@@ -2141,6 +2191,7 @@ class MainActivity : AppCompatActivity() {
         val details = mutableListOf<String>()
         if (!reminderTitle.isNullOrBlank()) {
             details.add(reminderTitle)
+            if (dueLabel != null) details.add(dueLabel)
         } else if (appointment != null) {
             details.add("Appt: ${detailFormat.format(appointment.toDate())}")
         } else if (dueLabel != null) {
@@ -2173,12 +2224,69 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun dialLead(phone: String) {
-        if (phone.isNotEmpty()) {
-            startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-        } else {
-            Toast.makeText(this, "No phone number", Toast.LENGTH_SHORT).show()
+    private fun todayCounts(): Pair<Int, Int> {
+        val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        val today = format.format(selectedDate)
+        var overdue = 0
+        var dueToday = 0
+        allLeadsData.forEach { lead ->
+            if (lead["isPaused"] == true || lead["isClosed"] == true) return@forEach
+            val due = (lead["reminderDueTime"] as? Long)?.takeIf { it > 0L }
+                ?: (lead["followUpDate"] as? Timestamp)?.toDate()?.time ?: return@forEach
+            val day = format.format(Date(due))
+            if (day < today) overdue++ else if (day == today) dueToday++
         }
+        return overdue to dueToday
+    }
+
+    private fun launchInteraction(lead: DashboardLead, text: Boolean) {
+        if (lead.phone.isBlank()) {
+            Toast.makeText(this, "No phone number for this contact", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val intent = Intent(if (text) Intent.ACTION_SENDTO else Intent.ACTION_DIAL,
+            Uri.parse(if (text) "smsto:${Uri.encode(lead.phone)}" else "tel:${Uri.encode(lead.phone)}"))
+        try {
+            pendingInteractionLeadId = lead.docId
+            interactionLauncher.launch(intent)
+        } catch (e: Exception) {
+            pendingInteractionLeadId = null
+            Toast.makeText(this, if (text) "No messaging app available" else "No phone app available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun rescheduleDashboardLead(lead: DashboardLead) {
+        val actionId = lead.reminderId
+        val ownerId = auth.currentUser?.uid
+        if (actionId.isNullOrBlank() || ownerId.isNullOrBlank()) {
+            openLead(lead.docId)
+            Toast.makeText(this, "Open the reminder to reschedule it", Toast.LENGTH_LONG).show()
+            return
+        }
+        val options = arrayOf("Tomorrow", "Next week", "Choose date and time")
+        fun save(time: Long) {
+            val dueTime = com.nickpulido.rcrm.domain.ReminderPlanner.normalizeDueMillis(time, java.util.TimeZone.getDefault())
+            followUpRepository.rescheduleReminder(lead.docId, ownerId, actionId, dueTime) { success, error ->
+                if (success) {
+                    ReminderAlarmStore.scheduleAction(this, lead.docId, actionId,
+                        lead.reminderTitle ?: "Follow up", lead.name, lead.phone, dueTime)
+                    Toast.makeText(this, "Follow-up rescheduled", Toast.LENGTH_SHORT).show()
+                    loadHotList()
+                } else Toast.makeText(this, error ?: "Couldn't reschedule follow-up", Toast.LENGTH_LONG).show()
+            }
+        }
+        AlertDialog.Builder(this).setTitle("Reschedule ${lead.name}").setItems(options) { _, which ->
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, if (which == 1) 7 else 1); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+            if (which < 2) save(cal.timeInMillis) else {
+                DatePickerDialog(this, R.style.ThemeOverlay_RCRM_DatePicker, { _, year, month, day ->
+                    cal.set(year, month, day)
+                    android.app.TimePickerDialog(this, R.style.ThemeOverlay_RCRM_DatePicker, { _, hour, minute ->
+                        cal.set(Calendar.HOUR_OF_DAY, hour); cal.set(Calendar.MINUTE, minute)
+                        save(cal.timeInMillis)
+                    }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), android.text.format.DateFormat.is24HourFormat(this)).show()
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }
+        }.show()
     }
 
     private fun completeFollowUp(lead: DashboardLead) {

@@ -72,6 +72,7 @@ class ContactsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_contacts)
+        SectionSwipeNavigation.install(this, 4)
 
         listView = findViewById(R.id.listViewContacts)
         etSearch = findViewById(R.id.etSearchContacts)

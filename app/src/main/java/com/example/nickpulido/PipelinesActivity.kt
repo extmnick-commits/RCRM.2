@@ -217,6 +217,7 @@ class PipelinesActivity : ComponentActivity() {
                 }
             }
         }
+        SectionSwipeNavigation.install(this, 3)
     }
 
     private fun updateLeadStage(leadId: String, pType: PipelineType, newStageId: String) {

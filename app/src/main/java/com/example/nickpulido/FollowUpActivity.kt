@@ -70,6 +70,20 @@ class FollowUpActivity : AppCompatActivity() {
 
     private var onVoiceLogComplete: (() -> Unit)? = null
 
+    private var pendingInteractionOutcome: (() -> Unit)? = null
+    private val contactInteractionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val showOutcome = pendingInteractionOutcome
+        pendingInteractionOutcome = null
+        if (showOutcome != null && !isFinishing && !isDestroyed) {
+            AlertDialog.Builder(this)
+                .setTitle("Log your interaction?")
+                .setMessage("Add an outcome and decide when to follow up.")
+                .setPositiveButton("Log interaction") { _, _ -> showOutcome() }
+                .setNegativeButton("Not now", null)
+                .show()
+        }
+    }
+
     private val speechRecognizerLauncherDetails = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val data = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
@@ -118,6 +132,7 @@ class FollowUpActivity : AppCompatActivity() {
         ReminderAlarmStore.onAppStart(this)
         binding = ActivityFollowUpBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        SectionSwipeNavigation.install(this, 2)
 
         binding.rvFollowUps.layoutManager = LinearLayoutManager(this)
         adapter = FollowUpAdapter(
@@ -1645,6 +1660,16 @@ class FollowUpActivity : AppCompatActivity() {
                                     ) { success, errorMessage ->
                                         complete(success, errorMessage)
                                         if (success) {
+                                            if (submission.outcome.isNotBlank() || submission.scheduleNext || submission.clearExisting || submission.lifecycle != com.nickpulido.rcrm.domain.WorkflowLifecycle.UNCHANGED) {
+                                                loadedNextActions.firstOrNull { it.status == ActionStatus.PENDING }?.id?.let {
+                                                    ReminderAlarmStore.cancelAction(this@FollowUpActivity, docId, it)
+                                                }
+                                            }
+                                            if (submission.scheduleNext && submission.nextTime != null) {
+                                                ReminderAlarmStore.scheduleAction(this@FollowUpActivity, docId,
+                                                    OutcomeSavePlanner.nextActionDocumentId(submission.operationId), submission.nextTitle,
+                                                    editName?.text?.toString().orEmpty(), editPhone?.text?.toString(), submission.nextTime)
+                                            }
                                             bottomSheet.dismiss()
                                         }
                                     }
@@ -1658,39 +1683,37 @@ class FollowUpActivity : AppCompatActivity() {
             bottomSheet.show()
         }
 
-        // Contact Buttons
+        // Offer to record an outcome after returning from the external app.
+        fun launchContactInteraction(intent: Intent) {
+            try {
+                pendingInteractionOutcome = showOutcomeSheet
+                contactInteractionLauncher.launch(intent)
+            } catch (e: Exception) {
+                pendingInteractionOutcome = null
+                Toast.makeText(this, "No app available for this action", Toast.LENGTH_SHORT).show()
+            }
+        }
         btnSmsDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
-            if (phone.isNotEmpty()) {
-                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone"))) } catch (e: Exception) {}
-                showOutcomeSheet()
-            }
+            if (phone.isNotBlank()) launchContactInteraction(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(phone)}")))
         }
         btnCallDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
-            if (phone.isNotEmpty()) {
-                try { startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } catch (e: Exception) {}
-                showOutcomeSheet()
-            }
+            if (phone.isNotBlank()) launchContactInteraction(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phone)}")))
         }
         btnEmailDetail?.setOnClickListener {
             val email = editEmail?.text.toString()
-            if (email.isNotEmpty()) {
-                try {
-                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:")
-                        putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
-                    }
-                    startActivity(intent)
-                } catch (e: Exception) {}
-                showOutcomeSheet()
+            if (email.isNotBlank()) {
+                launchContactInteraction(Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:")
+                    putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+                })
             }
         }
         btnMapDetail?.setOnClickListener {
             val addr = editAddress?.text.toString()
             if (addr.isNotEmpty()) {
                 try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(addr)}"))) } catch (e: Exception) {}
-                showOutcomeSheet()
             }
         }
 

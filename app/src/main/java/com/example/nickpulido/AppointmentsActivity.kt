@@ -180,6 +180,7 @@ class AppointmentsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         applyAppTheme()
         setContentView(R.layout.activity_appointments)
+        SectionSwipeNavigation.install(this, 1)
 
         if (savedInstanceState != null) {
             editedCalendarEventId = savedInstanceState.getLong(STATE_EDITED_EVENT, -1L).takeIf { it > 0L }

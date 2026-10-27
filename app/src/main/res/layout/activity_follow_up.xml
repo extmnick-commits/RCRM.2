@@ -6,7 +6,6 @@
     android:paddingStart="20dp"
     android:paddingEnd="20dp"
     android:paddingBottom="20dp"
-    android:paddingTop="44dp"
     android:background="@drawable/bg_space_gradient">
 
     <LinearLayout
