@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="calendar_edit_action">Edit appointment</string>
     <string name="calendar_edit_google">Edit in Google Calendar</string>
     <string name="calendar_edit_open">Open in Google Calendar</string>
@@ -31,7 +31,7 @@
         <item name="android:textColor">#FFF4F7FF</item><item name="android:textSize">14sp</item>
         <item name="android:layout_marginTop">12dp</item><item name="android:layout_marginBottom">6dp</item>
     </style>
-    <style name="CalendarEditInput">
+    <style name="CalendarEditInput" tools:targetApi="26">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
         <item name="android:minHeight">48dp</item><item name="android:padding">12dp</item>
         <item name="android:textColor">#FFF4F7FF</item><item name="android:textColorHint">#FF9AA6BD</item>

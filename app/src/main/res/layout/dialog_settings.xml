@@ -162,10 +162,12 @@
                         android:layout_width="0dp"
                         android:layout_weight="1"
                         android:layout_height="wrap_content"
+                        android:minHeight="48dp"
                         android:text="@string/btn_save_account_default"
                         android:textSize="11sp"
-                        android:backgroundTint="@color/colorSuccess"
-                        android:textColor="@color/white"
+                        android:background="@drawable/bg_neon_green_button"
+                        app:backgroundTint="@null"
+                        android:textColor="@color/textColorPrimary"
                         android:textAllCaps="false"
                         android:layout_marginStart="4dp"/>
                 </LinearLayout>
@@ -174,9 +176,11 @@
                     android:id="@+id/btnAddPreset"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:text="@string/btn_save_to_presets"
-                    android:backgroundTint="@color/colorPrimary"
-                    android:textColor="@color/white"
+                    android:background="@drawable/bg_primary_gradient_button"
+                    app:backgroundTint="@null"
+                    android:textColor="@color/textColorPrimary"
                     android:textAllCaps="false"
                     android:layout_marginTop="8dp"/>
 
@@ -507,9 +511,11 @@
                     android:id="@+id/btnBulkDeleteContacts"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:text="Multi-Delete Contacts"
-                    android:backgroundTint="@color/colorSecondary"
-                    android:textColor="@color/white"
+                    android:background="@drawable/bg_neon_purple_button"
+                    app:backgroundTint="@null"
+                    android:textColor="@color/textColorPrimary"
                     android:textAllCaps="false"
                     android:layout_marginBottom="8dp"/>
 
@@ -518,6 +524,7 @@
                     style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:text="Delete All Contacts"
                     android:textColor="@color/colorDanger"
                     android:textAllCaps="false"/>
@@ -529,9 +536,10 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="@string/btn_sign_out"
-            android:backgroundTint="@color/colorDanger"
-            android:textColor="@color/white"
-            app:cornerRadius="12dp"
+            android:background="@drawable/bg_neon_purple_button"
+            app:backgroundTint="@null"
+            android:textColor="@color/textColorPrimary"
+            app:cornerRadius="18dp"
             android:layout_marginBottom="16dp"/>
 
     </LinearLayout>

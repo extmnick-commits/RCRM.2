@@ -28,14 +28,13 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:gravity="start"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/tvEventTitle"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:textColor="@color/textColorPrimary"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -46,10 +45,9 @@
                 android:id="@+id/tvCrmLinkedBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginTop="4dp"
                 android:background="@drawable/bg_frosted_pill_input"
                 android:ellipsize="end"
-                android:maxWidth="148dp"
                 android:maxLines="1"
                 android:paddingStart="8dp"
                 android:paddingTop="3dp"

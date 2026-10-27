@@ -128,7 +128,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:background="@drawable/bg_frosted_pill_input"
-        android:minHeight="44dp"
+        android:minHeight="48dp"
         android:stateListAnimator="@null"
         android:text="Set Follow-Up"
         android:textAllCaps="false"

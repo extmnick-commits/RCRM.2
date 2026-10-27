@@ -214,7 +214,7 @@
             </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-    <LinearLayout android:id="@+id/bottomActionContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#101828" android:paddingHorizontal="16dp" android:paddingBottom="12dp" android:paddingTop="8dp">
+    <LinearLayout android:id="@+id/bottomActionContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#CC101828" android:paddingHorizontal="16dp" android:paddingBottom="12dp" android:paddingTop="8dp">
         <TextView android:id="@+id/tvSmartSaveError" style="@style/SmartLogBody" android:textColor="#FFB4AB" android:visibility="gone" android:accessibilityLiveRegion="assertive" />
         <TextView style="@style/SmartLogBody" android:text="@string/sl_save_hint" />
         <Button android:id="@+id/btnSaveLeadAction" style="@style/SmartLogPrimaryButton" android:text="@string/sl_save" />

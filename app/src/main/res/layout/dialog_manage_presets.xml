@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/bg_dialog_space_glass">
@@ -20,41 +21,50 @@
             android:layout_marginBottom="16dp"/>
 
         <!-- Side-Kick Section -->
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="?attr/colorSurface"
-            android:padding="12dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#4D000000"
+            app:strokeColor="#66243656">
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/side_kick_title"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/colorPrimary"/>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchSideKick"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true" />
-            </RelativeLayout>
-
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/side_kick_description"
-                android:textSize="12sp"
-                android:textColor="@color/textColorSecondary"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/side_kick_title"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/colorPrimary"/>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchSideKick"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true" />
+                </RelativeLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/side_kick_description"
+                    android:textSize="12sp"
+                    android:textColor="@color/textColorSecondary"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Maintenance Section -->
         <TextView
@@ -76,11 +86,13 @@
                 android:id="@+id/btnCleanDuplicates"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_weight="1"
                 android:text="Clean &amp; Merge"
-                android:textSize="11sp"
-                android:backgroundTint="@color/colorPrimary"
-                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:background="@drawable/bg_neon_cyan_button"
+                app:backgroundTint="@null"
+                android:textColor="@color/textColorPrimary"
                 android:textAllCaps="false"
                 android:layout_marginEnd="4dp"/>
 
@@ -88,11 +100,13 @@
                 android:id="@+id/btnBulkDeleteContacts"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_weight="1"
                 android:text="Multi-Delete"
-                android:textSize="11sp"
-                android:backgroundTint="@color/colorDanger"
-                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:background="@drawable/bg_neon_purple_button"
+                app:backgroundTint="@null"
+                android:textColor="@color/textColorPrimary"
                 android:textAllCaps="false"
                 android:layout_marginStart="4dp"/>
         </LinearLayout>
@@ -117,9 +131,11 @@
             android:id="@+id/etNewPreset"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:hint="New message preset..."
             android:inputType="textMultiLine"
             android:textSize="14sp"
+            android:background="@drawable/bg_edittext_outline"
             android:padding="12dp"
             android:layout_marginBottom="8dp"/>
 
@@ -127,10 +143,12 @@
             android:id="@+id/btnInsertNameTagDialog"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:text="Insert [NAME] Tag"
             android:textSize="12sp"
-            android:backgroundTint="@color/colorSecondary"
-            android:textColor="@color/white"
+            android:background="@drawable/bg_frosted_pill_input"
+            app:backgroundTint="@null"
+            android:textColor="@color/colorInfo"
             android:textAllCaps="false"
             android:layout_marginBottom="8dp"/>
 
@@ -145,10 +163,12 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:text="@string/btn_use_system_default"
                 android:textSize="11sp"
-                android:backgroundTint="?attr/colorSurface"
-                android:textColor="@color/colorPrimary"
+                android:background="@drawable/bg_frosted_pill_input"
+                app:backgroundTint="@null"
+                android:textColor="@color/textColorPrimary"
                 android:textAllCaps="false"
                 android:layout_marginEnd="4dp"/>
 
@@ -157,10 +177,12 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:text="@string/btn_save_account_default"
                 android:textSize="11sp"
-                android:backgroundTint="@color/colorSuccess"
-                android:textColor="@color/white"
+                android:background="@drawable/bg_neon_green_button"
+                app:backgroundTint="@null"
+                android:textColor="@color/textColorPrimary"
                 android:textAllCaps="false"
                 android:layout_marginStart="4dp"/>
         </LinearLayout>
@@ -169,9 +191,11 @@
             android:id="@+id/btnAddPreset"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:text="@string/btn_save_to_presets"
-            android:backgroundTint="@color/colorSecondary"
-            android:textColor="@color/white"
+            android:background="@drawable/bg_primary_gradient_button"
+            app:backgroundTint="@null"
+            android:textColor="@color/textColorPrimary"
             android:textAllCaps="false"
             android:layout_marginBottom="16dp"/>
 

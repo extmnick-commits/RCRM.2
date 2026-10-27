@@ -195,8 +195,6 @@ class MainActivity : AppCompatActivity() {
         // --- Apply Theme from Prefs Before setContentView ---
         prefs = getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
         applyAppTheme()
-        
-        window.decorView.setBackgroundColor(Color.parseColor("#070B14"))
 
         if (auth.currentUser == null) {
             val pendingLeadId = GoogleCalendarManager.leadIdFromUri(intent?.data)
