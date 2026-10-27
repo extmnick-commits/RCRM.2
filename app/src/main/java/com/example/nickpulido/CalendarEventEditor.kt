@@ -126,9 +126,9 @@ class CalendarEventEditor(
 
     private fun pickTime(initial: Long, onPicked: (Long) -> Unit) {
         val calendar = Calendar.getInstance().apply { timeInMillis = initial }
-        val picker = DatePickerDialog(activity, { _, year, month, day ->
+        val picker = DatePickerDialog(activity, R.style.ThemeOverlay_RCRM_DatePicker, { _, year, month, day ->
             calendar.set(year, month, day)
-            val timePicker = TimePickerDialog(activity, { _, hour, minute ->
+            val timePicker = TimePickerDialog(activity, R.style.ThemeOverlay_RCRM_DatePicker, { _, hour, minute ->
                 calendar.set(Calendar.HOUR_OF_DAY, hour)
                 calendar.set(Calendar.MINUTE, minute)
                 calendar.set(Calendar.SECOND, 0)

@@ -43,7 +43,26 @@ class HotListAdapter(
         val category = lead["category"] as? String ?: ""
         if (category.isNotEmpty()) {
             tvCategoryLabel.visibility = View.VISIBLE
-            tvCategoryLabel.text = category.split(",").firstOrNull()?.trim() ?: ""
+            val catDisplay = category.split(",").firstOrNull()?.trim() ?: ""
+            tvCategoryLabel.text = catDisplay
+            val bgRes: Int
+            val textColor: Int
+            when {
+                catDisplay.contains(context.getString(R.string.category_recruit), ignoreCase = true) -> {
+                    bgRes = R.drawable.bg_category_recruit
+                    textColor = android.graphics.Color.parseColor("#3DFF9A")
+                }
+                catDisplay.contains(context.getString(R.string.category_client), ignoreCase = true) -> {
+                    bgRes = R.drawable.bg_category_client
+                    textColor = android.graphics.Color.parseColor("#B14CFF")
+                }
+                else -> {
+                    bgRes = R.drawable.bg_category_prospect
+                    textColor = android.graphics.Color.parseColor("#2EE7FF")
+                }
+            }
+            tvCategoryLabel.background = androidx.core.content.ContextCompat.getDrawable(context, bgRes)
+            tvCategoryLabel.setTextColor(textColor)
         } else {
             tvCategoryLabel.visibility = View.GONE
         }

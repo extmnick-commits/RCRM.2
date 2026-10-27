@@ -916,7 +916,7 @@ class MainActivity : AppCompatActivity() {
         val cal = Calendar.getInstance()
         cal.time = selectedDate
         
-        val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+        val theme = R.style.ThemeOverlay_RCRM_DatePicker
         
         DatePickerDialog(this, theme, { _, year, month, day ->
             cal.set(year, month, day)
@@ -1535,7 +1535,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         TimePickerDialog(
             this,
-            android.R.style.Theme_DeviceDefault_Dialog_Alert,
+            R.style.ThemeOverlay_RCRM_DatePicker,
             { _, hour, minute -> onTimeSelected(hour, minute) },
             initialHour,
             initialMinute,
@@ -1755,7 +1755,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+            val theme = R.style.ThemeOverlay_RCRM_DatePicker
 
             DatePickerDialog(this, theme, { _, year, month, day ->
                 val monthStr = (month + 1).toString().padStart(2, '0')

@@ -18,7 +18,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
             android:text="Add Reminder"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/textColorPrimary"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -27,7 +27,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:textColor="#8E99B0"
+            android:textColor="@color/textColorSecondary"
             android:textSize="14sp" />
 
         <LinearLayout
@@ -40,7 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Title"
-                android:textColor="#8E99B0"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -49,7 +49,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:textColor="#FF5252"
+                android:textColor="@color/colorDanger"
                 android:textSize="12sp"
                 android:visibility="gone" />
         </LinearLayout>
@@ -64,8 +64,8 @@
             android:inputType="textCapSentences"
             android:minHeight="48dp"
             android:padding="16dp"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#8E99B0"
+            android:textColor="@color/textColorPrimary"
+            android:textColorHint="@color/textColorSecondary"
             android:textSize="16sp" />
 
         <TextView
@@ -73,7 +73,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
             android:text="Action"
-            android:textColor="#8E99B0"
+            android:textColor="@color/textColorSecondary"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -96,26 +96,26 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:backgroundTint="#243656"
+                android:background="@drawable/bg_neon_cyan_button"
+                app:backgroundTint="@null"
                 android:minHeight="48dp"
                 android:text="Today"
                 android:textAllCaps="false"
-                android:textColor="#8E99B0"
-                android:textSize="14sp"
-                app:cornerRadius="18dp" />
+                android:textColor="@color/colorInfo"
+                android:textSize="14sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDueTomorrow"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:backgroundTint="#243656"
+                android:background="@drawable/bg_neon_cyan_button"
+                app:backgroundTint="@null"
                 android:minHeight="48dp"
                 android:text="Tomorrow"
                 android:textAllCaps="false"
-                android:textColor="#8E99B0"
-                android:textSize="14sp"
-                app:cornerRadius="18dp" />
+                android:textColor="@color/colorInfo"
+                android:textSize="14sp" />
         </LinearLayout>
 
         <TextView
@@ -123,7 +123,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
             android:text="Date"
-            android:textColor="#8E99B0"
+            android:textColor="@color/textColorSecondary"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -135,7 +135,7 @@
             android:background="@drawable/bg_edittext_outline"
             android:minHeight="48dp"
             android:padding="16dp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/textColorPrimary"
             android:textSize="16sp" />
 
         <TextView
@@ -143,7 +143,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
             android:text="Time"
-            android:textColor="#8E99B0"
+            android:textColor="@color/textColorSecondary"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -155,7 +155,7 @@
             android:background="@drawable/bg_edittext_outline"
             android:minHeight="48dp"
             android:padding="16dp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/textColorPrimary"
             android:textSize="16sp" />
 
         <LinearLayout
@@ -173,7 +173,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Add notes"
-                android:textColor="#8E99B0"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
             <ImageView
@@ -182,7 +182,7 @@
                 android:layout_height="16dp"
                 android:layout_marginStart="4dp"
                 android:src="@android:drawable/arrow_down_float"
-                app:tint="#8E99B0" />
+                app:tint="@color/textColorSecondary" />
         </LinearLayout>
 
         <EditText
@@ -196,8 +196,8 @@
             android:inputType="textMultiLine|textCapSentences"
             android:minLines="2"
             android:padding="16dp"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#8E99B0"
+            android:textColor="@color/textColorPrimary"
+            android:textColorHint="@color/textColorSecondary"
             android:textSize="16sp"
             android:visibility="gone" />
 
@@ -206,7 +206,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:textColor="#FF5252"
+            android:textColor="@color/colorDanger"
             android:textSize="14sp"
             android:visibility="gone" />
 
@@ -214,11 +214,11 @@
             android:id="@+id/btnSaveReminder"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_neon_cyan_button"
+            android:background="@drawable/bg_primary_gradient_button"
             android:minHeight="48dp"
             android:text="Save Reminder"
             android:textAllCaps="false"
-            android:textColor="#2EE7FF"
+            android:textColor="@color/white"
             android:textSize="16sp"
             app:backgroundTint="@null" />
     </LinearLayout>

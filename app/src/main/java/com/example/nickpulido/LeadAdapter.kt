@@ -39,19 +39,16 @@ class LeadAdapter(
             tvCategoryLabel.text = category
             tvCategoryLabel.visibility = View.VISIBLE
             
-            val bgColor = when {
+            val (bgRes, textColor) = when {
                 category.contains(context.getString(R.string.category_recruit), ignoreCase = true) -> 
-                    "#4CAF50".toColorInt()
+                    R.drawable.bg_category_recruit to Color.parseColor("#3DFF9A")
                 category.contains(context.getString(R.string.category_client), ignoreCase = true) -> 
-                    "#9C27B0".toColorInt()
-                else -> "#007BFF".toColorInt()
+                    R.drawable.bg_category_client to Color.parseColor("#B14CFF")
+                else -> 
+                    R.drawable.bg_category_prospect to Color.parseColor("#2EE7FF")
             }
-            
-            val background = GradientDrawable()
-            background.setColor(bgColor)
-            background.cornerRadius = 16f
-            tvCategoryLabel.background = background
-            tvCategoryLabel.setTextColor(Color.WHITE)
+            tvCategoryLabel.background = androidx.core.content.ContextCompat.getDrawable(context, bgRes)
+            tvCategoryLabel.setTextColor(textColor)
         } else {
             tvCategoryLabel.visibility = View.GONE
         }
