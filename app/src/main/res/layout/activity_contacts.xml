@@ -66,11 +66,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardBackgroundColor="#4D000000"
+            app:cardBackgroundColor="#CC121D32"
             app:cardCornerRadius="26dp"
             app:cardElevation="0dp"
             app:strokeWidth="1dp"
-            app:strokeColor="#66243656">
+            app:strokeColor="#664C8DFF">
 
             <LinearLayout
                 android:layout_width="match_parent"

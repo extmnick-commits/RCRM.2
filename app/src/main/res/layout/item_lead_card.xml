@@ -10,8 +10,8 @@
     app:cardCornerRadius="18dp"
     app:cardElevation="0dp"
     app:strokeWidth="1dp"
-    app:strokeColor="#66243656"
-    app:cardBackgroundColor="#4D000000">
+    app:strokeColor="#664C8DFF"
+    app:cardBackgroundColor="#E6121D32">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -36,12 +36,14 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical"
+                android:gravity="start">
 
                 <TextView
                     android:id="@+id/tvLeadName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
+                    android:maxLines="2"
+                    android:ellipsize="end"
                     android:layout_height="wrap_content"
                     android:textSize="18sp"
                     android:textStyle="bold"
@@ -51,7 +53,9 @@
                     android:id="@+id/tvCategoryLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="4dp"
+                    android:maxLines="2"
+                    android:ellipsize="end"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="4dp"
                     android:textSize="11sp"
@@ -63,7 +67,7 @@
                     android:id="@+id/tvNewBadge"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
+                    android:layout_marginTop="4dp"
                     android:paddingHorizontal="6dp"
                     android:paddingVertical="2dp"
                     android:text="NEW"

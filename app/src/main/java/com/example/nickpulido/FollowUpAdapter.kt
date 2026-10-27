@@ -113,7 +113,7 @@ class FollowUpAdapter(
             }
         } else {
             holder.tvDueBadge.visibility = View.GONE
-            holder.cardFollowUp.strokeColor = Color.parseColor("#66243656")
+            holder.cardFollowUp.strokeColor = Color.parseColor("#664C8DFF")
         }
 
         // Subtitle / Notes / Phone details
