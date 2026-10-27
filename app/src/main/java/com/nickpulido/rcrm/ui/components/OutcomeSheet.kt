@@ -680,11 +680,11 @@ private fun DueShortcuts(
                 if (dueMillis != null) calendar.timeInMillis = dueMillis
                 DatePickerDialog(
                     context,
-                    android.R.style.Theme_DeviceDefault_Dialog_Alert,
+                    com.nickpulido.rcrm.R.style.ThemeOverlay_RCRM_DatePicker,
                     { _, year, month, day ->
                         TimePickerDialog(
                             context,
-                            android.R.style.Theme_DeviceDefault_Dialog_Alert,
+                            com.nickpulido.rcrm.R.style.ThemeOverlay_RCRM_DatePicker,
                             { _, hour, minute ->
                                 calendar.set(Calendar.YEAR, year)
                                 calendar.set(Calendar.MONTH, month)

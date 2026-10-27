@@ -7,18 +7,18 @@
     </style>
     <style name="SmartLogBody">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
-        <item name="android:textSize">13sp</item><item name="android:textColor">#AFBCD1</item>
+        <item name="android:textSize">13sp</item><item name="android:textColor">#FF9AA6BD</item>
         <item name="android:paddingVertical">4dp</item>
     </style>
     <style name="SmartLogLabel" parent="SmartLogBody">
-        <item name="android:textSize">15sp</item><item name="android:textColor">#F2F5FA</item><item name="android:textStyle">bold</item>
+        <item name="android:textSize">15sp</item><item name="android:textColor">#FFF4F7FF</item><item name="android:textStyle">bold</item>
     </style>
     <style name="SmartLogTitle" parent="SmartLogLabel"><item name="android:textSize">24sp</item></style>
     <style name="SmartLogInput">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
         <item name="android:minHeight">48dp</item><item name="android:padding">12dp</item><item name="android:layout_marginTop">6dp</item>
-        <item name="android:background">@drawable/bg_edittext_outline</item><item name="android:textColor">#F2F5FA</item>
-        <item name="android:textColorHint">#9AA6BD</item><item name="android:textSize">16sp</item><item name="android:importantForAutofill">no</item>
+        <item name="android:background">@drawable/bg_edittext_outline</item><item name="android:textColor">#FFF4F7FF</item>
+        <item name="android:textColorHint">#FF9AA6BD</item><item name="android:textSize">16sp</item><item name="android:importantForAutofill">no</item>
     </style>
     <style name="SmartLogButton" parent="Widget.AppCompat.Button">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
@@ -44,7 +44,7 @@
     </style>
     <style name="SmartLogChip" parent="Widget.MaterialComponents.Chip.Choice">
         <item name="android:layout_width">wrap_content</item><item name="android:layout_height">wrap_content</item><item name="android:textSize">14sp</item>
-        <item name="android:textColor">#F2F5FA</item><item name="chipBackgroundColor">@color/smart_log_chip_fill</item>
+        <item name="android:textColor">#FFF4F7FF</item><item name="chipBackgroundColor">@color/smart_log_chip_fill</item>
         <item name="chipStrokeColor">@color/smart_log_chip_stroke</item><item name="chipStrokeWidth">1dp</item>
         <item name="ensureMinTouchTargetSize">true</item><item name="chipMinTouchTargetSize">48dp</item>
     </style>

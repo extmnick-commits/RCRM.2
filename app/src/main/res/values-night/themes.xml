@@ -20,7 +20,7 @@
         <item name="colorOutline">@color/dividerColor</item>
         <item name="colorOutlineVariant">#22FFFFFF</item>
 
-        <item name="android:windowBackground">@color/backgroundColor</item>
+        <item name="android:windowBackground">@drawable/bg_space_gradient</item>
         <item name="android:statusBarColor">@color/backgroundColor</item>
         <item name="android:navigationBarColor">@color/backgroundColor</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -40,6 +40,8 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
         <item name="alertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
         <item name="android:alertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
+        <item name="android:datePickerDialogTheme">@style/ThemeOverlay.RCRM.DatePicker</item>
+        <item name="android:timePickerDialogTheme">@style/ThemeOverlay.RCRM.DatePicker</item>
         <item name="popupMenuStyle">@style/Widget.RCRM.PopupMenu</item>
         <item name="android:popupMenuStyle">@style/Widget.RCRM.PopupMenu</item>
         <item name="listPopupWindowStyle">@style/Widget.RCRM.PopupMenu.List</item>

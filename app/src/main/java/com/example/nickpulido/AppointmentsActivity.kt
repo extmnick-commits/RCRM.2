@@ -1655,7 +1655,7 @@ class AppointmentsActivity : AppCompatActivity() {
             val cal = tempCal ?: Calendar.getInstance()
             DatePickerDialog(
                 this,
-                android.R.style.Theme_DeviceDefault_Dialog_Alert,
+                R.style.ThemeOverlay_RCRM_DatePicker,
                 { _, year, month, day ->
                     if (tempCal == null) tempCal = Calendar.getInstance()
                     tempCal?.set(year, month, day)
@@ -1671,7 +1671,7 @@ class AppointmentsActivity : AppCompatActivity() {
             val cal = tempCal ?: Calendar.getInstance()
             TimePickerDialog(
                 this,
-                android.R.style.Theme_DeviceDefault_Dialog_Alert,
+                R.style.ThemeOverlay_RCRM_DatePicker,
                 { _, hour, minute ->
                     if (tempCal == null) tempCal = Calendar.getInstance()
                     tempCal?.set(Calendar.HOUR_OF_DAY, hour)
@@ -2625,7 +2625,7 @@ class AppointmentsActivity : AppCompatActivity() {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+        val theme = R.style.ThemeOverlay_RCRM_DatePicker
         DatePickerDialog(this, theme, { _, year, month, day ->
             initial.set(year, month, day)
             TimePickerDialog(this, theme, { _, hour, minute ->

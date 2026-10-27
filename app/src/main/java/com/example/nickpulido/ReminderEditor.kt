@@ -206,6 +206,7 @@ internal fun AppCompatActivity.showReminderEditor(
         val calendar = Calendar.getInstance(zone).apply { timeInMillis = selectedTime }
         DatePickerDialog(
             this,
+            R.style.ThemeOverlay_RCRM_DatePicker,
             { _, year, month, day ->
                 calendar.set(Calendar.YEAR, year)
                 calendar.set(Calendar.MONTH, month)
@@ -222,6 +223,7 @@ internal fun AppCompatActivity.showReminderEditor(
         val calendar = Calendar.getInstance(zone).apply { timeInMillis = selectedTime }
         TimePickerDialog(
             this,
+            R.style.ThemeOverlay_RCRM_DatePicker,
             { _, hour, minute ->
                 calendar.set(Calendar.HOUR_OF_DAY, hour)
                 calendar.set(Calendar.MINUTE, minute)

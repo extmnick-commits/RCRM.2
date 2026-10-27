@@ -7,7 +7,7 @@
     android:paddingEnd="20dp"
     android:paddingBottom="20dp"
     android:paddingTop="44dp"
-    android:background="@color/backgroundColor">
+    android:background="@drawable/bg_space_gradient">
 
     <LinearLayout
         android:id="@+id/headerContainer"
@@ -44,13 +44,16 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSideKickPage"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="38dp"
             android:layout_marginStart="8dp"
+            android:background="@drawable/bg_tab_container_pill"
+            app:backgroundTint="@null"
+            android:paddingHorizontal="14dp"
             android:text="💡 Side-Kick"
             android:textAllCaps="false"
-            android:textColor="@color/colorPrimary" />
+            android:textSize="13sp"
+            android:textColor="#2EE7FF" />
     </LinearLayout>
 
     <!-- Follow-up Progress Dial -->
@@ -61,9 +64,9 @@
         android:layout_below="@id/headerContainer"
         android:layout_marginTop="16dp"
         app:cardCornerRadius="20dp"
-        app:cardBackgroundColor="#4D000000"
-        app:strokeColor="#66243656"
-        app:strokeWidth="1dp"
+        app:cardBackgroundColor="#26321428"
+        app:strokeColor="#80FF3B8D"
+        app:strokeWidth="1.25dp"
         app:cardElevation="0dp"
         android:clickable="true"
         android:focusable="true"
@@ -87,8 +90,8 @@
                     android:layout_gravity="center"
                     app:indicatorSize="80dp"
                     app:trackThickness="8dp"
-                    app:indicatorColor="@color/colorSuccess"
-                    app:trackColor="@color/dividerColor"
+                    app:indicatorColor="#FF3B8D"
+                    app:trackColor="#33FF3B8D"
                     app:trackCornerRadius="4dp"
                     android:max="100"
                     android:progress="0" />
@@ -99,7 +102,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:text="0"
-                    android:textSize="18sp"
+                    android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="@color/textColorPrimary" />
             </FrameLayout>
@@ -115,7 +118,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Follow-Ups Today"
-                    android:textSize="16sp"
+                    android:textSize="17sp"
                     android:textStyle="bold"
                     android:textColor="@color/textColorPrimary" />
 
@@ -123,6 +126,7 @@
                     android:id="@+id/tvFollowUpGoalDisplay"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:text="Goal: 0"
                     android:textSize="14sp"
                     android:textColor="@color/textColorSecondary" />
@@ -133,7 +137,7 @@
                 android:layout_height="24dp"
                 android:src="@android:drawable/ic_menu_edit"
                 android:contentDescription="Edit Goal"
-                app:tint="@color/textColorSecondary" />
+                app:tint="#2EE7FF" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -192,7 +196,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_sort_by_size"
             android:contentDescription="Filter Category"
-            app:tint="@color/colorPrimary" />
+            app:tint="#2EE7FF" />
     </LinearLayout>
 
     <TextView

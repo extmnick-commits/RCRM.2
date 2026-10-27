@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
-    android:background="@color/backgroundColor">
+    android:background="@drawable/bg_space_gradient">
 
     <RelativeLayout
         android:id="@+id/headerContainer"
@@ -42,7 +42,11 @@
         android:layout_height="wrap_content"
         android:text="View My Team (Admin Dashboard)"
         android:layout_below="@id/headerContainer"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp"
+        android:textAllCaps="false"
+        android:textColor="@color/textColorPrimary"
+        android:background="@drawable/bg_neon_cyan_button"
+        app:backgroundTint="@null" />
 
     <ListView
         android:id="@+id/listViewAllUsers"

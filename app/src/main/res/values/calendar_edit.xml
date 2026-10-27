@@ -28,13 +28,13 @@
     <string name="calendar_edit_no_editor">No calendar editor is available. Opening the event instead.</string>
     <style name="CalendarEditLabel">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">#F2F5FA</item><item name="android:textSize">14sp</item>
+        <item name="android:textColor">#FFF4F7FF</item><item name="android:textSize">14sp</item>
         <item name="android:layout_marginTop">12dp</item><item name="android:layout_marginBottom">6dp</item>
     </style>
     <style name="CalendarEditInput">
         <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
         <item name="android:minHeight">48dp</item><item name="android:padding">12dp</item>
-        <item name="android:textColor">#F2F5FA</item><item name="android:textColorHint">#9AA6BD</item>
+        <item name="android:textColor">#FFF4F7FF</item><item name="android:textColorHint">#FF9AA6BD</item>
         <item name="android:textSize">16sp</item><item name="android:background">@drawable/bg_edittext_outline</item>
         <item name="android:importantForAutofill">no</item>
     </style>

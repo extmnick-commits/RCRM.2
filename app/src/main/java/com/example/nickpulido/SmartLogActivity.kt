@@ -392,7 +392,7 @@ class SmartLogActivity : AppCompatActivity() {
         }
 
         btn7pmToday.setOnLongClickListener {
-            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+            val theme = R.style.ThemeOverlay_RCRM_DatePicker
             
             TimePickerDialog(this, theme, { _, hour, minute ->
                 todayPresetHour = hour
@@ -425,7 +425,7 @@ class SmartLogActivity : AppCompatActivity() {
         }
 
         btn7pmTomorrow.setOnLongClickListener {
-            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+            val theme = R.style.ThemeOverlay_RCRM_DatePicker
             
             TimePickerDialog(this, theme, { _, hour, minute ->
                 tomorrowPresetHour = hour
@@ -904,7 +904,7 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnApptDate.setOnClickListener {
             val cal = tempCal ?: Calendar.getInstance()
-            DatePickerDialog(this, android.R.style.Theme_DeviceDefault_Dialog_Alert, { _, year, month, day ->
+            DatePickerDialog(this, R.style.ThemeOverlay_RCRM_DatePicker, { _, year, month, day ->
                 if (tempCal == null) tempCal = Calendar.getInstance()
                 tempCal!!.set(year, month, day)
                 updateDateTimeUI()
@@ -913,7 +913,7 @@ class SmartLogActivity : AppCompatActivity() {
 
         btnApptTime.setOnClickListener {
             val cal = tempCal ?: Calendar.getInstance()
-            TimePickerDialog(this, android.R.style.Theme_DeviceDefault_Dialog_Alert, { _, hour, minute ->
+            TimePickerDialog(this, R.style.ThemeOverlay_RCRM_DatePicker, { _, hour, minute ->
                 if (tempCal == null) tempCal = Calendar.getInstance()
                 tempCal!!.set(Calendar.HOUR_OF_DAY, hour)
                 tempCal!!.set(Calendar.MINUTE, minute)
@@ -955,7 +955,7 @@ class SmartLogActivity : AppCompatActivity() {
     }
 
     private fun showDateTimePicker(initialCal: Calendar) {
-        val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+        val theme = R.style.ThemeOverlay_RCRM_DatePicker
         
         DatePickerDialog(this, theme, { _, year, month, day ->
             initialCal.set(year, month, day)

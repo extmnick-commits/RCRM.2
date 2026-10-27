@@ -24,7 +24,7 @@
             android:layout_height="36dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/checkbox_off_background"
-            app:tint="#2EE7FF"
+            app:tint="@color/colorInfo"
             android:contentDescription="Complete Reminder" />
 
         <!-- Type Icon -->
@@ -34,7 +34,7 @@
             android:layout_height="24dp"
             android:layout_marginStart="12dp"
             android:src="@android:drawable/ic_menu_call"
-            app:tint="#3DFF9A"
+            app:tint="@color/colorSuccess"
             android:background="@drawable/bg_icon_circle_green" />
 
         <LinearLayout
@@ -49,7 +49,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Reminder Title"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/textColorPrimary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -59,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Tomorrow 9:00 AM"
-                android:textColor="#2EE7FF"
+                android:textColor="@color/colorInfo"
                 android:textSize="13sp" />
 
             <TextView
@@ -67,7 +67,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textColor="#8E99B0"
+                android:textColor="@color/textColorSecondary"
                 android:textSize="13sp"
                 android:visibility="gone" />
 
@@ -86,11 +86,11 @@
                     android:minHeight="48dp"
                     android:text="Call"
                     android:textAllCaps="false"
-                    android:textColor="#2EE7FF"
+                    android:textColor="@color/colorInfo"
                     android:textSize="14sp"
-                    app:backgroundTint="#243656"
-                    app:cornerRadius="16dp"
-                    app:iconTint="#2EE7FF"
+                    android:background="@drawable/bg_neon_cyan_button"
+                    app:backgroundTint="@null"
+                    app:iconTint="@color/colorInfo"
                     android:visibility="gone" />
 
                 <com.google.android.material.button.MaterialButton
@@ -102,7 +102,7 @@
                     android:minHeight="48dp"
                     android:text="Later"
                     android:textAllCaps="false"
-                    android:textColor="#8E99B0"
+                    android:textColor="@color/textColorSecondary"
                     android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
@@ -115,7 +115,7 @@
             android:layout_marginStart="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_more"
-            app:tint="#8E99B0"
+            app:tint="@color/textColorSecondary"
             android:contentDescription="Options" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

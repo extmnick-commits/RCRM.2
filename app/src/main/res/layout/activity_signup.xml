@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="32dp"
-    android:background="@drawable/bg_dialog_space_glass"
+    android:background="@drawable/bg_space_gradient"
     tools:context=".SignupActivity">
 
     <TextView

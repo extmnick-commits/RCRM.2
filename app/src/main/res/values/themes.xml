@@ -20,7 +20,7 @@
         <item name="colorOutline">@color/dividerColor</item>
         <item name="colorOutlineVariant">#22FFFFFF</item>
 
-        <item name="android:windowBackground">@color/backgroundColor</item>
+        <item name="android:windowBackground">@drawable/bg_space_gradient</item>
         <item name="android:statusBarColor">@color/backgroundColor</item>
         <item name="android:navigationBarColor">@color/backgroundColor</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -40,6 +40,8 @@
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
         <item name="alertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
         <item name="android:alertDialogTheme">@style/ThemeOverlay.RCRM.AlertDialog</item>
+        <item name="android:datePickerDialogTheme">@style/ThemeOverlay.RCRM.DatePicker</item>
+        <item name="android:timePickerDialogTheme">@style/ThemeOverlay.RCRM.DatePicker</item>
         <item name="popupMenuStyle">@style/Widget.RCRM.PopupMenu</item>
         <item name="android:popupMenuStyle">@style/Widget.RCRM.PopupMenu</item>
         <item name="listPopupWindowStyle">@style/Widget.RCRM.PopupMenu.List</item>
@@ -57,19 +59,19 @@
 
     <style name="Widget.RCRM.Button.Text" parent="Widget.Material3.Button.TextButton">
         <item name="android:textAllCaps">false</item>
-        <item name="android:textColor">@color/colorPrimary</item>
+        <item name="android:textColor">@color/colorInfo</item>
     </style>
 
     <style name="Widget.RCRM.Card" parent="Widget.Material3.CardView.Filled">
-        <item name="cardBackgroundColor">@color/surfaceColor</item>
+        <item name="cardBackgroundColor">#4D000000</item>
         <item name="cardCornerRadius">18dp</item>
         <item name="cardElevation">0dp</item>
         <item name="strokeWidth">1dp</item>
-        <item name="strokeColor">@color/dividerColor</item>
+        <item name="strokeColor">#66243656</item>
     </style>
 
     <style name="ThemeOverlay.RCRM.AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="android:windowBackground">@color/surfaceColor</item>
+        <item name="android:windowBackground">@drawable/bg_dialog_space_glass</item>
         <item name="android:colorBackground">@color/surfaceColor</item>
         <item name="colorSurface">@color/surfaceColor</item>
         <item name="colorOnSurface">@color/textColorPrimary</item>
@@ -80,6 +82,20 @@
         <item name="buttonBarPositiveButtonStyle">@style/Widget.RCRM.Button.Text</item>
         <item name="buttonBarNegativeButtonStyle">@style/Widget.RCRM.Button.Text</item>
         <item name="buttonBarNeutralButtonStyle">@style/Widget.RCRM.Button.Text</item>
+    </style>
+
+    <style name="ThemeOverlay.RCRM.DatePicker" parent="ThemeOverlay.Material3.Dialog">
+        <item name="android:colorBackground">@color/surfaceColor</item>
+        <item name="colorSurface">@color/surfaceColor</item>
+        <item name="colorOnSurface">@color/textColorPrimary</item>
+        <item name="colorOnSurfaceVariant">@color/textColorSecondary</item>
+        <item name="colorPrimary">@color/colorInfo</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.RCRM.Button.Text</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.RCRM.Button.Text</item>
     </style>
 
     <style name="Widget.RCRM.PopupMenu" parent="Widget.Material3.PopupMenu">

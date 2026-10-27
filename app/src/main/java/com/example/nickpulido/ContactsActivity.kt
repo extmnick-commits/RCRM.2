@@ -274,7 +274,7 @@ class ContactsActivity : AppCompatActivity() {
                 }
             }
 
-            val theme = android.R.style.Theme_DeviceDefault_Dialog_Alert
+            val theme = R.style.ThemeOverlay_RCRM_DatePicker
 
             DatePickerDialog(this, theme, { _, year, month, day ->
                 val monthStr = (month + 1).toString().padStart(2, '0')
@@ -656,11 +656,16 @@ class ContactsActivity : AppCompatActivity() {
                 tvCategoryLabel.text = category
                 tvCategoryLabel.visibility = View.VISIBLE
                 
-                val background = GradientDrawable()
-                background.setColor(Color.parseColor("#E9ECEF"))
-                background.cornerRadius = 16f
-                tvCategoryLabel.background = background
-                tvCategoryLabel.setTextColor(Color.parseColor("#495057"))
+                val (bgRes, textColor) = when {
+                    category.contains(context.getString(R.string.category_recruit), ignoreCase = true) -> 
+                        R.drawable.bg_category_recruit to Color.parseColor("#3DFF9A")
+                    category.contains(context.getString(R.string.category_client), ignoreCase = true) -> 
+                        R.drawable.bg_category_client to Color.parseColor("#B14CFF")
+                    else -> 
+                        R.drawable.bg_category_prospect to Color.parseColor("#2EE7FF")
+                }
+                tvCategoryLabel.background = androidx.core.content.ContextCompat.getDrawable(context, bgRes)
+                tvCategoryLabel.setTextColor(textColor)
             } else {
                 tvCategoryLabel.visibility = View.GONE
             }
