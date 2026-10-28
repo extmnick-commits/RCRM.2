@@ -210,6 +210,7 @@ class SmartLogActivity : AppCompatActivity() {
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
         val etNotes = findViewById<EditText>(R.id.etQuickNote)
+        NotePolisher.bind(this, findViewById(R.id.btnPolishNote), etNotes)
         val etIntroText = findViewById<EditText>(R.id.etIntroText)
         val btnSave = findViewById<Button>(R.id.btnSaveLeadAction)
         val btnSms = findViewById<Button>(R.id.btnSendIntroAction)
@@ -261,17 +262,20 @@ class SmartLogActivity : AppCompatActivity() {
             
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val prompt = "You are an assistant for a Primerica agent. Draft a short, warm, and professional SMS message to $currentName. " +
-                                 "Use the following notes for context. Do not mention the notes directly. " +
-                                 "Keep it under 2 sentences and ready to send.\nNotes:\n$currentNote"
-                    val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                    val draft = LocalSmsDraft.generate(currentName, currentNote) {
+                        runOnUiThread {
+                            if (!isFinishing && !isDestroyed) btnAIGenerate.text = "Downloading AI..."
+                        }
+                    }
                     
                     withContext(Dispatchers.Main) {
                         if (isSavingLog || isFinishing || isDestroyed) return@withContext
-                        etIntroText.setText(response.text?.trim() ?: "Could not generate message.")
+                        etIntroText.setText(draft)
                         btnAIGenerate.isEnabled = true
                         btnAIGenerate.text = "✨ AI Draft"
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "AI Draft Error", e)
                     withContext(Dispatchers.Main) {

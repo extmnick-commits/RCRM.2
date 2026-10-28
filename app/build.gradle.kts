@@ -54,10 +54,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-    
     buildFeatures {
         buildConfig = true // Enable BuildConfig generation
         viewBinding = true
@@ -97,6 +93,11 @@ dependencies {
 
     // Google Gemini AI
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+
+    // Gemini Nano for on-device SMS drafts.
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
 
     // ML Kit Text Recognition (Bundled to avoid GoogleApiManager SecurityException)
     implementation("com.google.mlkit:text-recognition:16.0.1")

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="polish_note">✨ Polish note</string>
+    <string name="polish_note_working">Polishing…</string>
+    <string name="polish_note_downloading">Downloading AI…</string>
+    <string name="polish_note_download_title">Download on-device AI?</string>
+    <string name="polish_note_download_message">Polishing notes uses Gemma on your phone. The one-time download is about 2.6 GB. Your notes stay on this device during polishing. Wi-Fi is recommended.</string>
+    <string name="polish_note_download_action">Download</string>
+    <string name="polish_note_download_progress">Downloading AI: %1$d%%</string>
+    <string name="polish_note_empty">Enter a note first.</string>
+    <string name="polish_note_too_long">This note is too long to polish. Shorten it and try again.</string>
+    <string name="polish_note_preview_title">Review polished note</string>
+    <string name="polish_note_badge">✦  AI NOTE POLISH</string>
+    <string name="polish_note_suggestion_label">SUGGESTED NOTE · EDITABLE</string>
+    <string name="polish_note_preview_message">Check that the meaning and details are correct. You can edit the suggestion before using it.</string>
+    <string name="polish_note_keep_original">Keep original</string>
+    <string name="polish_note_use">Use polished note</string>
+    <string name="polish_note_changed">The original note changed. Polish it again to avoid overwriting your changes.</string>
+    <string name="polish_note_unavailable">On-device AI is unavailable right now. Your note has not changed.</string>
+</resources>

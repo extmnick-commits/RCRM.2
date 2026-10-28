@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_space_glass"
+    android:fillViewport="true">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="22dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_frosted_pill_input"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:text="@string/polish_note_badge"
+        android:textColor="#2EE7FF"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:text="@string/polish_note_preview_title"
+        android:textColor="#F6F8FF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:lineSpacingExtra="2dp"
+        android:text="@string/polish_note_preview_message"
+        android:textColor="#B8C4D8"
+        android:textSize="14sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:labelFor="@id/etPolishedNote"
+        android:text="@string/polish_note_suggestion_label"
+        android:textColor="#8FA3BD"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/etPolishedNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_edittext_outline"
+        android:gravity="top|start"
+        android:inputType="textCapSentences|textMultiLine"
+        android:maxLines="8"
+        android:minLines="3"
+        android:padding="16dp"
+        android:scrollbars="vertical"
+        android:textColor="#F6F8FF"
+        android:textColorHint="#8FA3BD"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/btnUsePolishedNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/bg_neon_cyan_button"
+        android:minHeight="48dp"
+        android:text="@string/polish_note_use"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btnKeepOriginalNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_frosted_pill_input"
+        android:minHeight="48dp"
+        android:text="@string/polish_note_keep_original"
+        android:textAllCaps="false"
+        android:textColor="#CDD7E8" />
+</LinearLayout>
+</ScrollView>

@@ -128,7 +128,7 @@
     <string name="side_kick_briefing_time">Briefing Time: %1$s</string>
 
     <!-- Daily follow-up digest -->
-    <string name="daily_digest_title">Daily Follow-Up Reminder</string>
+    <string name="daily_digest_title">Daily Briefing</string>
     <string name="daily_digest_description">Get a notification at your chosen time listing today\'s follow-ups and appointments.</string>
     <string name="daily_digest_notification_time">Notification Time: %1$s</string>
     <string name="daily_digest_test">Preview Today\'s Digest</string>
@@ -136,7 +136,7 @@
     <string name="daily_digest_channel_name">Daily follow-ups</string>
     <string name="daily_digest_channel_description">Daily summary of follow-ups and appointments due today</string>
     <string name="daily_digest_notification_title">Today\'s schedule (%1$d)</string>
-    <string name="daily_digest_notification_summary">Tap to open follow-ups</string>
+    <string name="daily_digest_notification_summary">Tap to open your briefing</string>
     <string name="daily_digest_section_follow_ups">— Follow-ups —</string>
     <string name="daily_digest_section_appointments">— Appointments —</string>
     <string name="daily_digest_content_follow_ups">%1$d follow-up(s) due today</string>
@@ -193,4 +193,21 @@
         <item>Funded &amp; Active</item>
         <item>Annual Review Due</item>
     </string-array>
+    <string name="briefing_title">Daily Briefing</string>
+    <string name="briefing_open">Open today’s briefing</string>
+    <string name="briefing_loading">Loading your briefing…</string>
+    <string name="briefing_empty">No appointments, due follow-ups, or recent suggestions today.</string>
+    <string name="briefing_sign_in">Sign in to see your briefing.</string>
+    <string name="briefing_error">Couldn’t load your briefing. Check your connection and try again.</string>
+    <string name="briefing_unknown_lead">Unknown lead</string>
+    <string name="briefing_appointment">Appointment at %1$s</string>
+    <string name="briefing_missing_plan">No follow-up planned</string>
+    <string name="briefing_overdue">Follow-up overdue</string>
+    <string name="briefing_follow_up">Follow-up at %1$s</string>
+    <string name="briefing_section_appointments">APPOINTMENT</string>
+    <string name="briefing_section_follow_ups">FOLLOW-UP</string>
+    <string name="briefing_section_suggestions">SIDE-KICK</string>
+    <string name="contact_note_sync_title">Sync phone contact notes</string>
+    <string name="contact_note_sync_description">Sync notes both ways for contacts with an exact, unique phone number match. Conflicting edits are kept together. Sync runs periodically and needs contacts access.</string>
+    <string name="contact_note_sync_permission_needed">Allow contacts access to sync notes.</string>
 </resources>

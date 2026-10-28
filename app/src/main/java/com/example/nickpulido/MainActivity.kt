@@ -138,6 +138,19 @@ class MainActivity : AppCompatActivity() {
         uri?.let { processPickedContact(it) }
     }
 
+    private var contactSyncSwitch: MaterialSwitch? = null
+    private val contactSyncPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        val userId = auth.currentUser?.uid
+        val enabled = userId != null && ContactNoteSyncWorker.hasPermissions(this)
+        if (userId != null) {
+            getSharedPreferences(ContactNoteSyncWorker.PREFS, Context.MODE_PRIVATE).edit()
+                .putBoolean(ContactNoteSyncWorker.enabledKey(userId), enabled).apply()
+        }
+        contactSyncSwitch?.isChecked = enabled
+        if (enabled) ContactNoteSyncWorker.schedule(this)
+        else Toast.makeText(this, R.string.contact_note_sync_permission_needed, Toast.LENGTH_LONG).show()
+    }
+
     private var cardImageUri: Uri? = null
     private var quickAddNameRef: EditText? = null
     private var quickAddPhoneRef: EditText? = null
@@ -519,6 +532,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        auth.currentUser?.uid?.let { userId ->
+            if (getSharedPreferences(ContactNoteSyncWorker.PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(ContactNoteSyncWorker.enabledKey(userId), false) && ContactNoteSyncWorker.hasPermissions(this)) {
+                ContactNoteSyncWorker.schedule(this)
+            }
+        }
         loadLocalStats()
         loadHotList() // Refresh reminders when returning to main screen
         startUpNextTicker()
@@ -946,6 +965,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettingsDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_settings, null)
+        val syncSwitch = view.findViewById<MaterialSwitch>(R.id.switchContactNoteSync)
+        contactSyncSwitch = syncSwitch
+        val syncUserId = auth.currentUser?.uid
+        val syncPrefs = getSharedPreferences(ContactNoteSyncWorker.PREFS, Context.MODE_PRIVATE)
+        syncSwitch.isChecked = syncUserId != null && syncPrefs.getBoolean(ContactNoteSyncWorker.enabledKey(syncUserId), false)
+        syncSwitch.setOnCheckedChangeListener { _, enabled ->
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                syncSwitch.isChecked = false
+            } else if (enabled && !ContactNoteSyncWorker.hasPermissions(this)) {
+                contactSyncPermissionLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS))
+            } else {
+                syncPrefs.edit().putBoolean(ContactNoteSyncWorker.enabledKey(userId), enabled).apply()
+                if (enabled) ContactNoteSyncWorker.schedule(this) else ContactNoteSyncWorker.cancel(this)
+            }
+        }
         val switchSideKick = view.findViewById<MaterialSwitch>(R.id.switchSideKick)
         val switchDailyDigest = view.findViewById<MaterialSwitch>(R.id.switchDailyDigest)
         val btnSetSideKickTime = view.findViewById<Button>(R.id.btnSetSideKickTime)
@@ -1000,6 +1035,10 @@ class MainActivity : AppCompatActivity() {
                 sideKickMinute = minute
                 refreshSideKickTimeLabel()
             }
+        }
+
+        view.findViewById<Button>(R.id.btnOpenBriefing).setOnClickListener {
+            startActivity(Intent(this, SideKickActivity::class.java))
         }
 
         btnSetDailyDigestTime?.setOnClickListener {
@@ -1226,7 +1265,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 if (sideKickEnabled) scheduleSideKickWorker() else WorkManager.getInstance(this).cancelUniqueWork("SideKickWorker")
-                if (dailyDigestEnabled) scheduleDailyDigestWorker() else cancelDailyDigestWorker()
+                if (dailyDigestEnabled) scheduleDailyDigestWorker(replace = true) else cancelDailyDigestWorker()
                 
                 if (followSystem != oldFollowSystem || darkMode != oldDarkMode) {
                     applyAppTheme()
@@ -1507,7 +1546,7 @@ class MainActivity : AppCompatActivity() {
         WorkManager.getInstance(this).enqueueUniquePeriodicWork("SideKickWorker", ExistingPeriodicWorkPolicy.REPLACE, request)
     }
 
-    private fun scheduleDailyDigestWorker() {
+    private fun scheduleDailyDigestWorker(replace: Boolean = false) {
         val digestHour = prefs.getInt(DailyFollowUpWorker.KEY_HOUR, 8)
         val digestMinute = prefs.getInt(DailyFollowUpWorker.KEY_MINUTE, 0)
 
@@ -1528,7 +1567,7 @@ class MainActivity : AppCompatActivity() {
             .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             DailyFollowUpWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.REPLACE,
+            if (replace) ExistingPeriodicWorkPolicy.REPLACE else ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }

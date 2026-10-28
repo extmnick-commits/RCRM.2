@@ -72,7 +72,7 @@ class DailyFollowUpWorker(context: Context, params: WorkerParameters) : Coroutin
                     if (!isPaused) {
                         followUps.add("$name · Missing Plan")
                     }
-                } else {
+                } else if (!isPaused) {
                     val date = ts.toDate()
                     if (date.time < todayStart) {
                         followUps.add("$name · Overdue")
@@ -133,7 +133,7 @@ class DailyFollowUpWorker(context: Context, params: WorkerParameters) : Coroutin
             notificationManager.createNotificationChannel(channel)
         }
 
-        val openIntent = Intent(applicationContext, FollowUpActivity::class.java).apply {
+        val openIntent = Intent(applicationContext, SideKickActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(

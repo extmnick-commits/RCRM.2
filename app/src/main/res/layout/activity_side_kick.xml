@@ -30,7 +30,7 @@
             android:id="@+id/tvSideKickTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="💡 Side-Kick Daily Briefing"
+            android:text="@string/briefing_title"
             android:textSize="24sp"
             android:textStyle="bold"
             android:textColor="@color/textColorPrimary"
@@ -50,10 +50,11 @@
         android:id="@+id/tvNoSuggestions"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="No suggestions from Side-Kick in the last 24 hours. Check back later!"
+        android:text="@string/briefing_loading"
         android:layout_centerInParent="true"
         android:gravity="center"
         android:visibility="gone"
-        android:textSize="16sp"/>
+        android:textSize="16sp"
+        android:textColor="@color/textColorPrimary"/>
 
 </RelativeLayout>

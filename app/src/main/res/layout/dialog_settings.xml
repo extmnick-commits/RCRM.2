@@ -20,6 +20,37 @@
             android:textColor="@color/textColorPrimary"
             android:layout_marginBottom="24dp"/>
 
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="#4D000000"
+            app:strokeColor="#66243656">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchContactNoteSync"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/contact_note_sync_title"
+                    android:textColor="@color/textColorPrimary" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/contact_note_sync_description"
+                    android:textColor="@color/textColorSecondary"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Appearance Section -->
         <TextView
             android:layout_width="wrap_content"
@@ -250,6 +281,14 @@
                     android:textSize="12sp"
                     android:textColor="@color/textColorSecondary"
                     android:layout_marginTop="4dp"/>
+
+                <Button
+                    android:id="@+id/btnOpenBriefing"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/briefing_open"
+                    android:textAllCaps="false" />
 
                 <Button
                     android:id="@+id/btnSetDailyDigestTime"

@@ -707,6 +707,7 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         val etQuickNote = dialogView.findViewById<EditText>(R.id.etQuickNote)
+        NotePolisher.bind(this, dialogView.findViewById(R.id.btnPolishNote), etQuickNote)
         val btnSendNote = dialogView.findViewById<View>(R.id.btnSendNote)
         val btnRecordVoiceNote = dialogView.findViewById<View>(R.id.btnRecordVoiceNote)
         val pbNextActionLoading = dialogView.findViewById<ProgressBar>(R.id.pbNextActionLoading)
@@ -726,6 +727,11 @@ class FollowUpActivity : AppCompatActivity() {
         var currentRawNotes: String = (lead["notes"] as? String) ?: ""
         var initialRawNotes: String = currentRawNotes
         var showAllActivity = false
+        val tvContactNotes = dialogView.findViewById<LinearLayout>(R.id.tvContactNotes)
+        val tvToggleContactNotes = dialogView.findViewById<TextView>(R.id.tvToggleContactNotes)
+        val btnEditContactNotes = dialogView.findViewById<View>(R.id.btnEditContactNotes)
+        var showAllNotes = false
+        var activityLoadFailed = false
 
         activeProfileLeadId = docId
 
@@ -759,10 +765,6 @@ class FollowUpActivity : AppCompatActivity() {
                     putExtra("targetStageId", targetStageId)
                 }
             }
-        }
-
-        val openPipelineAction = View.OnClickListener {
-            startActivity(createPipelineIntent())
         }
 
         fun renderNextActionUI() {
@@ -1123,24 +1125,37 @@ class FollowUpActivity : AppCompatActivity() {
                 rawNotes = currentRawNotes
             )
 
-            if (timeline.isEmpty()) {
-                tvActivityEmpty?.visibility = View.VISIBLE
-                tvToggleAllActivity?.visibility = View.GONE
-                tvActivityError?.visibility = View.GONE
-                return
-            }
-
-            tvActivityEmpty?.visibility = View.GONE
-            tvActivityError?.visibility = View.GONE
-
-            if (timeline.size > 3) {
-                tvToggleAllActivity?.visibility = View.VISIBLE
-                tvToggleAllActivity?.text = if (showAllActivity) "Show less ▲" else "View all (${timeline.size}) ▼"
+            tvContactNotes?.removeAllViews()
+            val notes = ContactActivityTimeline.parseNotes(currentRawNotes)
+                .sortedByDescending { it.timestampMillis ?: Long.MIN_VALUE }
+            tvToggleContactNotes?.visibility = if (notes.isEmpty()) View.GONE else View.VISIBLE
+            tvToggleContactNotes?.text = if (showAllNotes) "Show less ▲" else "Show all notes ▼"
+            if (notes.isEmpty()) {
+                LayoutInflater.from(this).inflate(R.layout.item_contact_note, tvContactNotes, false).also { noteView ->
+                    noteView.findViewById<TextView>(R.id.tvNoteDate).visibility = View.GONE
+                    noteView.findViewById<TextView>(R.id.tvNoteContent).text = "Tap to edit notes"
+                    tvContactNotes?.addView(noteView)
+                }
             } else {
-                tvToggleAllActivity?.visibility = View.GONE
+                (if (showAllNotes) notes else notes.take(1)).forEach { note ->
+                    LayoutInflater.from(this).inflate(R.layout.item_contact_note, tvContactNotes, false).also { noteView ->
+                        noteView.findViewById<TextView>(R.id.tvNoteDate).text = note.date
+                        noteView.findViewById<TextView>(R.id.tvNoteContent).apply {
+                            text = note.content
+                            maxLines = if (showAllNotes) Int.MAX_VALUE else 3
+                            ellipsize = if (showAllNotes) null else android.text.TextUtils.TruncateAt.END
+                        }
+                        tvContactNotes?.addView(noteView)
+                    }
+                }
             }
+            tvToggleAllActivity?.text = if (showAllActivity) "Hide ▲" else "Show (${timeline.size}) ▼"
+            activityContainer?.visibility = if (showAllActivity) View.VISIBLE else View.GONE
+            tvActivityError?.visibility = if (showAllActivity && activityLoadFailed) View.VISIBLE else View.GONE
+            tvActivityEmpty?.visibility = if (showAllActivity && timeline.isEmpty() && !activityLoadFailed) View.VISIBLE else View.GONE
+            if (!showAllActivity || timeline.isEmpty()) return
 
-            val displayedItems = if (showAllActivity) timeline else timeline.take(3)
+            val displayedItems = timeline
 
             for (item in displayedItems) {
                 val itemView = LayoutInflater.from(this).inflate(R.layout.item_activity_entry, activityContainer, false)
@@ -1282,13 +1297,73 @@ class FollowUpActivity : AppCompatActivity() {
         }
 
         val llRecentActivityHeader = dialogView.findViewById<View>(R.id.llRecentActivityHeader)
-        llRecentActivityHeader?.setOnClickListener(openPipelineAction)
-        tvActivityEmpty?.setOnClickListener(openPipelineAction)
-
-        tvToggleAllActivity?.setOnClickListener {
+        val toggleActivity = View.OnClickListener {
             showAllActivity = !showAllActivity
             renderActivityTimelineUI()
         }
+        llRecentActivityHeader?.setOnClickListener(toggleActivity)
+        tvToggleAllActivity?.setOnClickListener(toggleActivity)
+
+        val editContactNotes = View.OnClickListener {
+            val originalNotes = currentRawNotes
+            val editor = EditText(this).apply {
+                setText(originalNotes)
+                setTextColor(Color.WHITE)
+                setHintTextColor(Color.LTGRAY)
+                hint = "Add notes about this contact"
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                    android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                minLines = 5
+                gravity = android.view.Gravity.TOP or android.view.Gravity.START
+                setPadding(24, 20, 24, 20)
+            }
+            val notesDialog = AlertDialog.Builder(this)
+                .setTitle("Notes")
+                .setMessage("Existing dated entries are kept in this field.")
+                .setView(editor)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save", null)
+                .create()
+            notesDialog.setOnShowListener {
+                val saveButton = notesDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                saveButton.setOnClickListener {
+                    val editedNotes = editor.text.toString()
+                    if (editedNotes == originalNotes) {
+                        notesDialog.dismiss()
+                    } else {
+                        saveButton.isEnabled = false
+                        val ref = db.collection("leads").document(docId)
+                        db.runTransaction { transaction ->
+                            val remoteNotes = transaction.get(ref).getString("notes").orEmpty()
+                            check(remoteNotes == originalNotes) { "Notes changed elsewhere. Copy your edits, then reopen notes." }
+                            transaction.update(ref, "notes", editedNotes)
+                        }.addOnSuccessListener {
+                            currentRawNotes = editedNotes
+                            initialRawNotes = editedNotes
+                            renderActivityTimelineUI()
+                            notesDialog.dismiss()
+                            Toast.makeText(this, "Notes saved", Toast.LENGTH_SHORT).show()
+                        }.addOnFailureListener { error ->
+                            saveButton.isEnabled = true
+                            Toast.makeText(this, "Couldn't save notes: ${error.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+            notesDialog.show()
+        }
+        btnEditContactNotes?.setOnClickListener(editContactNotes)
+        val toggleContactNotes = View.OnClickListener {
+            if (currentRawNotes.isBlank()) {
+                editContactNotes.onClick(it)
+            } else {
+                showAllNotes = !showAllNotes
+                renderActivityTimelineUI()
+            }
+        }
+        tvContactNotes?.setOnClickListener(toggleContactNotes)
+        tvToggleContactNotes?.setOnClickListener(toggleContactNotes)
 
         renderNextActionUI()
         renderRemindersUI()
@@ -1350,10 +1425,12 @@ class FollowUpActivity : AppCompatActivity() {
             .addSnapshotListener { snapshot, error ->
                 pbActivityLoading?.visibility = View.GONE
                 if (error != null) {
-                    tvActivityError?.visibility = View.VISIBLE
+                    activityLoadFailed = true
                     tvActivityError?.text = "Couldn't load activity. Tap to retry."
+                    renderActivityTimelineUI()
                     return@addSnapshotListener
                 }
+                activityLoadFailed = false
                 loadedActivities.clear()
                 snapshot?.documents?.forEach { d ->
                     val act = d.toObject(ActivityRecord::class.java)?.copy(id = d.id)
@@ -1413,6 +1490,7 @@ class FollowUpActivity : AppCompatActivity() {
                 .get()
                 .addOnSuccessListener { snapshot ->
                     pbActivityLoading?.visibility = View.GONE
+                    activityLoadFailed = false
                     loadedActivities.clear()
                     snapshot.documents.forEach { d ->
                         val act = d.toObject(ActivityRecord::class.java)?.copy(id = d.id)
@@ -1430,7 +1508,8 @@ class FollowUpActivity : AppCompatActivity() {
                 }
                 .addOnFailureListener {
                     pbActivityLoading?.visibility = View.GONE
-                    tvActivityError.visibility = View.VISIBLE
+                    activityLoadFailed = true
+                    renderActivityTimelineUI()
                 }
         }
 
@@ -1463,16 +1542,19 @@ class FollowUpActivity : AppCompatActivity() {
             
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val prompt = "You are an assistant for a Primerica agent. Draft a short, warm, and professional SMS message to $currentName. " +
-                                 "Use the following notes for context. Do not mention the notes directly. " +
-                                 "Keep it under 2 sentences and ready to send.\nNotes:\n$currentNote"
-                    val response = GeminiApiClient.generativeModel.generateContent(prompt)
+                    val draft = LocalSmsDraft.generate(currentName, currentNote) {
+                        runOnUiThread {
+                            if (!isFinishing && !isDestroyed) btnAIGenerate.text = "Downloading AI..."
+                        }
+                    }
                     
                     withContext(Dispatchers.Main) {
-                        etIntroText?.setText(response.text?.trim() ?: "Could not generate message.")
+                        etIntroText?.setText(draft)
                         btnAIGenerate.isEnabled = true
                         btnAIGenerate.text = "✨ AI Draft"
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "AI Draft Error", e)
                     withContext(Dispatchers.Main) {

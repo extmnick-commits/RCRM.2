@@ -352,6 +352,131 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Notes"
+                            android:textColor="#FFFFFF"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/btnEditContactNotes"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="?attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="Edit"
+                            android:textColor="#2EE7FF"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/tvContactNotes"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="64dp"
+                        android:layout_marginBottom="8dp"
+                        android:background="@drawable/bg_frosted_card"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="vertical"
+                        android:padding="14dp" />
+
+                    <TextView
+                        android:id="@+id/tvToggleContactNotes"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:padding="8dp"
+                        android:text="Show all notes ▼"
+                        android:textColor="#2EE7FF"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <!-- Chat Input Bar -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        app:cardBackgroundColor="#4D000000"
+                        app:strokeColor="#66243656"
+                        app:strokeWidth="1dp"
+                        app:cardCornerRadius="26dp"
+                        app:cardElevation="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="4dp">
+
+                            <ImageButton
+                                android:id="@+id/btnRecordVoiceNote"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@android:drawable/ic_btn_speak_now"
+                                app:tint="#2EE7FF" />
+
+                            <EditText
+                                android:id="@+id/etQuickNote"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:background="@null"
+                                android:hint="Add a note..."
+                                android:textColorHint="#8E99B0"
+                                android:textColor="#FFFFFF"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="12dp"
+                                android:inputType="textMultiLine"
+                                android:maxLines="4"
+                                android:textSize="15sp" />
+
+                            <ProgressBar
+                                android:id="@+id/pbSendNoteLoading"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_margin="4dp"
+                                android:indeterminateTint="#2EE7FF"
+                                android:visibility="gone" />
+
+                            <ImageButton
+                                android:id="@+id/btnSendNote"
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@android:drawable/ic_menu_send"
+                                app:tint="#2EE7FF" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <Button
+                        android:id="@+id/btnPolishNote"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:background="@drawable/bg_neon_cyan_button"
+                        android:paddingHorizontal="16dp"
+                        android:text="@string/polish_note"
+                        android:textColor="#FFFFFF" />
+
                     <!-- Recent Activity Section -->
                     <LinearLayout
                         android:id="@+id/llRecentActivityHeader"
@@ -369,7 +494,7 @@
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
-                            android:text="Recent Activity"
+                            android:text="Activity history"
                             android:textColor="#FFFFFF"
                             android:textSize="16sp"
                             android:textStyle="bold" />
@@ -386,12 +511,11 @@
                             android:id="@+id/tvToggleAllActivity"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="View all ▼"
+                            android:text="Show ▼"
                             android:textColor="#2EE7FF"
                             android:textSize="12sp"
                             android:textStyle="bold"
                             android:padding="6dp"
-                            android:visibility="gone"
                             android:background="?attr/selectableItemBackground" />
                     </LinearLayout>
 
@@ -441,65 +565,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:visibility="gone" />
-
-                    <!-- Chat Input Bar -->
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
-                        app:cardBackgroundColor="#4D000000"
-                        app:strokeColor="#66243656"
-                        app:strokeWidth="1dp"
-                        app:cardCornerRadius="26dp"
-                        app:cardElevation="0dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:padding="4dp">
-
-                            <ImageButton
-                                android:id="@+id/btnRecordVoiceNote"
-                                android:layout_width="40dp"
-                                android:layout_height="40dp"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:src="@android:drawable/ic_btn_speak_now"
-                                app:tint="#2EE7FF" />
-
-                            <EditText
-                                android:id="@+id/etQuickNote"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:background="@null"
-                                android:hint="Message or log activity..."
-                                android:textColorHint="#8E99B0"
-                                android:textColor="#FFFFFF"
-                                android:paddingHorizontal="8dp"
-                                android:paddingVertical="12dp"
-                                android:inputType="textMultiLine"
-                                android:maxLines="4"
-                                android:textSize="15sp" />
-
-                            <ProgressBar
-                                android:id="@+id/pbSendNoteLoading"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:layout_margin="4dp"
-                                android:indeterminateTint="#2EE7FF"
-                                android:visibility="gone" />
-
-                            <ImageButton
-                                android:id="@+id/btnSendNote"
-                                android:layout_width="40dp"
-                                android:layout_height="40dp"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                android:src="@android:drawable/ic_menu_send"
-                                app:tint="#2EE7FF" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
 
                     <!-- Reminders & Appointments Toggle Header -->
                     <LinearLayout

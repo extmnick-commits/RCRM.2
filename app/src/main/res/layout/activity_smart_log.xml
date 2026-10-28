@@ -35,6 +35,7 @@
                     android:inputType="textCapSentences|textMultiLine" android:gravity="top" android:minLines="3"
                     android:maxLines="8" android:imeOptions="flagNoExtractUi" />
                 <Button android:id="@+id/btnDictateSmartNote" style="@style/SmartLogButton" android:text="@string/sl_dictate" />
+                <Button android:id="@+id/btnPolishNote" style="@style/SmartLogButton" android:text="@string/polish_note" />
             </LinearLayout>
             <LinearLayout style="@style/SmartLogCard">
                 <TextView style="@style/SmartLogLabel" android:text="@string/sl_next_step" />
