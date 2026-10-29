@@ -525,7 +525,11 @@ class FollowUpRepository {
             leadId = leadId,
             ownerId = ownerId,
             storedVersion = migrationVersion(lead),
-            legacyFollowUpMillis = lead.getTimestamp("followUpDate")?.toDate()?.time,
+            legacyFollowUpMillis = when (val value = lead.get("followUpDate")) {
+                is Timestamp -> value.toDate().time
+                is Number -> value.toLong()
+                else -> null
+            },
             actions = readActions.values.toList(),
             nowMillis = nowMillis
         )
