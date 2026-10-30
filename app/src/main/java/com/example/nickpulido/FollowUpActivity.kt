@@ -210,6 +210,7 @@ class FollowUpActivity : AppCompatActivity() {
             ?: passedIntent?.getStringExtra("OPEN_LEAD_ID")
         pendingReminderId = passedIntent?.getStringExtra(ReminderReceiver.EXTRA_REMINDER_ID)
         val targetPhone = passedIntent?.getStringExtra("targetPhone")
+        val fromSection = passedIntent?.getIntExtra("fromSection", 2) ?: 2
         if (uriLeadId != null) {
             passedIntent?.data = null
         }
@@ -220,7 +221,7 @@ class FollowUpActivity : AppCompatActivity() {
                     val leadData = doc.data?.toMutableMap()
                     if (leadData != null) {
                         leadData["id"] = doc.id
-                        showLeadDetailsDialog(leadData, finishOnDismiss = true)
+                        showLeadDetailsDialog(leadData, finishOnDismiss = true, activeSection = fromSection)
                     } else {
                         finish()
                     }
@@ -234,6 +235,7 @@ class FollowUpActivity : AppCompatActivity() {
             passedIntent?.removeExtra("OPEN_LEAD_ID")
             passedIntent?.removeExtra(ReminderReceiver.EXTRA_REMINDER_ID)
             passedIntent?.removeExtra("targetPhone")
+            passedIntent?.removeExtra("fromSection")
         } else if (!targetPhone.isNullOrEmpty()) {
             val userId = auth.currentUser?.uid ?: return
             db.collection("leads").whereEqualTo("ownerId", userId).whereEqualTo("phone", targetPhone).get().addOnSuccessListener { docs ->
@@ -242,7 +244,7 @@ class FollowUpActivity : AppCompatActivity() {
                     val leadData = doc.data?.toMutableMap()
                     if (leadData != null) {
                         leadData["id"] = doc.id
-                        showLeadDetailsDialog(leadData, finishOnDismiss = true)
+                        showLeadDetailsDialog(leadData, finishOnDismiss = true, activeSection = fromSection)
                     } else {
                         finish()
                     }
@@ -254,6 +256,7 @@ class FollowUpActivity : AppCompatActivity() {
             }
             passedIntent?.removeExtra(ReminderReceiver.EXTRA_REMINDER_ID)
             passedIntent?.removeExtra("targetPhone")
+            passedIntent?.removeExtra("fromSection")
         }
     }
 
@@ -354,9 +357,9 @@ class FollowUpActivity : AppCompatActivity() {
     }
 
     @SuppressLint("MissingInflatedId")
-    private fun showLeadDetailsDialog(lead: Map<String, Any>, finishOnDismiss: Boolean = false) {
+    private fun showLeadDetailsDialog(lead: Map<String, Any>, finishOnDismiss: Boolean = false, activeSection: Int = 2) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_lead_details, null)
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_NoActionBar)
             .setView(dialogView)
             .create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
@@ -373,13 +376,41 @@ class FollowUpActivity : AppCompatActivity() {
         val editCompany = dialogView.findViewById<EditText>(R.id.editDetailCompany)
         val editJobTitle = dialogView.findViewById<EditText>(R.id.editDetailJobTitle)
 
-        val initialName = (lead["name"] as? String).orEmpty()
-        val initialPhone = (lead["phone"] as? String).orEmpty()
-        val initialEmail = (lead["email"] as? String).orEmpty()
-        val initialAddress = (lead["address"] as? String).orEmpty()
-        val initialCompany = (lead["company"] as? String).orEmpty()
-        val initialJobTitle = (lead["jobTitle"] as? String).orEmpty()
+        val btnBackDetail = dialogView.findViewById<View>(R.id.btnBackDetail)
+        val tvDetailHeaderName = dialogView.findViewById<TextView>(R.id.tvDetailHeaderName)
+        val btnToggleEditMode = dialogView.findViewById<TextView>(R.id.btnToggleEditMode)
+        val btnLogOutcomeDetail = dialogView.findViewById<View>(R.id.btnLogOutcomeDetail)
+        val tvEmailActionLabel = dialogView.findViewById<TextView>(R.id.tvEmailActionLabel)
+        val editModeContainer = dialogView.findViewById<View>(R.id.editModeContainer)
+        val pinnedBottomSaveBar = dialogView.findViewById<View>(R.id.pinnedBottomSaveBar)
+        val composeDetailBottomNav = dialogView.findViewById<androidx.compose.ui.platform.ComposeView>(R.id.composeDetailBottomNav)
+
+        val tvReadPhone = dialogView.findViewById<TextView>(R.id.tvReadPhone)
+        val tvReadEmail = dialogView.findViewById<TextView>(R.id.tvReadEmail)
+        val tvReadAddress = dialogView.findViewById<TextView>(R.id.tvReadAddress)
+        val tvReadCompany = dialogView.findViewById<TextView>(R.id.tvReadCompany)
+        val tvReadJobTitle = dialogView.findViewById<TextView>(R.id.tvReadJobTitle)
+        val tvReadCategory = dialogView.findViewById<TextView>(R.id.tvReadCategory)
+        val tvReadSalesStage = dialogView.findViewById<TextView>(R.id.tvReadSalesStage)
+        val tvReadRecruitStage = dialogView.findViewById<TextView>(R.id.tvReadRecruitStage)
+        val tvReadTargetMarket = dialogView.findViewById<TextView>(R.id.tvReadTargetMarket)
+        val tvReadPaused = dialogView.findViewById<TextView>(R.id.tvReadPaused)
+        val tvReadClosed = dialogView.findViewById<TextView>(R.id.tvReadClosed)
+        val dividerReadWorkflowReason = dialogView.findViewById<View>(R.id.dividerReadWorkflowReason)
+        val rowReadWorkflowReason = dialogView.findViewById<View>(R.id.rowReadWorkflowReason)
+        val tvReadWorkflowReason = dialogView.findViewById<TextView>(R.id.tvReadWorkflowReason)
+        val tvReadFollowUpDate = dialogView.findViewById<TextView>(R.id.tvReadFollowUpDate)
+        val tvReadLastAttempted = dialogView.findViewById<TextView>(R.id.tvReadLastAttempted)
+        val tvReadLastConnected = dialogView.findViewById<TextView>(R.id.tvReadLastConnected)
+
+        var initialName = (lead["name"] as? String).orEmpty()
+        var initialPhone = (lead["phone"] as? String).orEmpty()
+        var initialEmail = (lead["email"] as? String).orEmpty()
+        var initialAddress = (lead["address"] as? String).orEmpty()
+        var initialCompany = (lead["company"] as? String).orEmpty()
+        var initialJobTitle = (lead["jobTitle"] as? String).orEmpty()
         var hasSavedChanges = false
+        var isEditMode = false
         
         val btnSmsDetail = dialogView.findViewById<View>(R.id.btnSmsDetail)
         val btnCallDetail = dialogView.findViewById<View>(R.id.btnCallDetail)
@@ -393,49 +424,34 @@ class FollowUpActivity : AppCompatActivity() {
         val cbInv = dialogView.findViewById<CheckBox>(R.id.cbInvestmentDetail)
         val cbLife = dialogView.findViewById<CheckBox>(R.id.cbLifeInsuranceDetail)
 
-        val tabActivity = dialogView.findViewById<TextView>(R.id.tabActivity)
-        val tabProfile = dialogView.findViewById<TextView>(R.id.tabProfile)
-        val tabProducts = dialogView.findViewById<TextView>(R.id.tabProducts)
-        
         val sectionActivity = dialogView.findViewById<View>(R.id.sectionActivity)
         val sectionProfile = dialogView.findViewById<View>(R.id.sectionProfile)
         val sectionProducts = dialogView.findViewById<View>(R.id.sectionProducts)
-        
-        fun styleTabButton(tabView: TextView?, isSelected: Boolean) {
-            if (tabView == null) return
-            if (isSelected) {
-                val selectedBg = android.graphics.drawable.GradientDrawable().apply {
-                    setColor(Color.parseColor("#332EE7FF"))
-                    cornerRadius = 20f * resources.displayMetrics.density
-                    setStroke((1.25f * resources.displayMetrics.density).toInt(), Color.parseColor("#2EE7FF"))
+
+        val destinations = listOf(
+            MainActivity::class.java,
+            AppointmentsActivity::class.java,
+            FollowUpActivity::class.java,
+            PipelinesActivity::class.java,
+            ContactsActivity::class.java
+        )
+        composeDetailBottomNav?.setContent {
+            com.nickpulido.rcrm.ui.theme.RCRMTheme {
+                com.nickpulido.rcrm.ui.components.SectionNavigationBar(current = activeSection) { target ->
+                    if (target in destinations.indices) {
+                        hasSavedChanges = true
+                        dialog.dismiss()
+                        if (target != 2 || finishOnDismiss) {
+                            val navIntent = Intent(this@FollowUpActivity, destinations[target]).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            }
+                            startActivity(navIntent)
+                            finish()
+                        }
+                    }
                 }
-                tabView.background = selectedBg
-                tabView.setTextColor(Color.parseColor("#2EE7FF"))
-                tabView.setTypeface(null, android.graphics.Typeface.BOLD)
-            } else {
-                tabView.background = null
-                tabView.setTextColor(Color.parseColor("#9AA6BD"))
-                tabView.setTypeface(null, android.graphics.Typeface.NORMAL)
             }
         }
-
-        fun updateTabColors(selected: TextView, other1: TextView, other2: TextView, showSection: View, hide1: View, hide2: View) {
-            styleTabButton(selected, true)
-            styleTabButton(other1, false)
-            styleTabButton(other2, false)
-            
-            showSection.visibility = View.VISIBLE
-            hide1.visibility = View.GONE
-            hide2.visibility = View.GONE
-        }
-        
-        styleTabButton(tabActivity, true)
-        styleTabButton(tabProfile, false)
-        styleTabButton(tabProducts, false)
-
-        tabActivity?.setOnClickListener { updateTabColors(tabActivity, tabProfile!!, tabProducts!!, sectionActivity!!, sectionProfile!!, sectionProducts!!) }
-        tabProfile?.setOnClickListener { updateTabColors(tabProfile!!, tabActivity!!, tabProducts!!, sectionProfile!!, sectionActivity!!, sectionProducts!!) }
-        tabProducts?.setOnClickListener { updateTabColors(tabProducts!!, tabActivity!!, tabProfile!!, sectionProducts!!, sectionActivity!!, sectionProfile!!) }
 
         val tvInsSummaryBadge = dialogView.findViewById<TextView>(R.id.tvInsSummaryBadge)
         val btnToggleInsEdit = dialogView.findViewById<Button>(R.id.btnToggleInsEdit)
@@ -726,7 +742,7 @@ class FollowUpActivity : AppCompatActivity() {
 
         var currentRawNotes: String = (lead["notes"] as? String) ?: ""
         var initialRawNotes: String = currentRawNotes
-        var showAllActivity = false
+        var showAllActivity = true
         val tvContactNotes = dialogView.findViewById<LinearLayout>(R.id.tvContactNotes)
         val tvToggleContactNotes = dialogView.findViewById<TextView>(R.id.tvToggleContactNotes)
         val btnEditContactNotes = dialogView.findViewById<View>(R.id.btnEditContactNotes)
@@ -1451,6 +1467,8 @@ class FollowUpActivity : AppCompatActivity() {
                 renderActivityTimelineUI()
             }
 
+        var renderReadOnlyDetails: () -> Unit = {}
+
         val leadDocReg = db.collection("leads").document(docId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null || !snapshot.exists()) return@addSnapshotListener
@@ -1459,6 +1477,12 @@ class FollowUpActivity : AppCompatActivity() {
                     else -> 0
                 }
                 followUpMillis = snapshot.getTimestamp("followUpDate")?.toDate()?.time
+                if (lead is MutableMap<*, *>) {
+                    @Suppress("UNCHECKED_CAST")
+                    val mutableLead = lead as MutableMap<String, Any?>
+                    snapshot.data?.forEach { (k, v) -> mutableLead[k] = v }
+                    mutableLead["id"] = docId
+                }
                 val remoteNotes = snapshot.getString("notes") ?: ""
                 if (remoteNotes != initialRawNotes && remoteNotes != currentRawNotes) {
                     currentRawNotes = remoteNotes
@@ -1467,21 +1491,28 @@ class FollowUpActivity : AppCompatActivity() {
                 }
 
                 // Protect unsaved form edits: only update if matching initial value
-                val initialName = lead["name"] as? String ?: ""
                 if (editName?.text?.toString() == initialName) {
                     val remoteName = snapshot.getString("name")
-                    if (remoteName != null) editName?.setText(remoteName)
+                    if (remoteName != null) {
+                        editName?.setText(remoteName)
+                        initialName = remoteName
+                    }
                 }
-                val initialPhone = lead["phone"] as? String ?: ""
                 if (editPhone?.text?.toString() == initialPhone) {
                     val remotePhone = snapshot.getString("phone")
-                    if (remotePhone != null) editPhone?.setText(remotePhone)
+                    if (remotePhone != null) {
+                        editPhone?.setText(remotePhone)
+                        initialPhone = remotePhone
+                    }
                 }
-                val initialEmail = lead["email"] as? String ?: ""
                 if (editEmail?.text?.toString() == initialEmail) {
                     val remoteEmail = snapshot.getString("email")
-                    if (remoteEmail != null) editEmail?.setText(remoteEmail)
+                    if (remoteEmail != null) {
+                        editEmail?.setText(remoteEmail)
+                        initialEmail = remoteEmail
+                    }
                 }
+                renderReadOnlyDetails()
                 syncReminderAlarms()
             }
 
@@ -1652,6 +1683,125 @@ class FollowUpActivity : AppCompatActivity() {
         updateInsSummary()
         updateInvSummary()
 
+        fun formatReadTimestamp(rawVal: Any?): String {
+            val date: Date? = when (rawVal) {
+                is Timestamp -> rawVal.toDate()
+                is Date -> rawVal
+                is Number -> if (rawVal.toLong() > 0L) Date(rawVal.toLong()) else null
+                else -> null
+            }
+            if (date == null) return "—"
+            return SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.getDefault()).format(date)
+        }
+
+        renderReadOnlyDetails = {
+            val currentName = editName?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["name"] as? String).orEmpty() }
+            val currentPhone = editPhone?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["phone"] as? String).orEmpty() }
+            val currentEmail = editEmail?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["email"] as? String).orEmpty() }
+            val currentAddress = editAddress?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["address"] as? String).orEmpty() }
+            val currentCompany = editCompany?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["company"] as? String).orEmpty() }
+            val currentTitle = editJobTitle?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["jobTitle"] as? String).orEmpty() }
+
+            val activeCategories = mutableListOf<String>()
+            if (cbRecruit?.isChecked == true) activeCategories.add(getString(R.string.category_recruit))
+            if (cbProspect?.isChecked == true) activeCategories.add(getString(R.string.category_prospect))
+            if (cbClient?.isChecked == true) {
+                activeCategories.add(getString(R.string.category_client))
+                if (cbInv?.isChecked == true) activeCategories.add("Investment")
+                if (cbLife?.isChecked == true) activeCategories.add("Life Insurance")
+            }
+            val currentCategory = activeCategories.joinToString(", ").ifEmpty { (lead["category"] as? String).orEmpty().trim() }
+
+            tvDetailHeaderName?.text = if (isEditMode) "Edit Contact" else currentName.ifEmpty { "Contact" }
+            btnToggleEditMode?.text = if (isEditMode) "Save" else "Edit"
+
+            val hasPhone = currentPhone.isNotBlank()
+            val hasEmail = currentEmail.isNotBlank()
+            btnCallDetail?.isEnabled = hasPhone
+            btnCallDetail?.alpha = if (hasPhone) 1f else 0.45f
+            btnSmsDetail?.isEnabled = hasPhone
+            btnSmsDetail?.alpha = if (hasPhone) 1f else 0.45f
+            btnEmailDetail?.isEnabled = hasEmail
+            tvEmailActionLabel?.setTextColor(Color.parseColor(if (hasEmail) "#2EE7FF" else "#F4F7FF"))
+
+            tvReadPhone?.text = currentPhone.ifEmpty { "—" }
+            tvReadEmail?.text = currentEmail.ifEmpty { "—" }
+            tvReadAddress?.text = currentAddress.ifEmpty { "—" }
+            tvReadCompany?.text = currentCompany.ifEmpty { "—" }
+            tvReadJobTitle?.text = currentTitle.ifEmpty { "—" }
+            tvReadCategory?.text = currentCategory.ifEmpty { "—" }
+
+            val rawSalesStage = (lead["salesStage"] as? String).orEmpty()
+            val salesStageTitle = com.nickpulido.rcrm.ui.components.SalesStage.values().find {
+                it.id.equals(rawSalesStage, ignoreCase = true) ||
+                    it.title.equals(rawSalesStage, ignoreCase = true) ||
+                    it.shortLabel.equals(rawSalesStage, ignoreCase = true)
+            }?.title ?: com.nickpulido.rcrm.ui.components.SalesStage.NEW_LEAD.title
+
+            val rawRecruitStage = (lead["recruitStage"] as? String).orEmpty()
+            val recruitStageTitle = com.nickpulido.rcrm.ui.components.RecruitStage.values().find {
+                it.id.equals(rawRecruitStage, ignoreCase = true) ||
+                    it.title.equals(rawRecruitStage, ignoreCase = true) ||
+                    it.shortLabel.equals(rawRecruitStage, ignoreCase = true)
+            }?.title ?: com.nickpulido.rcrm.ui.components.RecruitStage.PROSPECT.title
+
+            var tmPoints = 0
+            if (cbTmMarried?.isChecked == true) tmPoints++
+            if (cbTmAge?.isChecked == true) tmPoints++
+            if (cbTmChildren?.isChecked == true) tmPoints++
+            if (cbTmHomeowner?.isChecked == true) tmPoints++
+            if (cbTmOccupation?.isChecked == true) tmPoints++
+
+            val isPaused = (lead["isPaused"] as? Boolean) == true
+            val isClosed = (lead["isClosed"] as? Boolean) == true
+            val workflowReason = ((lead["pausedReason"] as? String) ?: (lead["closedReason"] as? String)).orEmpty().trim()
+
+            tvReadSalesStage?.text = salesStageTitle
+            tvReadRecruitStage?.text = recruitStageTitle
+            tvReadTargetMarket?.text = "$tmPoints / 5"
+            tvReadPaused?.text = if (isPaused) "Yes" else "No"
+            tvReadClosed?.text = if (isClosed) "Yes" else "No"
+            if (workflowReason.isNotEmpty()) {
+                dividerReadWorkflowReason?.visibility = View.VISIBLE
+                rowReadWorkflowReason?.visibility = View.VISIBLE
+                tvReadWorkflowReason?.text = workflowReason
+            } else {
+                dividerReadWorkflowReason?.visibility = View.GONE
+                rowReadWorkflowReason?.visibility = View.GONE
+            }
+
+            tvReadFollowUpDate?.text = formatReadTimestamp(lead["followUpDate"] ?: followUpMillis)
+            tvReadLastAttempted?.text = formatReadTimestamp(lead["lastAttemptedContact"])
+            tvReadLastConnected?.text = formatReadTimestamp(lead["lastConnectedContact"])
+        }
+
+        fun setEditMode(editing: Boolean) {
+            isEditMode = editing
+            sectionActivity?.visibility = if (editing) View.GONE else View.VISIBLE
+            editModeContainer?.visibility = if (editing) View.VISIBLE else View.GONE
+            pinnedBottomSaveBar?.visibility = if (editing) View.VISIBLE else View.GONE
+            composeDetailBottomNav?.visibility = if (editing) View.GONE else View.VISIBLE
+            renderReadOnlyDetails()
+        }
+
+        renderReadOnlyDetails()
+
+        btnToggleEditMode?.setOnClickListener {
+            if (isEditMode) {
+                btnSave?.performClick()
+            } else {
+                setEditMode(true)
+            }
+        }
+
+        btnBackDetail?.setOnClickListener {
+            if (isEditMode) {
+                setEditMode(false)
+            } else {
+                dialog.dismiss()
+            }
+        }
+
         // Handle Side-Kick Suggestion Visibility
         val sideKickContainer = dialogView.findViewById<View>(R.id.sideKickSuggestionContainer)
         val tvSideKickTip = dialogView.findViewById<TextView>(R.id.tvSideKickTip)
@@ -1664,33 +1814,6 @@ class FollowUpActivity : AppCompatActivity() {
         dialogView.findViewById<View>(R.id.btnDismissSideKick)?.setOnClickListener {
             db.collection("leads").document(docId).update("sideKickSuggestion", FieldValue.delete())
             sideKickContainer?.visibility = View.GONE
-        }
-
-        // Collapsible sections
-        val headerTM = dialogView.findViewById<View>(R.id.headerTargetMarket)
-        val containerTM = dialogView.findViewById<View>(R.id.containerTargetMarketCheckboxes)
-        val tvToggleTM = dialogView.findViewById<TextView>(R.id.tvToggleTargetMarket)
-        headerTM?.setOnClickListener {
-            if (containerTM?.visibility == View.VISIBLE) {
-                containerTM.visibility = View.GONE
-                tvToggleTM?.text = "Edit ▼"
-            } else {
-                containerTM?.visibility = View.VISIBLE
-                tvToggleTM?.text = "Hide ▲"
-            }
-        }
-
-        val headerExt = dialogView.findViewById<View>(R.id.headerExtendedDetails)
-        val containerExt = dialogView.findViewById<View>(R.id.containerExtendedDetails)
-        val tvToggleExt = dialogView.findViewById<TextView>(R.id.tvToggleExtended)
-        headerExt?.setOnClickListener {
-            if (containerExt?.visibility == View.VISIBLE) {
-                containerExt.visibility = View.GONE
-                tvToggleExt?.text = "Show ▼"
-            } else {
-                containerExt?.visibility = View.VISIBLE
-                tvToggleExt?.text = "Hide ▲"
-            }
         }
 
         val showOutcomeSheet = {
@@ -1768,6 +1891,8 @@ class FollowUpActivity : AppCompatActivity() {
             bottomSheet.setContentView(composeView)
             bottomSheet.show()
         }
+
+        btnLogOutcomeDetail?.setOnClickListener { showOutcomeSheet() }
 
         // Offer to record an outcome after returning from the external app.
         fun launchContactInteraction(intent: Intent) {
@@ -2318,8 +2443,18 @@ class FollowUpActivity : AppCompatActivity() {
                             )
                         }
                     }
+                    initialName = editName?.text?.toString().orEmpty()
+                    initialPhone = editPhone?.text?.toString().orEmpty()
+                    initialEmail = editEmail?.text?.toString().orEmpty()
+                    initialAddress = editAddress?.text?.toString().orEmpty()
+                    initialCompany = editCompany?.text?.toString().orEmpty()
+                    initialJobTitle = editJobTitle?.text?.toString().orEmpty()
                     Toast.makeText(this, getString(R.string.msg_lead_updated), Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
+                    if (isEditMode) {
+                        setEditMode(false)
+                    } else {
+                        dialog.dismiss()
+                    }
                 },
                 onFailure = {
                     Toast.makeText(this, "Couldn't save that lead.", Toast.LENGTH_LONG).show()
@@ -2341,6 +2476,10 @@ class FollowUpActivity : AppCompatActivity() {
         dialog.setCanceledOnTouchOutside(false)
         dialog.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                if (isEditMode) {
+                    setEditMode(false)
+                    return@setOnKeyListener true
+                }
                 if (hasUnsavedEdits() && !hasSavedChanges) {
                     AlertDialog.Builder(this)
                         .setTitle("Discard Changes?")
@@ -2357,13 +2496,28 @@ class FollowUpActivity : AppCompatActivity() {
             false
         }
 
+        val rootContainer = dialogView.findViewById<View>(R.id.rootLeadDetailContainer)
+        if (rootContainer != null) {
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { view, insets ->
+                val bars = insets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                        androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                )
+                val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
+                val imeVisible = insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())
+                composeDetailBottomNav?.visibility = if (imeVisible || isEditMode) View.GONE else View.VISIBLE
+                view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+                insets
+            }
+        }
+
         dialog.show()
-        dialog.window?.setDimAmount(0.75f)
-        val displayMetrics = resources.displayMetrics
-        val width = (displayMetrics.widthPixels * 0.95).toInt()
-        val height = (displayMetrics.heightPixels * 0.88).toInt()
-        dialog.window?.setLayout(width, height)
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.let { win ->
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(win, false)
+            win.setDimAmount(0f)
+            win.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            win.setBackgroundDrawableResource(android.R.color.transparent)
+        }
     }
 
     private fun showPresetsDialog(target: EditText, nameSource: EditText) {
