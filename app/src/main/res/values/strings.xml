@@ -56,7 +56,7 @@
     <string name="placeholder_lead_details">Category | Quick Note</string>
     <string name="call_icon_description">Call prospect</string>
 
-    <string name="follow_up_header">Follow-Up Management</string>
+    <string name="follow_up_header">Follow-ups</string>
     <string name="follow_up_sub">Tap to select multiple leads for bulk actions.</string>
     <string name="title_lead_details">Contact Details</string>
     <string name="label_notes_history">Notes History</string>

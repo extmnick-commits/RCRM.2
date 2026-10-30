@@ -105,15 +105,15 @@ class FollowUpAdapter(
             if (isOverdue) {
                 holder.tvDueBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_category_client)
                 holder.tvDueBadge.setTextColor(Color.parseColor("#FF3B8D"))
-                holder.cardFollowUp.strokeColor = Color.parseColor("#99FF3B8D")
+                holder.cardFollowUp.strokeColor = ContextCompat.getColor(context, R.color.dividerColor)
             } else {
                 holder.tvDueBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_category_prospect)
                 holder.tvDueBadge.setTextColor(Color.parseColor("#2EE7FF"))
-                holder.cardFollowUp.strokeColor = Color.parseColor("#802EE7FF")
+                holder.cardFollowUp.strokeColor = ContextCompat.getColor(context, R.color.dividerColor)
             }
         } else {
             holder.tvDueBadge.visibility = View.GONE
-            holder.cardFollowUp.strokeColor = Color.parseColor("#664C8DFF")
+            holder.cardFollowUp.strokeColor = ContextCompat.getColor(context, R.color.dividerColor)
         }
 
         // Subtitle / Notes / Phone details

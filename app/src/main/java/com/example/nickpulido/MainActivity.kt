@@ -75,6 +75,7 @@ class MainActivity : AppCompatActivity() {
 
     private val hotListData = mutableListOf<Map<String, Any>>()
     private val allLeadsData = mutableListOf<Map<String, Any>>()
+    private var dashboardContactCount by mutableIntStateOf(0)
     private var dashboardLeads by mutableStateOf<List<DashboardLead>>(emptyList())
     private var searchQuery by mutableStateOf("")
     private var isHotListLoading by mutableStateOf(false)
@@ -264,6 +265,7 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
                     },
+                    contactCount = dashboardContactCount,
                     totalCount = currentTotalCount,
                     totalGoal = currentTotalGoal,
                     followUpCount = currentFollowUpCount,
@@ -2114,6 +2116,7 @@ class MainActivity : AppCompatActivity() {
                     allLeadsData.add(data)
                     loadEarliestReminderForLead(data)
                 }
+                dashboardContactCount = allLeadsData.size
                 filterHotList(searchQuery)
                 refreshUpNextLabels()
                 enrichOutcomeRequest()

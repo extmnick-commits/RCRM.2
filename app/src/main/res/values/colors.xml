@@ -10,10 +10,10 @@
     <color name="colorDanger">#FFFF5B7A</color>
     <color name="textColorPrimary">#FFF4F7FF</color>
     <color name="textColorSecondary">#FF9AA6BD</color>
-    <color name="dividerColor">#33FFFFFF</color>
+    <color name="dividerColor">#66243656</color>
     <color name="backgroundColor">#FF070B14</color>
     <color name="surfaceColor">#FF121A2C</color>
-    <color name="surfaceGlass">#CC101828</color>
+    <color name="surfaceGlass">#CC121A2C</color>
 
     <color name="category_recruit_bg">#FF1E6B45</color>
     <color name="category_client_bg">#FF6A2E8C</color>

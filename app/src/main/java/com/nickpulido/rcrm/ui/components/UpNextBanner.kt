@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -81,10 +82,10 @@ fun UpNextBanner(
                 borderBrush = Brush.horizontalGradient(
                     listOf(
                         if (upNext.isLive) NeonPink.copy(alpha = 0.85f) else NeonCyan.copy(alpha = 0.75f),
-                        NeonPurple.copy(alpha = 0.75f)
+                        if (upNext.isLive) NeonPink.copy(alpha = 0.35f) else NeonCyan.copy(alpha = 0.25f)
                     )
                 ),
-                borderWidth = 1.25.dp
+                borderWidth = 1.dp
             )
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
@@ -191,7 +192,6 @@ private fun SwitcherArrow(
             .size(28.dp)
             .clip(CircleShape)
             .background(NeonCyan.copy(alpha = 0.12f))
-            .border(1.dp, NeonCyan.copy(alpha = 0.65f), CircleShape)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center
@@ -210,13 +210,6 @@ private fun LiveNowBadge(text: String) {
     val shape = RoundedCornerShape(12.dp)
     Box(
         modifier = Modifier
-            .neonGlow(
-                color = NeonPink,
-                cornerRadius = 12.dp,
-                blurRadius = 8.dp,
-                strokeWidth = 1.5.dp,
-                alpha = 0.95f
-            )
             .clip(shape)
             .background(NeonPink.copy(alpha = 0.16f))
             .border(1.dp, NeonPink.copy(alpha = 0.9f), shape)
@@ -239,7 +232,6 @@ private fun CountdownPill(text: String) {
         modifier = Modifier
             .clip(shape)
             .background(NeonGreen.copy(alpha = 0.14f))
-            .border(1.dp, NeonGreen.copy(alpha = 0.7f), shape)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
@@ -259,7 +251,6 @@ private fun LeadPill(name: String) {
         modifier = Modifier
             .clip(shape)
             .background(NeonCyan.copy(alpha = 0.14f))
-            .border(1.dp, NeonCyan.copy(alpha = 0.7f), shape)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
@@ -280,7 +271,6 @@ private fun LocationChip(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .clip(shape)
             .background(NeonPurple.copy(alpha = 0.14f))
-            .border(1.dp, NeonPurple.copy(alpha = 0.7f), shape)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
@@ -333,11 +323,11 @@ private fun BannerAction(
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
-            .height(44.dp)
+            .heightIn(min = 48.dp)
             .clip(shape)
             .background(accent.copy(alpha = 0.12f))
-            .border(1.dp, accent.copy(alpha = 0.8f), shape)
-            .clickable(role = Role.Button, onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -345,7 +335,8 @@ private fun BannerAction(
             color = TextPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 1
+            maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }

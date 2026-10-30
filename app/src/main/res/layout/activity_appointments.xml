@@ -29,7 +29,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:text="Appointments"
-            android:textSize="22sp"
+            android:textSize="30sp"
             android:textStyle="bold"
             android:textColor="@color/textColorPrimary" />
     </LinearLayout>
@@ -72,7 +72,7 @@
             android:minHeight="48dp"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:text="Open Google Calendar"
+            android:text="Google Calendar"
             android:textAllCaps="false"
             android:textColor="@color/textColorPrimary"
             android:textSize="14sp"
@@ -186,7 +186,7 @@
             android:paddingEnd="8dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:text="All Month (Include Past)"
+            android:text="All month"
             android:textColor="@color/textColorSecondary"
             android:textSize="13sp"
             android:textStyle="bold"

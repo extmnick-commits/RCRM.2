@@ -10,11 +10,12 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingHorizontal="24dp"
+        android:paddingHorizontal="20dp"
         android:layout_marginBottom="16dp">
 
         <ImageButton
             android:id="@+id/btnBack"
+            android:contentDescription="Back"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_alignParentStart="true"
@@ -35,8 +36,8 @@
                 android:id="@+id/tvContactsHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="All Contacts"
-                android:textSize="28sp"
+                android:text="Contacts"
+                android:textSize="34sp"
                 android:textStyle="bold"
                 android:letterSpacing="-0.02"
                 android:textColor="@color/textColorPrimary" />
@@ -57,7 +58,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingHorizontal="24dp"
+        android:paddingHorizontal="20dp"
         android:paddingBottom="16dp"
         android:gravity="center_vertical">
 
@@ -65,11 +66,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            app:cardBackgroundColor="#CC121D32"
-            app:cardCornerRadius="26dp"
+            app:cardBackgroundColor="@color/surfaceGlass"
+            app:cardCornerRadius="14dp"
             app:cardElevation="0dp"
             app:strokeWidth="1dp"
-            app:strokeColor="#664C8DFF">
+            app:strokeColor="@color/dividerColor">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -101,6 +102,7 @@
 
         <ImageButton
             android:id="@+id/btnFilterContacts"
+            android:contentDescription="Filter contacts"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginStart="8dp"
@@ -114,14 +116,14 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="24dp">
+        android:paddingHorizontal="20dp">
 
         <ListView
             android:id="@+id/listViewContacts"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:divider="@android:color/transparent"
-            android:dividerHeight="12dp"
+            android:dividerHeight="4dp"
             android:clipToPadding="false"
             android:paddingBottom="80dp" />
 
@@ -137,14 +139,15 @@
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabAddContact"
+            android:contentDescription="Add contact"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
             android:layout_margin="16dp"
             android:src="@android:drawable/ic_input_add"
-            app:backgroundTint="@color/colorPrimary"
-            app:tint="@color/white"
-            app:elevation="4dp" />
+            app:backgroundTint="@color/colorInfo"
+            app:tint="@color/backgroundColor"
+            app:elevation="0dp" />
     </FrameLayout>
 
 </LinearLayout>

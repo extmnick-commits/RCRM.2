@@ -73,7 +73,7 @@
         android:id="@+id/calendarEditSave"
         style="@style/CalendarEditButton"
         android:background="@drawable/bg_primary_gradient_button"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/backgroundColor"
         android:text="@string/calendar_edit_save" />
     <Button
         android:id="@+id/calendarEditGoogle"

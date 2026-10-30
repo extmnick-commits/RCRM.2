@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -129,9 +127,9 @@ fun PipelinesScreen(
                     Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
                 }
                 Text(
-                    text = "Visual Pipelines",
+                    text = "Pipelines",
                     color = TextPrimary,
-                    fontSize = 20.sp,
+                    fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
@@ -144,7 +142,7 @@ fun PipelinesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
-                        .frostedGlass(shape = RoundedCornerShape(26.dp), fillColor = GlassFill),
+                        .frostedGlass(shape = RoundedCornerShape(14.dp), fillColor = GlassFill),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -222,35 +220,36 @@ fun PipelinesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Total Active: $totalActive",
+                    text = "$totalActive active contacts",
                     color = TextPrimary,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "Conversion Rate: $conversionRate%",
+                    text = "$conversionRate% converted",
                     color = if(pipelineType == PipelineType.SALES) NeonCyan else NeonPink,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                TextButton(
+                    onClick = { isKanbanMode = !isKanbanMode },
+                    modifier = Modifier.padding(start = 4.dp).heightIn(min = 48.dp)
+                ) {
+                    Text(if (isKanbanMode) "List" else "Board", color = NeonCyan, fontSize = 13.sp)
+                }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Stage Pills & View Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Stage pills scroll on their own, matching the iOS stage row.
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                LazyRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
                     items(stages.size) { index ->
                         val stage = stages[index]
                         val count = leadsByStage[stage.first]?.size ?: 0
@@ -261,7 +260,7 @@ fun PipelinesScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(if (isSelected) accentColor.copy(alpha = 0.2f) else GlassPanel)
-                                .border(1.dp, if (isSelected) accentColor else GlassFrost, RoundedCornerShape(16.dp))
+                                .border(1.dp, if (isSelected) accentColor.copy(alpha = 0.3f) else GlassFrost, RoundedCornerShape(16.dp))
                                 .clickable { 
                                     selectedStageIndex = index 
                                     if(isKanbanMode) {
@@ -278,15 +277,6 @@ fun PipelinesScreen(
                             )
                         }
                     }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { isKanbanMode = !isKanbanMode }) {
-                    Icon(
-                        imageVector = if (isKanbanMode) Icons.Filled.List else Icons.Filled.Search,
-                        contentDescription = "Toggle View",
-                        tint = TextSecondary
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -384,22 +374,21 @@ fun LeadPipelineCard(
     GlassCard(
         onClick = onClick,
         contentPadding = PaddingValues(16.dp),
-        modifier = Modifier.fillMaxWidth().neonGlow(color = accentColor, alpha = 0.1f)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${lead.name} ${if (lead.isPinned) "🔥" else ""}",
                     color = TextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(tmColor.copy(alpha = 0.2f))
-                        .border(1.dp, tmColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -463,41 +452,43 @@ fun LeadPipelineCard(
                 if (currentStageIndex > 0) {
                     IconButton(
                         onClick = { onStageChange(lead.id, pipelineType, stages[currentStageIndex - 1].first) },
-                        modifier = Modifier.size(32.dp).clip(CircleShape).background(GlassPanel)
+                        modifier = Modifier.size(48.dp).clip(CircleShape).background(GlassPanel)
                     ) {
                         Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Prev Stage", tint = TextPrimary)
                     }
                 } else {
-                    Spacer(modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.size(48.dp))
                 }
 
-                // Stage Dropdown (simulated with a click to open a dialog ideally, but simplified here)
-                // Just showing current stage text for now
+                // Current stage, between the previous and next stage actions.
                 Text(
                     text = stages[currentStageIndex].second,
                     color = accentColor,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
                 // Next Button
                 if (currentStageIndex < stages.size - 1) {
                     IconButton(
                         onClick = { onStageChange(lead.id, pipelineType, stages[currentStageIndex + 1].first) },
-                        modifier = Modifier.size(32.dp).clip(CircleShape).background(GlassPanel)
+                        modifier = Modifier.size(48.dp).clip(CircleShape).background(GlassPanel)
                     ) {
                         Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Next Stage", tint = TextPrimary)
                     }
                 } else {
-                    Spacer(modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.size(48.dp))
                 }
 
                 // Call
                 IconButton(
                     onClick = onCall,
-                    modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFF0E3A28))
+                    enabled = lead.phone.isNotBlank(),
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(NeonCyan.copy(alpha = 0.12f))
                 ) {
-                    Icon(Icons.Filled.Call, contentDescription = "Call", tint = NeonGreen, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.Call, contentDescription = "Call", tint = NeonCyan, modifier = Modifier.size(20.dp))
                 }
             }
         }
