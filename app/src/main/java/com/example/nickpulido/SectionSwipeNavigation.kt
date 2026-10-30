@@ -39,10 +39,7 @@ internal object SectionSwipeNavigation {
             activity.startActivity(intent)
             if (current != 0) activity.finish()
             @Suppress("DEPRECATION")
-            activity.overridePendingTransition(
-                if (target > current) R.anim.section_enter_right else R.anim.section_enter_left,
-                if (target > current) R.anim.section_exit_left else R.anim.section_exit_right
-            )
+            activity.overridePendingTransition(0, 0)
         }
         val container = SwipeContainer(activity, density, current, navigate)
         container.addView(screen, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))

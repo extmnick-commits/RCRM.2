@@ -1178,6 +1178,8 @@ class FollowUpActivity : AppCompatActivity() {
                     btnViewPipeline?.visibility = View.VISIBLE
                     btnViewPipeline?.setOnClickListener {
                         startActivity(createPipelineIntent(item.stageContext))
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(0, 0)
                     }
                 } else {
                     tvStageBadge.visibility = View.GONE
@@ -1286,6 +1288,8 @@ class FollowUpActivity : AppCompatActivity() {
                     if (!item.stageContext.isNullOrBlank()) {
                         detailBuilder.setNeutralButton("View in Pipeline") { _, _ ->
                             startActivity(createPipelineIntent(item.stageContext))
+                            @Suppress("DEPRECATION")
+                            overridePendingTransition(0, 0)
                         }
                     }
                     val detailDialog = detailBuilder.create()

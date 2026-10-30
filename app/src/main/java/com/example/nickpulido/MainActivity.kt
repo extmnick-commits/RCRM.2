@@ -301,6 +301,8 @@ class MainActivity : AppCompatActivity() {
                     upNext = upNextBanner,
                     onUpNextOpenAgenda = {
                         startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(0, 0)
                     },
                     onUpNextConfirm = {
                         openUpNextEvent(logOutcome = upNextBanner?.isLive == true)
@@ -421,6 +423,8 @@ class MainActivity : AppCompatActivity() {
                     putExtra("targetLeadId", doc.id)
                     data = Uri.parse("rcrm://lead/${doc.id}")
                 })
+                @Suppress("DEPRECATION")
+                overridePendingTransition(0, 0)
             }
             .addOnFailureListener {
                 if (!isDestroyed) {
@@ -2264,6 +2268,8 @@ class MainActivity : AppCompatActivity() {
             putExtra("targetLeadId", (lead["__docId"] as? String) ?: (lead["id"] as? String))
             putExtra("targetPhone", lead["phone"] as? String)
         })
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 
     private fun todayCounts(): Pair<Int, Int> {
