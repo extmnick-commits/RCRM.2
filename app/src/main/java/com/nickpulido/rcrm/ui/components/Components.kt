@@ -37,13 +37,7 @@ import com.nickpulido.rcrm.ui.theme.TextPrimary
 import kotlin.math.ceil
 
 private val GlassEdgeBrush: Brush
-    get() = Brush.verticalGradient(
-        0.00f to Color.White.copy(alpha = 0.42f),
-        0.22f to Color.White.copy(alpha = 0.10f),
-        0.50f to Color.White.copy(alpha = 0.04f),
-        0.78f to Color.White.copy(alpha = 0.08f),
-        1.00f to Color.White.copy(alpha = 0.28f)
-    )
+    get() = androidx.compose.ui.graphics.SolidColor(GlassFrost)
 
 /**
  * Colored outer glow rasterized with [BlurMaskFilter] on a software canvas.
@@ -112,7 +106,7 @@ fun Modifier.neonGlow(
 fun Modifier.frostedGlass(
     shape: Shape,
     fillColor: Color = GlassFill,
-    frostColor: Color = GlassFrost,
+    frostColor: Color = Color.Transparent,
     borderBrush: Brush = GlassEdgeBrush,
     borderWidth: Dp = 1.dp
 ): Modifier = this
@@ -123,7 +117,7 @@ fun Modifier.frostedGlass(
             listOf(
                 frostColor,
                 Color.Transparent,
-                Color.White.copy(alpha = 0.04f)
+                Color.Transparent
             )
         )
     )
@@ -138,10 +132,9 @@ fun NeonCard(
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
-            .neonGlow(color = glowColor, cornerRadius = 16.dp, blurRadius = 14.dp, alpha = 0.85f)
             .clip(shape)
             .background(GlassPanel)
-            .border(1.dp, glowColor.copy(alpha = 0.55f), shape)
+            .border(1.dp, glowColor.copy(alpha = 0.2f), shape)
             .padding(16.dp)
     ) {
         content()
@@ -190,13 +183,6 @@ fun GradientButton(
     )
     Row(
         modifier = modifier
-            .neonGlow(
-                color = PrimaryGradientStart,
-                cornerRadius = 18.dp,
-                blurRadius = 12.dp,
-                inset = 8.dp
-            )
-            .padding(8.dp)
             .clip(shape)
             .background(gradient)
             .clickable(role = Role.Button) { onClick() }

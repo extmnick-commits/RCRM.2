@@ -3,30 +3,23 @@ package com.nickpulido.rcrm
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
-import android.graphics.drawable.InsetDrawable
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import com.nickpulido.rcrm.ui.components.SectionNavigationBar
+import com.nickpulido.rcrm.ui.theme.RCRMTheme
 import kotlin.math.abs
 
 internal object SectionSwipeNavigation {
-    private val labels = listOf("Home", "Appointments", "Follow-ups", "Pipelines", "Contacts")
-    private val colors = intArrayOf(0xFF2EE7FF.toInt(), 0xFF42E99C.toInt(), 0xFFFF70AF.toInt(), 0xFFBD69FF.toInt(), 0xFF70A7FF.toInt())
     private val destinations = listOf(
         MainActivity::class.java, AppointmentsActivity::class.java, FollowUpActivity::class.java,
         PipelinesActivity::class.java, ContactsActivity::class.java
@@ -46,28 +39,16 @@ internal object SectionSwipeNavigation {
             activity.startActivity(intent)
             if (current != 0) activity.finish()
             @Suppress("DEPRECATION")
-            activity.overridePendingTransition(
-                if (target > current) R.anim.section_enter_right else R.anim.section_enter_left,
-                if (target > current) R.anim.section_exit_left else R.anim.section_exit_right
-            )
+            activity.overridePendingTransition(0, 0)
         }
         val container = SwipeContainer(activity, density, current, navigate)
         container.addView(screen, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        val bar = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding((2 * density).toInt(), 0, (2 * density).toInt(), 0)
-            setBackgroundResource(R.drawable.bg_tab_container_pill)
-            clipChildren = false
-            clipToPadding = false
-            labels.forEachIndexed { index, label ->
-                addView(NeonTab(activity, label, colors[index], index == current, density).apply {
-                    setOnClickListener { navigate(index) }
-                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT,
-                    when (index) { 1 -> 1.35f; 2 -> 1.15f; else -> 1f }))
-            }
+        val bar = ComposeView(activity).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent { RCRMTheme { SectionNavigationBar(current, navigate) } }
         }
-        container.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (64 * density).toInt()))
+        container.setBackgroundResource(R.drawable.bg_space_gradient)
+        container.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         content.addView(container, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         ViewCompat.setOnApplyWindowInsetsListener(container) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -158,49 +139,4 @@ internal object SectionSwipeNavigation {
         }
     }
 
-    private class NeonTab(context: Context, label: String, private val glowColor: Int, selected: Boolean, density: Float) : AppCompatTextView(context) {
-        private val inset = 7f * density
-        private val radius = 12f * density
-        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(if (selected) 100 else 0, Color.red(glowColor), Color.green(glowColor), Color.blue(glowColor))
-            setShadowLayer(8f * density, 0f, 0f, Color.argb(if (selected) 220 else 0, Color.red(glowColor), Color.green(glowColor), Color.blue(glowColor)))
-        }
-        init {
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-            val base = requireNotNull(context.getDrawable(R.drawable.bg_frosted_card)).mutate()
-            val red = Color.red(glowColor)
-            val green = Color.green(glowColor)
-            val blue = Color.blue(glowColor)
-            val glassTint = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                if (selected) intArrayOf(
-                    Color.argb(140, red, green, blue),
-                    Color.argb(100, red, green, blue),
-                    Color.argb(65, red, green, blue)
-                ) else intArrayOf(0x12FFFFFF, 0x06FFFFFF, 0x00FFFFFF)
-            ).apply {
-                cornerRadius = radius
-                setStroke((if (selected) 1.5f * density else density).toInt().coerceAtLeast(1),
-                    if (selected) glowColor else 0x667D8BA2)
-            }
-            background = InsetDrawable(LayerDrawable(arrayOf(base, glassTint)), inset.toInt())
-            text = label
-            gravity = Gravity.CENTER
-            maxLines = 1
-            setSingleLine(true)
-            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                this, 8, 11, 1, android.util.TypedValue.COMPLEX_UNIT_SP
-            )
-            setTextColor(if (selected) Color.WHITE else 0xFFE3EAF6.toInt())
-            setPadding((inset + 2 * density).toInt(), 0, (inset + 2 * density).toInt(), 0)
-            contentDescription = if (selected) "$label, current page" else "Open $label"
-            isSelected = selected
-        }
-
-        override fun draw(canvas: Canvas) {
-            val rect = RectF(inset, inset, width - inset, height - inset)
-            canvas.drawRoundRect(rect, radius, radius, glow)
-            super.draw(canvas)
-        }
-    }
 }

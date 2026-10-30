@@ -75,7 +75,10 @@ service cloud.firestore {
 
       match /next_actions/{actionId} {
         allow read: if ownsLead(leadId) || isSuperAdmin();
-        allow create, update: if ownsLead(leadId) && ownedChild(leadId);
+        allow create: if signedIn()
+          && getAfter(/databases/$(database)/documents/leads/$(leadId)).data.ownerId == request.auth.uid
+          && ownedChild(leadId);
+        allow update: if ownsLead(leadId) && ownedChild(leadId);
         allow delete: if ownsLead(leadId);
       }
 

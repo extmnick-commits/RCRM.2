@@ -218,7 +218,7 @@
             android:minHeight="48dp"
             android:text="Save Reminder"
             android:textAllCaps="false"
-            android:textColor="@color/white"
+            android:textColor="@color/backgroundColor"
             android:textSize="16sp"
             app:backgroundTint="@null" />
     </LinearLayout>

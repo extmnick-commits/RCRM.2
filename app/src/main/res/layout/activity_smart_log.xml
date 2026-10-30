@@ -104,7 +104,7 @@
                     <CheckBox android:id="@+id/cbLifeInsurance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:minHeight="48dp"/>
                 </LinearLayout>
 
-                <com.google.android.material.card.MaterialCardView android:id="@+id/cardLifeInsuranceDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="#CC121A2C" app:strokeColor="#664C8DFF" app:strokeWidth="1.25dp" app:cardCornerRadius="16dp" app:cardElevation="0dp">
+                <com.google.android.material.card.MaterialCardView android:id="@+id/cardLifeInsuranceDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="#CC121A2C" app:strokeColor="@color/dividerColor" app:strokeWidth="1dp" app:cardCornerRadius="16dp" app:cardElevation="0dp">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🛡️ Life Insurance Policy Details" android:textStyle="bold" android:textColor="?attr/colorOnSurfaceVariant" android:layout_marginBottom="8dp"/>
                         <Spinner android:id="@+id/spinnerInsPolicyType" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/ins_policy_types" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
@@ -123,7 +123,7 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.card.MaterialCardView android:id="@+id/cardInvestmentDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="#CC121A2C" app:strokeColor="#664C8DFF" app:strokeWidth="1.25dp" app:cardCornerRadius="16dp" app:cardElevation="0dp">
+                <com.google.android.material.card.MaterialCardView android:id="@+id/cardInvestmentDetails" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:visibility="gone" app:cardBackgroundColor="#CC121A2C" app:strokeColor="@color/dividerColor" app:strokeWidth="1dp" app:cardCornerRadius="16dp" app:cardElevation="0dp">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📈 Investment &amp; Retirement Account" android:textStyle="bold" android:textColor="?attr/colorOnSurfaceVariant" android:layout_marginBottom="8dp"/>
                         <Spinner android:id="@+id/spinnerInvAccountType" android:layout_width="match_parent" android:layout_height="wrap_content" android:entries="@array/inv_account_types" android:layout_marginBottom="8dp" android:minHeight="48dp"/>
@@ -175,7 +175,7 @@
                 <Button android:id="@+id/btnManagePresets" style="?android:attr/borderlessButtonStyle" android:layout_width="match_parent" android:layout_height="wrap_content" android:minWidth="0dp" android:minHeight="48dp" android:text="@string/btn_presets_dropdown" android:textColor="@color/colorPrimary" android:textSize="12sp"/>
             </LinearLayout>
 
-            <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" app:cardBackgroundColor="#CC121A2C" app:strokeColor="#664C8DFF" app:strokeWidth="1.25dp" app:cardCornerRadius="14dp" app:cardElevation="0dp">
+            <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" app:cardBackgroundColor="#CC121A2C" app:strokeColor="@color/dividerColor" app:strokeWidth="1dp" app:cardCornerRadius="14dp" app:cardElevation="0dp">
 
                 <EditText android:id="@+id/etIntroText" android:layout_width="match_parent" android:layout_height="wrap_content" android:autofillHints="message" android:background="@android:color/transparent" android:gravity="top" android:inputType="textMultiLine" android:minHeight="48dp" android:padding="12dp" android:textSize="14sp"/>
             </com.google.android.material.card.MaterialCardView>

@@ -15,11 +15,14 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = NeonPink,
     background = DarkSpaceBlue,
     surface = DarkPanelBackground,
-    onPrimary = TextPrimary,
+    onPrimary = DarkSpaceBlue,
     onSecondary = TextPrimary,
     onTertiary = TextPrimary,
     onBackground = TextPrimary,
     onSurface = TextPrimary,
+    onSurfaceVariant = TextSecondary,
+    outline = GlassFrost,
+    surfaceContainer = DarkPanelBackground,
 )
 
 @Composable

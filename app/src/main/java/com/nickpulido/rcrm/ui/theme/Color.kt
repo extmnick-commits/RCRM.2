@@ -11,8 +11,8 @@ val DarkPanelBackground = Color(0xFF121A2C)
 val CardBackground = Color(0xF0121828)
 val SurfaceBlue = Color(0xFF1C253B)
 
-// Translucent glass layers. 0x4D000000 is 30% black over the space background.
-val GlassFill = Color(0x4D000000)
+// Shared translucent panels match the iOS grouped surfaces.
+val GlassFill = Color(0xCC121A2C)
 val GlassFrost = Color(0x66243656)
 val GlassPanel = Color(0xCC121A2C)
 

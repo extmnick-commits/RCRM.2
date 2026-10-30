@@ -2572,6 +2572,8 @@ class AppointmentsActivity : AppCompatActivity() {
             putExtra("targetLeadId", leadId)
             data = Uri.parse("rcrm://lead/$leadId")
         })
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 
     private fun launchContactPicker() {

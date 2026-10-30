@@ -75,6 +75,7 @@ class MainActivity : AppCompatActivity() {
 
     private val hotListData = mutableListOf<Map<String, Any>>()
     private val allLeadsData = mutableListOf<Map<String, Any>>()
+    private var dashboardContactCount by mutableIntStateOf(0)
     private var dashboardLeads by mutableStateOf<List<DashboardLead>>(emptyList())
     private var searchQuery by mutableStateOf("")
     private var isHotListLoading by mutableStateOf(false)
@@ -264,6 +265,7 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
                     },
+                    contactCount = dashboardContactCount,
                     totalCount = currentTotalCount,
                     totalGoal = currentTotalGoal,
                     followUpCount = currentFollowUpCount,
@@ -299,6 +301,8 @@ class MainActivity : AppCompatActivity() {
                     upNext = upNextBanner,
                     onUpNextOpenAgenda = {
                         startActivity(Intent(this@MainActivity, AppointmentsActivity::class.java))
+                        @Suppress("DEPRECATION")
+                        overridePendingTransition(0, 0)
                     },
                     onUpNextConfirm = {
                         openUpNextEvent(logOutcome = upNextBanner?.isLive == true)
@@ -419,6 +423,8 @@ class MainActivity : AppCompatActivity() {
                     putExtra("targetLeadId", doc.id)
                     data = Uri.parse("rcrm://lead/${doc.id}")
                 })
+                @Suppress("DEPRECATION")
+                overridePendingTransition(0, 0)
             }
             .addOnFailureListener {
                 if (!isDestroyed) {
@@ -2114,6 +2120,7 @@ class MainActivity : AppCompatActivity() {
                     allLeadsData.add(data)
                     loadEarliestReminderForLead(data)
                 }
+                dashboardContactCount = allLeadsData.size
                 filterHotList(searchQuery)
                 refreshUpNextLabels()
                 enrichOutcomeRequest()
@@ -2261,6 +2268,8 @@ class MainActivity : AppCompatActivity() {
             putExtra("targetLeadId", (lead["__docId"] as? String) ?: (lead["id"] as? String))
             putExtra("targetPhone", lead["phone"] as? String)
         })
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 
     private fun todayCounts(): Pair<Int, Int> {

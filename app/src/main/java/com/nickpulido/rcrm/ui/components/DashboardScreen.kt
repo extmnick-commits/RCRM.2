@@ -1,5 +1,9 @@
 package com.nickpulido.rcrm.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,20 +14,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Phone
@@ -31,6 +38,9 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,26 +57,26 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nickpulido.rcrm.ui.theme.AdminText
 import com.nickpulido.rcrm.ui.theme.DarkSpaceBlue
+import com.nickpulido.rcrm.ui.theme.NeonPink
 import com.nickpulido.rcrm.ui.theme.GlassFill
-import com.nickpulido.rcrm.ui.theme.NeonBlue
 import com.nickpulido.rcrm.ui.theme.NeonCyan
 import com.nickpulido.rcrm.ui.theme.NeonGreen
-import com.nickpulido.rcrm.ui.theme.NeonPurple
 import com.nickpulido.rcrm.ui.theme.RCRMTheme
 import com.nickpulido.rcrm.ui.theme.SpaceBottom
-import com.nickpulido.rcrm.ui.theme.SpaceHaze
 import com.nickpulido.rcrm.ui.theme.SpaceTop
 import com.nickpulido.rcrm.ui.theme.TextMuted
 import com.nickpulido.rcrm.ui.theme.TextPrimary
@@ -114,6 +125,7 @@ fun DashboardScreen(
     dueTodayCount: Int,
     onCompleteLead: (DashboardLead) -> Unit,
     modifier: Modifier = Modifier,
+    contactCount: Int = 0,
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onRetry: () -> Unit = {},
@@ -124,6 +136,7 @@ fun DashboardScreen(
     onUpNextNext: () -> Unit = {},
     onUpNextJoinLocation: () -> Unit = {}
 ) {
+    var showSearch by rememberSaveable { mutableStateOf(false) }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -133,48 +146,14 @@ fun DashboardScreen(
                 )
             )
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(340.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, SpaceHaze.copy(alpha = 0.85f))
-                    )
-                )
-        )
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)
         ) {
             item {
-                DashboardSearchBar(
-                    query = searchQuery,
-                    onQueryChange = onSearchQueryChange,
-                    onSettingsClick = onSettingsClick
-                )
+                DashboardHeader(dateLabel, onHistoryClick, onSettingsClick) { showSearch = !showSearch }
+                Spacer(Modifier.height(20.dp))
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item {
-                DashboardHeader(
-                    dateLabel = dateLabel,
-                    onHistoryClick = onHistoryClick,
-                    totalCount = totalCount,
-                    totalGoal = totalGoal,
-                    followUpCount = followUpCount,
-                    followUpGoal = followUpGoal,
-                    onTotalGoalClick = onTotalGoalClick,
-                    onFollowUpGoalClick = onFollowUpGoalClick,
-                    onTotalCountLongClick = onTotalCountLongClick,
-                    onFollowUpCountLongClick = onFollowUpCountLongClick
-                )
-            }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-            item {
-                CompactNavigation(onQuickAdd)
-            }
-            item { Spacer(modifier = Modifier.height(20.dp)) }
             if (upNext != null) {
                 item {
                     UpNextBanner(
@@ -187,25 +166,20 @@ fun DashboardScreen(
                     )
                 }
                 item { Spacer(modifier = Modifier.height(20.dp)) }
-            } else {
-                item {
-                    Column(modifier = Modifier.fillMaxWidth().frostedGlass(shape = RoundedCornerShape(20.dp), fillColor = GlassFill)
-                        .clickable(role = Role.Button, onClick = onUpNextOpenAgenda).padding(16.dp)) {
-                        Text("UP NEXT", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("No upcoming appointment to show", color = TextPrimary, fontSize = 15.sp,
-                            modifier = Modifier.padding(top = 6.dp))
-                        Text("Open agenda", color = NeonCyan, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-                item { Spacer(modifier = Modifier.height(20.dp)) }
             }
             item {
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Follow-ups", color = TextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("$overdueCount overdue · $dueTodayCount due", color = TextSecondary, fontSize = 12.sp)
+                DashboardSummary(
+                    contactCount, overdueCount, dueTodayCount, onQuickAdd,
+                    totalCount, totalGoal, followUpCount, followUpGoal,
+                    onTotalGoalClick, onFollowUpGoalClick,
+                    onTotalCountLongClick, onFollowUpCountLongClick
+                )
+                Spacer(Modifier.height(24.dp))
+                if (showSearch || searchQuery.isNotEmpty()) {
+                    DashboardSearchBar(searchQuery, onSearchQueryChange)
+                    Spacer(Modifier.height(16.dp))
                 }
             }
-            item { Spacer(modifier = Modifier.height(4.dp)) }
             item {
                 FollowUpTabs(
                     selectedTab = selectedTab,
@@ -309,155 +283,101 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun CompactNavigation(onQuickAdd: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-        .background(NeonCyan.copy(alpha = 0.16f)).clickable(role = Role.Button, onClick = onQuickAdd)
-        .padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("+", color = NeonCyan, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-        Text("  Quick add / import", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+private fun DashboardHeader(dateLabel: String, onHistoryClick: () -> Unit, onSettingsClick: () -> Unit,
+                            onSearchClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Home", color = TextPrimary, fontSize = 34.sp, fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.8).sp, modifier = Modifier.semantics { heading() })
+            Text(dateLabel, color = TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+        IconButton(onClick = onSearchClick) {
+            Icon(Icons.Filled.Search, contentDescription = "Show or hide contact search", tint = NeonCyan)
+        }
+        IconButton(onClick = onHistoryClick) {
+            Icon(Icons.Filled.DateRange, contentDescription = "Activity history", tint = NeonCyan)
+        }
+        IconButton(onClick = onSettingsClick) {
+            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = NeonCyan)
+        }
     }
 }
 
 @Composable
-private fun DashboardSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onSettingsClick: () -> Unit
+private fun DashboardSummary(
+    contacts: Int, overdue: Int, today: Int, onQuickAdd: () -> Unit,
+    totalCount: Int, totalGoal: Int, followUpCount: Int, followUpGoal: Int,
+    onTotalGoalClick: () -> Unit, onFollowUpGoalClick: () -> Unit,
+    onTotalCountLongClick: () -> Unit, onFollowUpCountLongClick: () -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
-    val shape = RoundedCornerShape(26.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .frostedGlass(shape = shape, fillColor = GlassFill),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Search,
-            contentDescription = "Search",
-            tint = TextMuted,
-            modifier = Modifier.padding(start = 14.dp).size(20.dp)
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 10.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            if (query.isEmpty()) {
-                Text(
-                    text = "Search contacts by name or phone...",
-                    color = TextMuted,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+    GlassCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(20.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryMetric("Contacts", contacts, NeonCyan, Modifier.weight(1f))
+                SummaryMetric("Overdue", overdue, NeonPink, Modifier.weight(1f))
+                SummaryMetric("Today", today, NeonGreen, Modifier.weight(1f))
             }
+            Button(
+                onClick = onQuickAdd, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DarkSpaceBlue)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Quick add lead", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                DailyGoal("Contacts made", totalCount, totalGoal, NeonCyan, onTotalGoalClick,
+                    onTotalCountLongClick, Modifier.weight(1f))
+                DailyGoal("Follow-ups made", followUpCount, followUpGoal, NeonGreen, onFollowUpGoalClick,
+                    onFollowUpCountLongClick, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryMetric(label: String, count: Int, color: Color, modifier: Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(count.toString(), color = color, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = TextSecondary, fontSize = 13.sp)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DailyGoal(label: String, count: Int, goal: Int, color: Color,
+                      onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier) {
+    Column(modifier.clip(RoundedCornerShape(8.dp)).combinedClickable(
+        role = Role.Button, onClickLabel = "Edit goal", onLongClickLabel = "Adjust count",
+        onClick = onClick, onLongClick = onLongClick
+    ).heightIn(min = 48.dp).padding(vertical = 4.dp)) {
+        Text("$count / $goal", color = color, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = TextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun DashboardSearchBar(query: String, onQueryChange: (String) -> Unit) {
+    val focusManager = LocalFocusManager.current
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .frostedGlass(RoundedCornerShape(14.dp)), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Search, contentDescription = null, tint = TextSecondary,
+            modifier = Modifier.padding(start = 14.dp).size(20.dp))
+        Box(Modifier.weight(1f).padding(horizontal = 10.dp), contentAlignment = Alignment.CenterStart) {
+            if (query.isEmpty()) Text("Search contacts", color = TextSecondary, fontSize = 15.sp)
             BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                textStyle = TextStyle(color = TextPrimary, fontSize = 14.sp),
+                value = query, onValueChange = onQueryChange, singleLine = true,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Search contacts" },
+                textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp),
                 cursorBrush = SolidColor(NeonCyan),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() })
             )
         }
-        if (query.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .padding(end = 4.dp)
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable(role = Role.Button, onClick = { onQueryChange("") }),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Clear search",
-                    tint = TextMuted,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+        if (query.isNotEmpty()) IconButton(onClick = { onQueryChange("") }) {
+            Icon(Icons.Filled.Close, contentDescription = "Clear search", tint = TextSecondary)
         }
-        Box(
-            modifier = Modifier
-                .padding(end = 6.dp)
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(role = Role.Button, onClick = onSettingsClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Build,
-                contentDescription = "Settings",
-                tint = TextSecondary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun DashboardHeader(
-    dateLabel: String,
-    onHistoryClick: () -> Unit,
-    totalCount: Int,
-    totalGoal: Int,
-    followUpCount: Int,
-    followUpGoal: Int,
-    onTotalGoalClick: () -> Unit,
-    onFollowUpGoalClick: () -> Unit,
-    onTotalCountLongClick: () -> Unit,
-    onFollowUpCountLongClick: () -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("RCRM", color = TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-            Text(dateLabel, color = NeonCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            HeaderGoalBadge(totalCount, totalGoal, NeonCyan, onTotalGoalClick, onTotalCountLongClick,
-                modifier = Modifier.semantics { contentDescription = "Contacts goal: $totalCount of $totalGoal" })
-            HeaderGoalBadge(followUpCount, followUpGoal, NeonGreen, onFollowUpGoalClick, onFollowUpCountLongClick,
-                modifier = Modifier.semantics { contentDescription = "Follow-up goal: $followUpCount of $followUpGoal" })
-            HistoryPill(onClick = onHistoryClick)
-        }
-    }
-}
-
-@Composable
-private fun HistoryPill(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        modifier = Modifier
-            .height(36.dp)
-            .frostedGlass(
-                shape = shape,
-                fillColor = Color(0xCC101828),
-                frostColor = Color.Transparent,
-                borderBrush = Brush.horizontalGradient(listOf(NeonBlue, NeonPurple)),
-                borderWidth = 1.25.dp
-            )
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Filled.DateRange,
-            contentDescription = null,
-            tint = TextPrimary,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = "History",
-            color = TextPrimary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
-        )
     }
 }
 
@@ -490,27 +410,29 @@ private fun FollowUpTabs(
     onTabSelected: (Int) -> Unit
 ) {
     val labels = listOf("Needs Attention", "Today", "Upcoming")
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(modifier = Modifier.fillMaxWidth().selectableGroup()) {
         labels.forEachIndexed { index, label ->
             val selected = index == selectedTab
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onTabSelected(index) }
+                    .selectable(selected = selected, role = Role.Tab, onClick = { onTabSelected(index) })
+                    .heightIn(min = 48.dp)
                     .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = label,
                     color = if (selected) NeonCyan else TextSecondary,
-                    fontSize = 15.sp,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
                         .height(3.dp)
-                        .width(32.dp)
+                        .fillMaxWidth(0.85f)
                         .clip(RoundedCornerShape(2.dp))
                         .background(if (selected) NeonCyan else Color.Transparent)
                 )
@@ -528,37 +450,48 @@ private fun LeadGlassCard(
     onReschedule: () -> Unit,
     onComplete: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
     var menuExpanded by remember(lead.docId) { mutableStateOf(false) }
-    Row(
-        modifier = Modifier.fillMaxWidth().frostedGlass(shape = shape, fillColor = GlassFill)
-            .clickable(onClick = onClick).padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(lead.name, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(lead.details, color = if (lead.isOverdue) Color(0xFFFF8A80) else TextSecondary,
-                fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp))
-            if (lead.isPaused || lead.isClosed) {
-                Text(if (lead.isPaused) "Paused" else "Closed", color = TextMuted, fontSize = 11.sp)
+    GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onClick, contentPadding = PaddingValues(16.dp)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(lead.name, color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(lead.details, color = if (lead.isOverdue) NeonPink else TextSecondary,
+                        fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    if (lead.isPaused || lead.isClosed) {
+                        Text(if (lead.isPaused) "Paused" else "Closed", color = TextSecondary, fontSize = 12.sp)
+                    }
+                }
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More actions for ${lead.name}", tint = TextSecondary)
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Reschedule") }, onClick = { menuExpanded = false; onReschedule() })
+                        DropdownMenuItem(text = { Text("Open contact") }, onClick = { menuExpanded = false; onClick() })
+                    }
+                }
             }
-        }
-        TextButton(onClick = onCall, enabled = lead.phone.isNotBlank(), contentPadding = PaddingValues(horizontal = 8.dp)) {
-            Text("Call", color = if (lead.phone.isNotBlank()) NeonGreen else TextMuted, fontSize = 13.sp)
-        }
-        Box {
-            TextButton(onClick = { menuExpanded = true }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                Text("More", color = NeonCyan, fontSize = 13.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LeadAction("Call", Icons.Filled.Phone, onCall, lead.phone.isNotBlank())
+                LeadAction("Text", Icons.Filled.Email, onText, lead.phone.isNotBlank())
             }
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                DropdownMenuItem(text = { Text("Text") }, enabled = lead.phone.isNotBlank(), onClick = { menuExpanded = false; onText() })
-                DropdownMenuItem(text = { Text("Reschedule") }, onClick = { menuExpanded = false; onReschedule() })
-                DropdownMenuItem(text = { Text("Log outcome") }, onClick = { menuExpanded = false; onComplete() })
-                DropdownMenuItem(text = { Text("Open contact") }, onClick = { menuExpanded = false; onClick() })
-            }
+            LeadAction("Log outcome", Icons.Filled.Edit, onComplete)
         }
+    }
+}
+
+@Composable
+private fun LeadAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector,
+                       onClick: () -> Unit, enabled: Boolean = true) {
+    TextButton(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.textButtonColors(contentColor = NeonCyan,
+            containerColor = NeonCyan.copy(alpha = 0.10f), disabledContentColor = TextMuted),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -575,6 +508,7 @@ private fun DashboardScreenPreview() {
             onQuickAdd = {},
             adminLabel = "Super Admin Panel",
             onAdminClick = {},
+            contactCount = 16,
             totalCount = 1,
             totalGoal = 10,
             followUpCount = 0,
