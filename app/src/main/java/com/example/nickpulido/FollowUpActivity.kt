@@ -1816,6 +1816,30 @@ class FollowUpActivity : AppCompatActivity() {
             sideKickContainer?.visibility = View.GONE
         }
 
+        val btnDeleteContact = dialogView.findViewById<View>(R.id.btnDeleteContact)
+        btnDeleteContact?.setOnClickListener {
+            val displayName = (lead["name"] as? String).orEmpty().ifBlank { getString(R.string.header_all_contacts) }
+            AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_delete_contact_title)
+                .setMessage(getString(R.string.dialog_delete_contact_message, displayName))
+                .setPositiveButton(R.string.btn_delete_contact) { _, _ ->
+                    btnDeleteContact.isEnabled = false
+                    val phone = (lead["phone"] as? String).orEmpty()
+                    LeadDeletion.deleteLead(this, db, docId, phone.takeIf { it.isNotBlank() }) { success, error ->
+                        btnDeleteContact.isEnabled = true
+                        if (success) {
+                            Toast.makeText(this, R.string.toast_contact_deleted, Toast.LENGTH_SHORT).show()
+                            hasSavedChanges = true
+                            dialog.dismiss()
+                        } else {
+                            Toast.makeText(this, error ?: "Couldn't delete that contact.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+                .setNegativeButton(R.string.btn_cancel, null)
+                .show()
+        }
+
         val showOutcomeSheet = {
             val bottomSheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
             val composeView = androidx.compose.ui.platform.ComposeView(this).apply {

@@ -101,6 +101,11 @@ class ContactsActivity : AppCompatActivity() {
             showLeadDetailsDialog(lead)
         }
 
+        listView.setOnItemLongClickListener { _, _, position, _ ->
+            confirmDeleteContact(displayLeadsData[position])
+            true
+        }
+
         refreshContactsPreservingState()
     }
 
@@ -633,6 +638,31 @@ class ContactsActivity : AppCompatActivity() {
         intent.putExtra("targetPhone", lead["phone"] as? String)
         intent.putExtra("fromSection", 4)
         startActivity(intent)
+    }
+
+    private fun confirmDeleteContact(lead: Map<String, Any>) {
+        val docId = lead["__docId"] as? String
+        if (docId.isNullOrBlank()) {
+            Toast.makeText(this, "That contact is no longer in RCRM.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val displayName = (lead["name"] as? String).orEmpty().ifBlank { getString(R.string.header_all_contacts) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dialog_delete_contact_title)
+            .setMessage(getString(R.string.dialog_delete_contact_message, displayName))
+            .setPositiveButton(R.string.btn_delete_contact) { _, _ ->
+                val phone = (lead["phone"] as? String).orEmpty()
+                LeadDeletion.deleteLead(this, db, docId, phone.takeIf { it.isNotBlank() }) { success, error ->
+                    if (success) {
+                        Toast.makeText(this, R.string.toast_contact_deleted, Toast.LENGTH_SHORT).show()
+                        loadContacts()
+                    } else {
+                        Toast.makeText(this, error ?: "Couldn't delete that contact.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
     }
 
     private class ContactsAdapter(context: Context, private val leads: List<Map<String, Any>>) :

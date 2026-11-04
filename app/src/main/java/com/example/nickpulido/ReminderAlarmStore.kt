@@ -193,6 +193,18 @@ object ReminderAlarmStore {
         }
     }
 
+    fun cancelAllForLead(context: Context, leadId: String, phone: String?) {
+        if (leadId.isNotBlank()) {
+            clearLeadReminders(context, leadId)
+        }
+        cancelLegacyPhone(context, phone, leadId)
+        listOfNotNull(phone?.takeIf { it.isNotBlank() }, leadId.takeIf { it.isNotBlank() })
+            .distinct()
+            .forEach { key ->
+                ReminderReceiver.cancelReminder(context, AppointmentAgenda.legacyAppointmentReminderKey(key))
+            }
+    }
+
     fun applySync(
         context: Context,
         leadId: String,

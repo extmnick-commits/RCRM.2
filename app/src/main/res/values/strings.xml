@@ -119,6 +119,10 @@
     <string name="hint_search_contacts">Search contacts...</string>
     <string name="empty_contacts">No contacts found</string>
     <string name="btn_back">Back</string>
+    <string name="btn_delete_contact">Delete Contact</string>
+    <string name="dialog_delete_contact_title">Delete contact?</string>
+    <string name="dialog_delete_contact_message">%1$s will be removed from RCRM along with reminders and activity. This cannot be undone.</string>
+    <string name="toast_contact_deleted">Contact deleted</string>
 
     <!-- Side-Kick Feature -->
     <string name="side_kick_title">Side-Kick AI</string>
