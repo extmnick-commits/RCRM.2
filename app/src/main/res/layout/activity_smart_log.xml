@@ -20,6 +20,15 @@
                     android:textSize="20sp" android:textStyle="bold" android:imeOptions="actionNext" />
                 <TextView android:id="@+id/tvLogPhoneNumber" style="@style/SmartLogBody" android:textIsSelectable="true" />
                 <TextView android:id="@+id/tvSmartContactStatus" style="@style/SmartLogBody" android:text="@string/sl_contact_hint" />
+                <Button
+                    android:id="@+id/btnImportContact"
+                    style="@style/SmartLogButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/sl_import_contact"
+                    android:background="@drawable/bg_neon_cyan_button"
+                    app:backgroundTint="@null" />
             </LinearLayout>
             <LinearLayout style="@style/SmartLogCard">
                 <TextView style="@style/SmartLogLabel" android:text="@string/sl_outcome" />

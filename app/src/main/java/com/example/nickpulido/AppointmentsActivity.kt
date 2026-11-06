@@ -107,6 +107,14 @@ class AppointmentsActivity : AppCompatActivity() {
 
     private var pendingCalendarAction: PendingCalendarAction? = null
 
+    private val calendarSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            loadAgenda()
+        }
+    }
+
     private val calendarPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
@@ -2698,150 +2706,7 @@ class AppointmentsActivity : AppCompatActivity() {
     }
 
     private fun showCalendarFilterDialog() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val calendars = GoogleCalendarManager.getUserCalendars(this@AppointmentsActivity)
-            withContext(Dispatchers.Main) {
-                if (isDestroyed) return@withContext
-                if (calendars.isEmpty()) {
-                    Toast.makeText(
-                        this@AppointmentsActivity,
-                        "No calendars found on this device.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return@withContext
-                }
-                presentCalendarFilter(calendars)
-            }
-        }
-    }
-
-    private fun presentCalendarFilter(calendars: List<GoogleSubCalendar>) {
-        val savedVisible = GoogleCalendarManager.getVisibleCalendarIds(this)
-        var chosenDefault = GoogleCalendarManager.getDefaultCalendarId(this)
-            ?: calendars.firstOrNull { it.isPrimary && it.canWrite }?.id
-            ?: calendars.firstOrNull { it.canWrite }?.id
-        val hideIds = GoogleCalendarManager.redundantReadOnlyCalendarIds(calendars)
-        val checked = mutableMapOf<Long, Boolean>()
-        calendars.forEach { calendar ->
-            checked[calendar.id] = savedVisible == null || savedVisible.contains(calendar.id)
-        }
-
-        val dialogView = layoutInflater.inflate(R.layout.dialog_calendar_picker, null)
-        val list = dialogView.findViewById<LinearLayout>(R.id.calendarPickerList)
-        val hideSwitch = dialogView.findViewById<SwitchCompat>(R.id.switchHideDuplicateCalendars)
-        val scroll = dialogView.findViewById<ScrollView>(R.id.calendarPickerScroll)
-        val radioButtons = mutableListOf<RadioButton>()
-        val primaryText = ContextCompat.getColor(this, R.color.textColorPrimary)
-        val secondaryText = ContextCompat.getColor(this, R.color.textColorSecondary)
-
-        fun capPickerHeight() {
-            val widthSpec = View.MeasureSpec.makeMeasureSpec(
-                (resources.displayMetrics.widthPixels * 0.92f).toInt(),
-                View.MeasureSpec.AT_MOST
-            )
-            scroll.measure(widthSpec, View.MeasureSpec.UNSPECIFIED)
-            val maxHeight = dp(320)
-            scroll.layoutParams = scroll.layoutParams.apply {
-                height = if (scroll.measuredHeight > maxHeight) maxHeight else ViewGroup.LayoutParams.WRAP_CONTENT
-            }
-        }
-
-        fun render(hideEnabled: Boolean) {
-            list.removeAllViews()
-            radioButtons.clear()
-            val ordered = calendars.sortedWith(
-                compareBy<GoogleSubCalendar> { it.displayName.trim().lowercase(Locale.getDefault()) }
-                    .thenBy { it.accountName.trim().lowercase(Locale.getDefault()) }
-            )
-            val shown = if (hideEnabled) ordered.filter { it.id !in hideIds } else ordered
-            val groups = shown.groupBy { it.displayName.trim().lowercase(Locale.getDefault()) }
-            shown.forEach { calendar ->
-                val key = calendar.displayName.trim().lowercase(Locale.getDefault())
-                val group = groups[key].orEmpty()
-                if (group.size > 1 && group.first().id == calendar.id) {
-                    list.addView(TextView(this).apply {
-                        text = "${calendar.displayName} · ${group.size} accounts"
-                        setTextColor(ContextCompat.getColor(this@AppointmentsActivity, R.color.colorInfo))
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                        setTypeface(typeface, Typeface.BOLD)
-                        setPadding(0, dp(10), 0, dp(2))
-                    })
-                }
-                val row = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, dp(6), 0, dp(6))
-                }
-                val check = CheckBox(this).apply {
-                    isChecked = checked[calendar.id] != false
-                    setOnCheckedChangeListener { _, isChecked -> checked[calendar.id] = isChecked }
-                }
-                val dot = View(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(dp(12), dp(12)).apply {
-                        marginStart = dp(4)
-                        marginEnd = dp(10)
-                    }
-                    background = GradientDrawable().apply {
-                        shape = GradientDrawable.OVAL
-                        setColor(calendar.color)
-                    }
-                }
-                val labels = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                labels.addView(TextView(this).apply {
-                    text = calendar.displayName
-                    setTextColor(primaryText)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-                })
-                labels.addView(TextView(this).apply {
-                    text = calendarAccountLabel(calendar, calendar.id in hideIds)
-                    setTextColor(secondaryText)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                })
-                val radio = RadioButton(this).apply {
-                    isChecked = calendar.id == chosenDefault && calendar.canWrite
-                    isEnabled = calendar.canWrite
-                    contentDescription = "Save new RCRM appointments to ${calendar.displayName} (${calendar.accountName})"
-                }
-                radioButtons += radio
-                radio.setOnClickListener {
-                    if (!radio.isEnabled) return@setOnClickListener
-                    chosenDefault = calendar.id
-                    radioButtons.forEach { button -> button.isChecked = button == radio }
-                }
-                row.addView(check)
-                row.addView(dot)
-                row.addView(labels)
-                row.addView(radio)
-                list.addView(row)
-            }
-            capPickerHeight()
-        }
-
-        hideSwitch.isChecked = GoogleCalendarManager.hideDuplicateHolidayCalendars(this)
-        render(hideSwitch.isChecked)
-        hideSwitch.setOnCheckedChangeListener { _, isChecked -> render(isChecked) }
-
-        val dialog = glassDialog(dialogView)
-        dialogView.findViewById<View>(R.id.btnCancelCalendars).setOnClickListener { dialog.dismiss() }
-        dialogView.findViewById<View>(R.id.btnApplyCalendars).setOnClickListener {
-            val visible = calendars.mapNotNull { calendar ->
-                if (checked[calendar.id] == true) calendar.id else null
-            }.toSet()
-            val defaultId = calendars.firstOrNull { it.id == chosenDefault && it.canWrite }?.id
-                ?: calendars.firstOrNull { it.canWrite }?.id
-            GoogleCalendarManager.saveVisibleCalendarIds(this, visible)
-            GoogleCalendarManager.saveHideDuplicateHolidayCalendars(this, hideSwitch.isChecked)
-            if (defaultId != null) {
-                GoogleCalendarManager.saveDefaultCalendarId(this, defaultId)
-            }
-            dialog.dismiss()
-            loadAgenda()
-        }
-        dialog.show()
-        sizeDialog(dialog)
+        calendarSettingsLauncher.launch(Intent(this, CalendarSettingsActivity::class.java))
     }
 
     private fun formatWhen(startMillis: Long, endMillis: Long, allDay: Boolean): String {

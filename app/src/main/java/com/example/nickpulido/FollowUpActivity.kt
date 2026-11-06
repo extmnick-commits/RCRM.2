@@ -369,6 +369,17 @@ class FollowUpActivity : AppCompatActivity() {
         activeLeadDetailsDialog = dialog
 
         val docId = lead["id"] as String
+
+        fun formatReadTimestamp(rawVal: Any?): String {
+            val date: Date? = when (rawVal) {
+                is Timestamp -> rawVal.toDate()
+                is Date -> rawVal
+                is Number -> if (rawVal.toLong() > 0L) Date(rawVal.toLong()) else null
+                else -> null
+            }
+            if (date == null) return "—"
+            return SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.getDefault()).format(date)
+        }
         val editName = dialogView.findViewById<EditText>(R.id.editDetailName)
         val editPhone = dialogView.findViewById<EditText>(R.id.editDetailPhone)
         val editEmail = dialogView.findViewById<EditText>(R.id.editDetailEmail)
@@ -1283,7 +1294,55 @@ class FollowUpActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    actionsLayout?.visibility = View.GONE
+                    actionsLayout?.visibility = View.VISIBLE
+                    btnEdit?.visibility = View.GONE
+                    btnDelete?.setOnClickListener {
+                        AlertDialog.Builder(this)
+                            .setTitle(R.string.dialog_delete_activity_title)
+                            .setMessage(R.string.dialog_delete_activity_message)
+                            .setPositiveButton(R.string.btn_delete_activity) { _, _ ->
+                                btnDelete.isEnabled = false
+                                val userId = auth.currentUser?.uid
+                                if (userId.isNullOrBlank()) {
+                                    btnDelete.isEnabled = true
+                                    Toast.makeText(this, R.string.error_session_changed, Toast.LENGTH_SHORT).show()
+                                    return@setPositiveButton
+                                }
+                                ActivityDeletion.deleteActivityRecord(db, docId, userId, item.id) { success, error, result ->
+                                    runOnUiThread {
+                                        btnDelete.isEnabled = true
+                                        if (!success || result == null) {
+                                            Toast.makeText(
+                                                this@FollowUpActivity,
+                                                error ?: getString(R.string.error_generic),
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            return@runOnUiThread
+                                        }
+                                        loadedActivities.removeAll { it.id == item.id }
+                                        currentRawNotes = result.updatedNotes
+                                        val mutableLead = lead as? MutableMap<String, Any?>
+                                        mutableLead?.put("notes", result.updatedNotes)
+                                        if (result.clearLastAttempted) {
+                                            mutableLead?.remove("lastAttemptedContact")
+                                        } else if (result.lastAttemptedContact != null) {
+                                            mutableLead?.put("lastAttemptedContact", Timestamp(Date(result.lastAttemptedContact)))
+                                        }
+                                        if (result.clearLastConnected) {
+                                            mutableLead?.remove("lastConnectedContact")
+                                        } else if (result.lastConnectedContact != null) {
+                                            mutableLead?.put("lastConnectedContact", Timestamp(Date(result.lastConnectedContact)))
+                                        }
+                                        tvReadLastAttempted?.text = formatReadTimestamp(lead["lastAttemptedContact"])
+                                        tvReadLastConnected?.text = formatReadTimestamp(lead["lastConnectedContact"])
+                                        renderActivityTimelineUI()
+                                        Toast.makeText(this@FollowUpActivity, R.string.toast_activity_deleted, Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
+                    }
                 }
 
                 itemView.setOnClickListener {
@@ -1683,17 +1742,6 @@ class FollowUpActivity : AppCompatActivity() {
         updateInsSummary()
         updateInvSummary()
 
-        fun formatReadTimestamp(rawVal: Any?): String {
-            val date: Date? = when (rawVal) {
-                is Timestamp -> rawVal.toDate()
-                is Date -> rawVal
-                is Number -> if (rawVal.toLong() > 0L) Date(rawVal.toLong()) else null
-                else -> null
-            }
-            if (date == null) return "—"
-            return SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.getDefault()).format(date)
-        }
-
         renderReadOnlyDetails = {
             val currentName = editName?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["name"] as? String).orEmpty() }
             val currentPhone = editPhone?.text?.toString()?.trim().orEmpty().ifEmpty { (lead["phone"] as? String).orEmpty() }
@@ -1823,10 +1871,10 @@ class FollowUpActivity : AppCompatActivity() {
                 .setTitle(R.string.dialog_delete_contact_title)
                 .setMessage(getString(R.string.dialog_delete_contact_message, displayName))
                 .setPositiveButton(R.string.btn_delete_contact) { _, _ ->
-                    btnDeleteContact.isEnabled = false
+                    btnDeleteContact?.isEnabled = false
                     val phone = (lead["phone"] as? String).orEmpty()
                     LeadDeletion.deleteLead(this, db, docId, phone.takeIf { it.isNotBlank() }) { success, error ->
-                        btnDeleteContact.isEnabled = true
+                        btnDeleteContact?.isEnabled = true
                         if (success) {
                             Toast.makeText(this, R.string.toast_contact_deleted, Toast.LENGTH_SHORT).show()
                             hasSavedChanges = true

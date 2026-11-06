@@ -26,7 +26,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -102,7 +101,6 @@ fun DashboardScreen(
     onSearchQueryChange: (String) -> Unit,
     dateLabel: String,
     onHistoryClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     onQuickAdd: () -> Unit,
     adminLabel: String?,
     onAdminClick: () -> Unit,
@@ -151,7 +149,7 @@ fun DashboardScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)
         ) {
             item {
-                DashboardHeader(dateLabel, onHistoryClick, onSettingsClick) { showSearch = !showSearch }
+                DashboardHeader(dateLabel, onHistoryClick) { showSearch = !showSearch }
                 Spacer(Modifier.height(20.dp))
             }
             if (upNext != null) {
@@ -283,8 +281,7 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardHeader(dateLabel: String, onHistoryClick: () -> Unit, onSettingsClick: () -> Unit,
-                            onSearchClick: () -> Unit) {
+private fun DashboardHeader(dateLabel: String, onHistoryClick: () -> Unit, onSearchClick: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("Home", color = TextPrimary, fontSize = 34.sp, fontWeight = FontWeight.Bold,
@@ -296,9 +293,6 @@ private fun DashboardHeader(dateLabel: String, onHistoryClick: () -> Unit, onSet
         }
         IconButton(onClick = onHistoryClick) {
             Icon(Icons.Filled.DateRange, contentDescription = "Activity history", tint = NeonCyan)
-        }
-        IconButton(onClick = onSettingsClick) {
-            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = NeonCyan)
         }
     }
 }
@@ -504,7 +498,6 @@ private fun DashboardScreenPreview() {
             onSearchQueryChange = {},
             dateLabel = "Today",
             onHistoryClick = {},
-            onSettingsClick = {},
             onQuickAdd = {},
             adminLabel = "Super Admin Panel",
             onAdminClick = {},

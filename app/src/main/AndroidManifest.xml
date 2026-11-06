@@ -104,6 +104,12 @@
             android:theme="@style/Theme.RCRM"
             android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ContactsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
+        <activity android:name=".SettingsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />
+        <activity
+            android:name=".CalendarSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.RCRM"
+            android:parentActivityName=".SettingsActivity" />
         <activity android:name=".AdminDashboardActivity" android:exported="false" />
         <activity android:name=".SideKickActivity" />
         <activity android:name=".AppointmentsActivity" android:exported="false" android:theme="@style/Theme.RCRM" />

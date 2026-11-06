@@ -69,4 +69,26 @@ object NoteUtils {
         }
         return "$prepended\n\n$remote"
     }
+
+    fun removeNote(withEventId: String, existing: String): String {
+        val id = withEventId.trim()
+        if (id.isEmpty()) return existing
+        val parsed = com.nickpulido.rcrm.domain.ContactActivityTimeline.parseNotes(existing)
+        val filtered = parsed.filter { it.eventId != id }
+        if (filtered.size == parsed.size) return existing
+        return serializeNotes(filtered)
+    }
+
+    private fun serializeNotes(notes: List<com.nickpulido.rcrm.domain.ParsedNote>): String {
+        return notes.mapNotNull { note ->
+            val content = note.content.trim()
+            if (content.isEmpty()) return@mapNotNull null
+            if (note.date == "Unknown date" && note.eventId == null) {
+                content
+            } else {
+                val eventPart = note.eventId?.let { " | eid:$it" }.orEmpty()
+                "[${note.date}$eventPart]: $content"
+            }
+        }.joinToString("\n\n")
+    }
 }

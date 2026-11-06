@@ -206,6 +206,31 @@ object OutcomeSavePlanner {
         }
     }
 
+    data class ContactTimestamps(
+        val attempted: Long? = null,
+        val connected: Long? = null
+    )
+
+    fun contactTimestamps(activities: List<ActivityRecord>): ContactTimestamps {
+        var attempted: Long? = null
+        var connected: Long? = null
+        for (record in activities) {
+            val outcome = record.outcome.trim()
+            if (outcome.isEmpty()) continue
+            if (attempted == null || record.timestamp > attempted) {
+                attempted = record.timestamp
+            }
+            if (outcome.contains("connected", ignoreCase = true) ||
+                outcome.contains("Meeting completed", ignoreCase = true)
+            ) {
+                if (connected == null || record.timestamp > connected) {
+                    connected = record.timestamp
+                }
+            }
+        }
+        return ContactTimestamps(attempted = attempted, connected = connected)
+    }
+
     fun buildSaveRequest(
         submission: OutcomeSubmission,
         leadId: String,

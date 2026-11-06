@@ -22,7 +22,7 @@ import kotlin.math.abs
 internal object SectionSwipeNavigation {
     private val destinations = listOf(
         MainActivity::class.java, AppointmentsActivity::class.java, FollowUpActivity::class.java,
-        PipelinesActivity::class.java, ContactsActivity::class.java
+        PipelinesActivity::class.java, ContactsActivity::class.java, SettingsActivity::class.java
     )
 
     fun install(activity: Activity, current: Int) {

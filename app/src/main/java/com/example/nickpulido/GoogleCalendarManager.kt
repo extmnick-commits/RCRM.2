@@ -174,6 +174,66 @@ object GoogleCalendarManager {
         prefs(context).edit { putBoolean(KEY_HIDE_DUPLICATE_READONLY, enabled) }
     }
 
+    fun isGoogleAccount(calendar: GoogleSubCalendar): Boolean {
+        val account = calendar.accountName.trim().lowercase(Locale.getDefault())
+        return account.contains("google") || account.contains("gmail")
+    }
+
+    fun hasGoogleAccount(context: Context): Boolean {
+        return getUserCalendars(context).any { isGoogleAccount(it) }
+    }
+
+    fun ensureDefaultGoogleCalendar(context: Context) {
+        if (!hasCalendarPermissions(context)) return
+        val calendars = getUserCalendars(context)
+        val writable = calendars.filter { it.canWrite }
+        val currentDefault = getDefaultCalendarId(context)
+        val currentIsGoogle = calendars.any { it.id == currentDefault && isGoogleAccount(it) }
+        if (currentIsGoogle) return
+        val google = writable.firstOrNull { isGoogleAccount(it) } ?: return
+        saveDefaultCalendarId(context, google.id)
+    }
+
+    fun settingsSummary(context: Context): String {
+        if (!hasCalendarPermissions(context)) {
+            return context.getString(R.string.settings_calendar_off)
+        }
+        val calendars = getUserCalendars(context)
+        if (calendars.isEmpty()) {
+            return context.getString(R.string.settings_calendar_no_calendars)
+        }
+        if (!hasGoogleAccount(context)) {
+            return context.getString(R.string.settings_calendar_need_google_account)
+        }
+        ensureDefaultGoogleCalendar(context)
+        val defaultId = getDefaultCalendarId(context)
+        val target = calendars.firstOrNull { it.id == defaultId && it.canWrite }
+            ?: calendars.firstOrNull { it.canWrite }
+        return if (target != null) {
+            context.getString(R.string.settings_calendar_save_to, target.displayName)
+        } else {
+            context.getString(R.string.settings_calendar_linked)
+        }
+    }
+
+    fun setCalendarVisible(
+        context: Context,
+        calendarId: Long,
+        visible: Boolean,
+        allCalendars: List<GoogleSubCalendar>
+    ) {
+        val allIds = allCalendars.map { it.id }.toSet()
+        val current = getVisibleCalendarIds(context) ?: allIds
+        val updated = current.toMutableSet()
+        if (visible) updated.add(calendarId) else updated.remove(calendarId)
+        saveVisibleCalendarIds(context, updated)
+    }
+
+    fun isCalendarVisible(context: Context, calendarId: Long, allCalendars: List<GoogleSubCalendar>): Boolean {
+        val visible = getVisibleCalendarIds(context) ?: return true
+        return visible.contains(calendarId)
+    }
+
     /**
      * Read-only copies of a calendar that already exists on another account
      * (Family, Holidays in United States, and similar shared calendars).

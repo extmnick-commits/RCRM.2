@@ -6,6 +6,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.SharedPreferences
 import android.graphics.Color
 import android.net.Uri
@@ -31,6 +32,7 @@ import com.nickpulido.rcrm.domain.SmartLogPlanner
 import com.nickpulido.rcrm.domain.WorkflowLifecycle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
@@ -61,6 +63,21 @@ class SmartLogActivity : AppCompatActivity() {
     private var canEditDraft = true
     private var baselineProfile: Map<String, String>? = null
     private var baselineSms = ""
+    private var userEditedIntroSms = false
+
+    private val pickContactLauncher = registerForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        if (uri != null) populateFromContactUri(uri)
+    }
+
+    private val readContactsForPickLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            pickContactLauncher.launch(null)
+        } else {
+            Toast.makeText(this, R.string.sl_contacts_permission_denied, Toast.LENGTH_LONG).show()
+        }
+    }
 
     private val dictateNoteLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -130,6 +147,7 @@ class SmartLogActivity : AppCompatActivity() {
         const val PREFS_IGNORED = "ignored_contacts_list"
         const val NAME_TOKEN = "[NAME]"
         const val TAG = "SmartLogActivity"
+        const val EXTRA_OPEN_CONTACT_PICKER = "open_contact_picker"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -250,6 +268,21 @@ class SmartLogActivity : AppCompatActivity() {
 
         etContactName.setText(contactName)
         tvLogPhoneNumber.text = phoneNumber.ifBlank { getString(R.string.sl_unknown_phone) }
+
+        findViewById<Button>(R.id.btnImportContact)?.setOnClickListener { launchContactImport() }
+
+        etIntroText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                userEditedIntroSms = true
+            }
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+
+        if (intent.getBooleanExtra(EXTRA_OPEN_CONTACT_PICKER, false)) {
+            intent.removeExtra(EXTRA_OPEN_CONTACT_PICKER)
+            launchContactImport()
+        }
 
         // AI Draft Button
         val btnAIGenerate = findViewById<Button>(R.id.btnAIGenerate)
@@ -1441,6 +1474,119 @@ class SmartLogActivity : AppCompatActivity() {
         
         btnToday.text = getString(R.string.btn_preset_today_format, todayTimeStr)
         btnTomorrow.text = getString(R.string.btn_preset_tomorrow_format, tomorrowTimeStr)
+    }
+
+    private fun launchContactImport() {
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED ->
+                pickContactLauncher.launch(null)
+            else -> readContactsForPickLauncher.launch(Manifest.permission.READ_CONTACTS)
+        }
+    }
+
+    @SuppressLint("Range")
+    private fun populateFromContactUri(contactUri: Uri) {
+        val etContactName = findViewById<EditText>(R.id.etContactName)
+        val tvLogPhoneNumber = findViewById<TextView>(R.id.tvLogPhoneNumber)
+        val etContactEmail = findViewById<EditText>(R.id.etContactEmail)
+        val etContactAddress = findViewById<EditText>(R.id.etContactAddress)
+        val etContactCompany = findViewById<EditText>(R.id.etContactCompany)
+        val etContactJobTitle = findViewById<EditText>(R.id.etContactJobTitle)
+        val etIntroText = findViewById<EditText>(R.id.etIntroText)
+        val containerAdvancedLogging = findViewById<View>(R.id.containerAdvancedLogging)
+        val tvToggleAdvanced = findViewById<TextView>(R.id.tvToggleAdvanced)
+
+        var contactId: String? = null
+        try {
+            contentResolver.query(contactUri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    contactId = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts._ID))
+                    val displayName = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME))
+                    if (!displayName.isNullOrBlank()) {
+                        etContactName.setText(displayName)
+                        contactName = displayName
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read picked contact", e)
+            Toast.makeText(this, R.string.error_generic, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (contactId != null) {
+            val phoneUri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+            val phoneProjection = arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            val phoneSelection = "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID}=?"
+            try {
+                contentResolver.query(phoneUri, phoneProjection, phoneSelection, arrayOf(contactId), null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val number = cursor.getString(0).orEmpty()
+                        if (number.isNotBlank()) {
+                            phoneNumber = number
+                            tvLogPhoneNumber.text = number
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't read phone for imported contact", e)
+            }
+
+            val emailUri = ContactsContract.CommonDataKinds.Email.CONTENT_URI
+            val emailProjection = arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS)
+            val emailSelection = "${ContactsContract.CommonDataKinds.Email.CONTACT_ID}=?"
+            try {
+                contentResolver.query(emailUri, emailProjection, emailSelection, arrayOf(contactId), null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        etContactEmail.setText(cursor.getString(0).orEmpty())
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't read email for imported contact", e)
+            }
+
+            val orgUri = ContactsContract.Data.CONTENT_URI
+            val orgProjection = arrayOf(
+                ContactsContract.CommonDataKinds.Organization.COMPANY,
+                ContactsContract.CommonDataKinds.Organization.TITLE
+            )
+            val orgSelection = "${ContactsContract.Data.CONTACT_ID}=? AND ${ContactsContract.Data.MIMETYPE}=?"
+            val orgSelectionArgs = arrayOf(contactId, ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE)
+            try {
+                contentResolver.query(orgUri, orgProjection, orgSelection, orgSelectionArgs, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        etContactCompany.setText(cursor.getString(0).orEmpty())
+                        etContactJobTitle.setText(cursor.getString(1).orEmpty())
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't read organization for imported contact", e)
+            }
+
+            val addressUri = ContactsContract.CommonDataKinds.StructuredPostal.CONTENT_URI
+            val addressProjection = arrayOf(ContactsContract.CommonDataKinds.StructuredPostal.FORMATTED_ADDRESS)
+            val addressSelection = "${ContactsContract.CommonDataKinds.StructuredPostal.CONTACT_ID}=?"
+            try {
+                contentResolver.query(addressUri, addressProjection, addressSelection, arrayOf(contactId), null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        etContactAddress.setText(cursor.getString(0).orEmpty())
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't read address for imported contact", e)
+            }
+        }
+
+        containerAdvancedLogging?.visibility = View.VISIBLE
+        tvToggleAdvanced?.setText(R.string.sl_hide)
+
+        if (!userEditedIntroSms) {
+            val currentName = etContactName.text.toString()
+            val firstName = currentName.split(" ").firstOrNull() ?: currentName
+            val baseMsg = accountDefaultSms?.takeIf { it.isNotBlank() }
+                ?: "Hi $NAME_TOKEN, just following up to see if you had any questions! Looking forward to connecting again."
+            etIntroText.setText(baseMsg.replace(NAME_TOKEN, firstName))
+        }
     }
 
     @SuppressLint("Range")

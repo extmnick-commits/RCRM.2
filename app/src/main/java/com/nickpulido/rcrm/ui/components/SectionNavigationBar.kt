@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,29 +36,29 @@ import androidx.compose.ui.unit.sp
 import com.nickpulido.rcrm.ui.theme.NeonCyan
 import com.nickpulido.rcrm.ui.theme.TextSecondary
 
-/** Shared by the five native activity destinations. */
+/** Shared by the native activity destinations. */
 @Composable
 fun SectionNavigationBar(current: Int, onNavigate: (Int) -> Unit) {
-    val labels = listOf("Home", "Appointments", "Follow-ups", "Pipelines", "Contacts")
+    val labels = listOf("Home", "Appts", "Follow", "Pipe", "Contacts", "Settings")
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)
-            .frostedGlass(RoundedCornerShape(24.dp)).selectableGroup().padding(4.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)
+            .frostedGlass(RoundedCornerShape(24.dp)).selectableGroup().padding(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         labels.forEachIndexed { index, label ->
             val selected = current == index
             val tint = if (selected) NeonCyan else TextSecondary
             Column(
-                Modifier.weight(if (index == 1) 1.25f else 1f)
+                Modifier.weight(1f)
                     .clip(RoundedCornerShape(18.dp))
                     .background(if (selected) NeonCyan.copy(alpha = 0.12f) else Color.Transparent)
                     .selectable(selected = selected, role = Role.Tab, onClick = { onNavigate(index) })
-                    .heightIn(min = 60.dp).padding(horizontal = 2.dp, vertical = 8.dp),
+                    .heightIn(min = 56.dp).padding(horizontal = 1.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 if (index == 3) {
-                    Canvas(Modifier.size(24.dp)) {
+                    Canvas(Modifier.size(22.dp)) {
                         listOf(0.4f, 0.65f, 0.95f).forEachIndexed { bar, height ->
                             drawRoundRect(tint, Offset(size.width * (0.08f + bar * 0.31f), size.height * (1f - height)),
                                 Size(size.width * 0.23f, size.height * height), CornerRadius(2.dp.toPx()))
@@ -68,12 +69,13 @@ fun SectionNavigationBar(current: Int, onNavigate: (Int) -> Unit) {
                         0 -> Icons.Filled.Home
                         1 -> Icons.Filled.DateRange
                         2 -> Icons.Filled.List
-                        else -> Icons.Filled.Person
+                        4 -> Icons.Filled.Person
+                        else -> Icons.Filled.Settings
                     }
-                    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+                    Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
                 }
-                Text(label, color = tint, fontSize = 11.sp, textAlign = TextAlign.Center,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+                Text(label, color = tint, fontSize = 10.sp, textAlign = TextAlign.Center,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1)
             }
         }
     }

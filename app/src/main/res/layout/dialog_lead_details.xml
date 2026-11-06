@@ -2127,6 +2127,21 @@
                             </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>
+
+                    <!-- Delete Contact Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnDeleteContact"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="24dp"
+                        android:layout_marginBottom="16dp"
+                        android:text="Delete Contact"
+                        android:textColor="@color/colorDanger"
+                        android:background="@drawable/bg_frosted_card"
+                        app:strokeColor="@color/colorDanger"
+                        app:strokeWidth="1dp"
+                        app:backgroundTint="@null"
+                        app:cornerRadius="16dp" />
                 </LinearLayout>
             </LinearLayout>
         </ScrollView>
