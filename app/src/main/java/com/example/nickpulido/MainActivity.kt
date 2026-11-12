@@ -544,6 +544,17 @@ class MainActivity : AppCompatActivity() {
                 ContactNoteSyncWorker.schedule(this)
             }
         }
+        auth.currentUser?.uid?.let { userId ->
+            val pendingShared = SharedContactInbox.items(this)
+            if (pendingShared.isNotEmpty()) {
+                SharedContactInbox.importToFirestore(this, db, userId, pendingShared) { imported, _ ->
+                    if (imported > 0 && !isDestroyed) {
+                        Toast.makeText(this, "Imported $imported shared contact(s)", Toast.LENGTH_SHORT).show()
+                        loadHotList()
+                    }
+                }
+            }
+        }
         loadLocalStats()
         loadHotList() // Refresh reminders when returning to main screen
         startUpNextTicker()
@@ -2292,8 +2303,12 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "No phone number for this contact", Toast.LENGTH_SHORT).show()
             return
         }
-        val intent = Intent(if (text) Intent.ACTION_SENDTO else Intent.ACTION_DIAL,
-            Uri.parse(if (text) "smsto:${Uri.encode(lead.phone)}" else "tel:${Uri.encode(lead.phone)}"))
+        val targetUri = if (text) {
+            "smsto:${com.nickpulido.rcrm.domain.SmartLogPlanner.sanitizePhoneForSms(lead.phone)}"
+        } else {
+            "tel:${Uri.encode(lead.phone)}"
+        }
+        val intent = Intent(if (text) Intent.ACTION_SENDTO else Intent.ACTION_DIAL, Uri.parse(targetUri))
         try {
             pendingInteractionLeadId = lead.docId
             interactionLauncher.launch(intent)

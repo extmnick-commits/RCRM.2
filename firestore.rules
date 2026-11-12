@@ -103,5 +103,10 @@ service cloud.firestore {
         allow read, write: if signedIn() && request.auth.uid == userId;
       }
     }
+
+    // Google Calendar refresh tokens — Admin SDK only (Next.js /api/google/calendar/*).
+    match /google_calendar_tokens/{userId} {
+      allow read, write: if false;
+    }
   }
 }

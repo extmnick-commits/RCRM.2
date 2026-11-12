@@ -75,6 +75,37 @@ class SmartLogPlannerTest {
         assertEquals(2, records.size)
     }
 
+    @Test fun additionalPhoneNumbersMatchAndMergeWithoutDuplicates() {
+        val additional = listOf(
+            mapOf("label" to "Work", "number" to "(209) 555-0188")
+        )
+        assertTrue(SmartLogPlanner.leadMatchesPhone("2095550188", "2095550100", additional))
+        assertFalse(SmartLogPlanner.leadMatchesPhone("2095550999", "2095550100", additional))
+
+        val merged = SmartLogPlanner.mergeAdditionalPhones(
+            existing = listOf(LabeledPhone("Work", "(209) 555-0188")),
+            incoming = listOf(
+                LabeledPhone("Mobile", "209-555-0188"),
+                LabeledPhone("Home", "209-555-0177")
+            ),
+            primaryPhone = "209-555-0100"
+        )
+        assertEquals(
+            listOf(
+                LabeledPhone("Work", "(209) 555-0188"),
+                LabeledPhone("Main", "209-555-0100"),
+                LabeledPhone("Home", "209-555-0177")
+            ),
+            merged
+        )
+    }
+
+    @Test fun smsSanitizationKeepsDigitsAndPlusSignOnly() {
+        assertEquals("+12095550123", SmartLogPlanner.sanitizePhoneForSms(" +1 (209) 555-0123 "))
+        assertTrue(SmartLogPlanner.isValidPhoneInput("(209) 555-0123"))
+        assertFalse(SmartLogPlanner.isValidPhoneInput("12345"))
+    }
+
     private fun request(nextAction: NextActionSpec?) = OutcomeSaveRequest(
         operationId = "smart-test", leadId = "contact", ownerId = "owner", outcome = "Connected",
         note = "Discussed the quote", activityType = ActionType.CALL, stage = null,

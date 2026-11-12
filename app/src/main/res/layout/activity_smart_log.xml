@@ -19,6 +19,29 @@
                     android:hint="@string/hint_contact_name" android:inputType="textCapWords|textPersonName"
                     android:textSize="20sp" android:textStyle="bold" android:imeOptions="actionNext" />
                 <TextView android:id="@+id/tvLogPhoneNumber" style="@style/SmartLogBody" android:textIsSelectable="true" />
+                <Button android:id="@+id/btnImportRecentNumber" style="@style/SmartLogButton" android:text="Import a recent number" />
+                <LinearLayout
+                    android:id="@+id/containerImportedPhoneNumbers"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone">
+                    <TextView
+                        style="@style/SmartLogBody"
+                        android:text="IMPORTED NUMBERS"
+                        android:textStyle="bold"
+                        android:textSize="11sp" />
+                    <LinearLayout
+                        android:id="@+id/layoutImportedPhoneNumbers"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                    <TextView
+                        style="@style/SmartLogBody"
+                        android:text="All numbers will be saved. The phone field above is the main number."
+                        android:textSize="12sp" />
+                </LinearLayout>
                 <TextView android:id="@+id/tvSmartContactStatus" style="@style/SmartLogBody" android:text="@string/sl_contact_hint" />
             </LinearLayout>
             <LinearLayout style="@style/SmartLogCard">

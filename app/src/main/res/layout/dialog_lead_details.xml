@@ -506,6 +506,35 @@
                         </LinearLayout>
                     </LinearLayout>
 
+                    <!-- SECTION: Additional Phone Numbers (shown when present) -->
+                    <LinearLayout
+                        android:id="@+id/sectionReadAdditionalPhones"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginTop="22dp"
+                            android:layout_marginBottom="8dp"
+                            android:text="Phone numbers"
+                            android:textColor="#8E99B0"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:id="@+id/layoutReadAdditionalPhones"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="@drawable/bg_frosted_card"
+                            android:paddingHorizontal="18dp"
+                            android:paddingVertical="4dp" />
+                    </LinearLayout>
+
                     <!-- SECTION: Pipeline -->
                     <TextView
                         android:layout_width="wrap_content"
@@ -1275,159 +1304,299 @@
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
-                        <com.google.android.material.card.MaterialCardView
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="16dp"
-                            app:cardBackgroundColor="#CC121A2C"
-                            app:strokeColor="@color/dividerColor"
-                            app:strokeWidth="1dp"
-                            app:cardCornerRadius="20dp"
-                            app:cardElevation="0dp">
+                            android:background="@drawable/bg_frosted_card"
+                            android:orientation="vertical"
+                            android:paddingHorizontal="18dp"
+                            android:paddingVertical="4dp">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="16dp">
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="match_parent"
+                                android:minHeight="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Name">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editDetailName"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="14sp"
-                                        android:inputType="textPersonName" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="match_parent"
+                                    android:text="Name"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <EditText
+                                    android:id="@+id/editDetailName"
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Phone Number">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editDetailPhone"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="14sp"
-                                        android:inputType="phone" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Email Address">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editDetailEmail"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="14sp"
-                                        android:inputType="textEmailAddress" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Address">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editDetailAddress"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="14sp"
-                                        android:inputType="textPostalAddress" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Company">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editDetailCompany"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="14sp"
-                                        android:inputType="textCapWords" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <com.google.android.material.textfield.TextInputLayout
-                                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="12dp"
-                                    app:boxBackgroundColor="#121A2C"
-                                    app:boxStrokeColor="#8E99B0"
-                                    app:hintTextColor="#8E99B0"
-                                    android:hint="Job Title">
-                                    <com.google.android.material.textfield.TextInputEditText
-                                        android:id="@+id/editDetailJobTitle"
-                                        android:layout_width="match_parent"
-                                        android:layout_height="wrap_content"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="14sp"
-                                        android:inputType="textCapWords" />
-                                </com.google.android.material.textfield.TextInputLayout>
-
-                                <LinearLayout
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:paddingTop="8dp"
-                                    android:gravity="center_vertical">
-                                    <TextView
-                                        android:id="@+id/tvBirthdayDisplay"
-                                        android:layout_width="0dp"
-                                        android:layout_weight="1"
-                                        android:layout_height="wrap_content"
-                                        android:text="Birthday: None"
-                                        android:textColor="#FFFFFF"
-                                        android:textStyle="bold"
-                                        android:textSize="14sp" />
-                                    <Button
-                                        android:id="@+id/btnSetBirthday"
-                                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="📅 Add Birthday"
-                                        android:textColor="#2EE7FF"
-                                        android:padding="0dp"
-                                        android:minWidth="0dp"
-                                        android:minHeight="0dp"
-                                        android:textAllCaps="false" />
-                                </LinearLayout>
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:background="@android:color/transparent"
+                                    android:gravity="end|center_vertical"
+                                    android:hint="Required"
+                                    android:importantForAutofill="yes"
+                                    android:autofillHints="name"
+                                    android:inputType="textPersonName|textCapWords"
+                                    android:maxLines="1"
+                                    android:paddingVertical="8dp"
+                                    android:textColor="#F4F7FF"
+                                    android:textColorHint="#8E99B0"
+                                    android:textSize="16sp" />
                             </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/dividerColor" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Phone"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <EditText
+                                    android:id="@+id/editDetailPhone"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:background="@android:color/transparent"
+                                    android:gravity="end|center_vertical"
+                                    android:hint="Phone number"
+                                    android:importantForAutofill="yes"
+                                    android:autofillHints="phone"
+                                    android:inputType="phone"
+                                    android:maxLines="1"
+                                    android:paddingVertical="8dp"
+                                    android:textColor="#F4F7FF"
+                                    android:textColorHint="#8E99B0"
+                                    android:textSize="16sp" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/dividerColor" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Email"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <EditText
+                                    android:id="@+id/editDetailEmail"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:background="@android:color/transparent"
+                                    android:gravity="end|center_vertical"
+                                    android:hint="Email"
+                                    android:importantForAutofill="yes"
+                                    android:autofillHints="emailAddress"
+                                    android:inputType="textEmailAddress"
+                                    android:maxLines="1"
+                                    android:paddingVertical="8dp"
+                                    android:textColor="#F4F7FF"
+                                    android:textColorHint="#8E99B0"
+                                    android:textSize="16sp" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/dividerColor" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Address"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <EditText
+                                    android:id="@+id/editDetailAddress"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:background="@android:color/transparent"
+                                    android:gravity="end|center_vertical"
+                                    android:hint="Street address"
+                                    android:inputType="textPostalAddress"
+                                    android:maxLines="2"
+                                    android:paddingVertical="8dp"
+                                    android:textColor="#F4F7FF"
+                                    android:textColorHint="#8E99B0"
+                                    android:textSize="16sp" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/dividerColor" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Company"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <EditText
+                                    android:id="@+id/editDetailCompany"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:background="@android:color/transparent"
+                                    android:gravity="end|center_vertical"
+                                    android:hint="Company"
+                                    android:inputType="textCapWords"
+                                    android:maxLines="1"
+                                    android:paddingVertical="8dp"
+                                    android:textColor="#F4F7FF"
+                                    android:textColorHint="#8E99B0"
+                                    android:textSize="16sp" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/dividerColor" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Title"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <EditText
+                                    android:id="@+id/editDetailJobTitle"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:background="@android:color/transparent"
+                                    android:gravity="end|center_vertical"
+                                    android:hint="Job title"
+                                    android:inputType="textCapWords"
+                                    android:maxLines="1"
+                                    android:paddingVertical="8dp"
+                                    android:textColor="#F4F7FF"
+                                    android:textColorHint="#8E99B0"
+                                    android:textSize="16sp" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="@color/dividerColor" />
+
+                            <LinearLayout
+                                android:id="@+id/rowEditBirthday"
+                                android:layout_width="match_parent"
+                                android:layout_height="52dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:background="?attr/selectableItemBackground"
+                                android:clickable="true"
+                                android:focusable="true">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Birthday"
+                                    android:textColor="#F4F7FF"
+                                    android:textSize="16sp" />
+                                <TextView
+                                    android:id="@+id/tvBirthdayDisplay"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="16dp"
+                                    android:gravity="end"
+                                    android:text="None"
+                                    android:textColor="#8E99B0"
+                                    android:textSize="16sp" />
+                                <TextView
+                                    android:id="@+id/btnSetBirthday"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:text="Set"
+                                    android:textColor="#2EE7FF"
+                                    android:textSize="16sp"
+                                    android:visibility="gone" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Imported / Additional Phone Numbers (Edit Mode) -->
+                        <LinearLayout
+                            android:id="@+id/sectionEditAdditionalPhones"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="16dp"
+                            android:orientation="vertical"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:layout_marginBottom="8dp"
+                                android:text="Imported phone numbers"
+                                android:textColor="#8E99B0"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <LinearLayout
+                                android:id="@+id/layoutEditAdditionalPhones"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/bg_frosted_card"
+                                android:orientation="vertical"
+                                android:paddingHorizontal="14dp"
+                                android:paddingVertical="8dp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:layout_marginTop="6dp"
+                                android:text="The Phone field above is the main number."
+                                android:textColor="#8E99B0"
+                                android:textSize="12sp" />
+                        </LinearLayout>
 
                         <!-- Target Market Score Card -->
                         <TextView
@@ -1440,22 +1609,14 @@
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
-                        <com.google.android.material.card.MaterialCardView
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="16dp"
-                            app:cardBackgroundColor="#CC121A2C"
-                            app:strokeColor="@color/dividerColor"
-                            app:strokeWidth="1dp"
-                            app:cardCornerRadius="20dp"
-                            app:cardElevation="0dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:padding="16dp"
-                                android:gravity="center_vertical">
+                            android:background="@drawable/bg_frosted_card"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="16dp">
 
                                 <RelativeLayout
                                     android:layout_width="80dp"
@@ -1509,8 +1670,7 @@
 
                                     <CheckBox android:id="@+id/cbTmOccupation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Occupation" android:textColor="#FFFFFF" app:buttonTint="#B14CFF" android:textSize="13sp" />
                                 </LinearLayout>
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
+                        </LinearLayout>
                     </LinearLayout>
 
                     <!-- Categories & Products Section -->
@@ -1531,21 +1691,13 @@
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
-                        <com.google.android.material.card.MaterialCardView
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="16dp"
-                            app:cardBackgroundColor="#CC121A2C"
-                            app:strokeColor="@color/dividerColor"
-                            app:strokeWidth="1dp"
-                            app:cardCornerRadius="20dp"
-                            app:cardElevation="0dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="12dp">
+                            android:background="@drawable/bg_frosted_card"
+                            android:orientation="vertical"
+                            android:padding="12dp">
 
                                 <TextView
                                     android:layout_width="wrap_content"
@@ -1575,8 +1727,7 @@
                                     <CheckBox android:id="@+id/cbInvestmentDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Investment" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
                                     <CheckBox android:id="@+id/cbLifeInsuranceDetail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Life Insurance" android:textColor="#FFFFFF" app:buttonTint="#2EE7FF" />
                                 </LinearLayout>
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
+                        </LinearLayout>
 
                         <!-- Life Insurance -->
                         <com.google.android.material.card.MaterialCardView

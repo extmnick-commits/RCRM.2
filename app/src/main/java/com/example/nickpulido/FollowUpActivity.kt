@@ -28,11 +28,13 @@ import com.nickpulido.rcrm.domain.ActionType
 import com.nickpulido.rcrm.domain.ActivityRecord
 import com.nickpulido.rcrm.domain.ContactActivityTimeline
 import com.nickpulido.rcrm.domain.FollowUpRepository
+import com.nickpulido.rcrm.domain.LabeledPhone
 import com.nickpulido.rcrm.domain.NextAction
 import com.nickpulido.rcrm.domain.OutcomeSavePlanner
 import com.nickpulido.rcrm.domain.ParsedNote
 import com.nickpulido.rcrm.domain.ReminderListFilter
 import com.nickpulido.rcrm.domain.ReminderPlanner
+import com.nickpulido.rcrm.domain.SmartLogPlanner
 import com.nickpulido.rcrm.ui.components.PipelineType
 import com.nickpulido.rcrm.databinding.ActivityFollowUpBinding
 import com.google.firebase.Timestamp
@@ -402,6 +404,12 @@ class FollowUpActivity : AppCompatActivity() {
         val tvReadFollowUpDate = dialogView.findViewById<TextView>(R.id.tvReadFollowUpDate)
         val tvReadLastAttempted = dialogView.findViewById<TextView>(R.id.tvReadLastAttempted)
         val tvReadLastConnected = dialogView.findViewById<TextView>(R.id.tvReadLastConnected)
+        val sectionReadAdditionalPhones = dialogView.findViewById<View>(R.id.sectionReadAdditionalPhones)
+        val layoutReadAdditionalPhones = dialogView.findViewById<LinearLayout>(R.id.layoutReadAdditionalPhones)
+        val sectionEditAdditionalPhones = dialogView.findViewById<View>(R.id.sectionEditAdditionalPhones)
+        val layoutEditAdditionalPhones = dialogView.findViewById<LinearLayout>(R.id.layoutEditAdditionalPhones)
+        val editableAdditionalPhones = SmartLogPlanner.readAdditionalPhones(lead["additionalPhoneNumbers"]).toMutableList()
+        val editPhoneInputs = mutableListOf<Pair<EditText, EditText>>()
 
         var initialName = (lead["name"] as? String).orEmpty()
         var initialPhone = (lead["phone"] as? String).orEmpty()
@@ -923,7 +931,7 @@ class FollowUpActivity : AppCompatActivity() {
                             btnLaunchAction.text = "Message"
                             btnLaunchAction.setIconResource(android.R.drawable.sym_action_chat)
                             btnLaunchAction.setOnClickListener {
-                                val phone = contactPhone()
+                                val phone = SmartLogPlanner.sanitizePhoneForSms(contactPhone())
                                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                     data = android.net.Uri.parse("sms:$phone")
                                 }
@@ -1635,6 +1643,51 @@ class FollowUpActivity : AppCompatActivity() {
         editCompany?.setText(lead["company"] as? String)
         editJobTitle?.setText(lead["jobTitle"] as? String)
 
+        var currentBirthday: String? = lead["birthday"] as? String
+        val tvBirthdayDisplay = dialogView.findViewById<TextView>(R.id.tvBirthdayDisplay)
+        val rowEditBirthday = dialogView.findViewById<View>(R.id.rowEditBirthday)
+
+        fun updateBirthdayUi() {
+            val raw = currentBirthday
+            if (raw.isNullOrBlank()) {
+                tvBirthdayDisplay?.text = "None"
+                return
+            }
+            try {
+                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(raw)
+                val displayFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+                tvBirthdayDisplay?.text = parsed?.let { displayFormat.format(it) } ?: raw
+            } catch (_: Exception) {
+                tvBirthdayDisplay?.text = raw
+            }
+        }
+        updateBirthdayUi()
+
+        rowEditBirthday?.setOnClickListener {
+            val cal = Calendar.getInstance()
+            currentBirthday?.let { stored ->
+                val parts = stored.split("-")
+                if (parts.size >= 3) {
+                    cal.set(Calendar.YEAR, parts[0].toIntOrNull() ?: cal.get(Calendar.YEAR))
+                    cal.set(Calendar.MONTH, (parts[1].toIntOrNull() ?: 1) - 1)
+                    cal.set(Calendar.DAY_OF_MONTH, parts[2].toIntOrNull() ?: 1)
+                }
+            }
+            DatePickerDialog(
+                this,
+                R.style.ThemeOverlay_RCRM_DatePicker,
+                { _, year, month, day ->
+                    val monthStr = (month + 1).toString().padStart(2, '0')
+                    val dayStr = day.toString().padStart(2, '0')
+                    currentBirthday = "$year-$monthStr-$dayStr"
+                    updateBirthdayUi()
+                },
+                cal.get(Calendar.YEAR),
+                cal.get(Calendar.MONTH),
+                cal.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        }
+
         val category = lead["category"] as? String ?: ""
         cbRecruit?.isChecked = category.contains(getString(R.string.category_recruit))
         cbProspect?.isChecked = category.contains(getString(R.string.category_prospect))
@@ -1713,7 +1766,20 @@ class FollowUpActivity : AppCompatActivity() {
             val currentCategory = activeCategories.joinToString(", ").ifEmpty { (lead["category"] as? String).orEmpty().trim() }
 
             tvDetailHeaderName?.text = if (isEditMode) "Edit Contact" else currentName.ifEmpty { "Contact" }
-            btnToggleEditMode?.text = if (isEditMode) "Save" else "Edit"
+            btnToggleEditMode?.text = if (isEditMode) "Done" else "Edit"
+            if (isEditMode) {
+                btnToggleEditMode?.setBackgroundResource(android.R.color.transparent)
+                btnToggleEditMode?.setPadding(
+                    (8 * resources.displayMetrics.density).toInt(),
+                    btnToggleEditMode?.paddingTop ?: 0,
+                    (8 * resources.displayMetrics.density).toInt(),
+                    btnToggleEditMode?.paddingBottom ?: 0
+                )
+            } else {
+                btnToggleEditMode?.setBackgroundResource(R.drawable.bg_frosted_pill_input)
+                val hPad = (20 * resources.displayMetrics.density).toInt()
+                btnToggleEditMode?.setPadding(hPad, 0, hPad, 0)
+            }
 
             val hasPhone = currentPhone.isNotBlank()
             val hasEmail = currentEmail.isNotBlank()
@@ -1773,13 +1839,112 @@ class FollowUpActivity : AppCompatActivity() {
             tvReadFollowUpDate?.text = formatReadTimestamp(lead["followUpDate"] ?: followUpMillis)
             tvReadLastAttempted?.text = formatReadTimestamp(lead["lastAttemptedContact"])
             tvReadLastConnected?.text = formatReadTimestamp(lead["lastConnectedContact"])
+
+            val readPhones = SmartLogPlanner.readAdditionalPhones(lead["additionalPhoneNumbers"])
+            layoutReadAdditionalPhones?.removeAllViews()
+            if (readPhones.isEmpty()) {
+                sectionReadAdditionalPhones?.visibility = View.GONE
+            } else {
+                sectionReadAdditionalPhones?.visibility = View.VISIBLE
+                readPhones.forEachIndexed { idx, entry ->
+                    if (idx > 0) {
+                        layoutReadAdditionalPhones?.addView(View(this@FollowUpActivity).apply {
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+                            setBackgroundColor(ContextCompat.getColor(this@FollowUpActivity, R.color.dividerColor))
+                        })
+                    }
+                    val row = LinearLayout(this@FollowUpActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = android.view.Gravity.CENTER_VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (52 * resources.displayMetrics.density).toInt())
+                        setOnClickListener {
+                            val smsPhone = SmartLogPlanner.sanitizePhoneForSms(entry.number)
+                            AlertDialog.Builder(this@FollowUpActivity)
+                                .setTitle(entry.number)
+                                .setItems(arrayOf("Call", "Text")) { _, which ->
+                                    val actionIntent = if (which == 0) {
+                                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(entry.number)}"))
+                                    } else {
+                                        Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$smsPhone"))
+                                    }
+                                    try { startActivity(actionIntent) } catch (_: Exception) {}
+                                }
+                                .show()
+                        }
+                    }
+                    row.addView(TextView(this@FollowUpActivity).apply {
+                        text = entry.label.ifBlank { "Phone" }
+                        setTextColor(Color.parseColor("#F4F7FF"))
+                        textSize = 16f
+                    })
+                    row.addView(TextView(this@FollowUpActivity).apply {
+                        text = entry.number
+                        setTextColor(Color.parseColor("#8E99B0"))
+                        textSize = 16f
+                        gravity = android.view.Gravity.END
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    })
+                    layoutReadAdditionalPhones?.addView(row)
+                }
+            }
         }
+
+        fun renderEditAdditionalPhones() {
+            layoutEditAdditionalPhones?.removeAllViews()
+            editPhoneInputs.clear()
+            if (editableAdditionalPhones.isEmpty()) {
+                sectionEditAdditionalPhones?.visibility = View.GONE
+                return
+            }
+            sectionEditAdditionalPhones?.visibility = View.VISIBLE
+            editableAdditionalPhones.forEachIndexed { index, entry ->
+                val row = LinearLayout(this@FollowUpActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(0, 6, 0, 6)
+                }
+                val labelEt = EditText(this@FollowUpActivity).apply {
+                    setText(entry.label)
+                    hint = "Label"
+                    setTextColor(Color.parseColor("#F4F7FF"))
+                    setHintTextColor(Color.parseColor("#8E99B0"))
+                    textSize = 14f
+                    background = null
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.38f)
+                }
+                val numberEt = EditText(this@FollowUpActivity).apply {
+                    setText(entry.number)
+                    hint = "Number"
+                    inputType = android.text.InputType.TYPE_CLASS_PHONE
+                    setTextColor(Color.parseColor("#F4F7FF"))
+                    setHintTextColor(Color.parseColor("#8E99B0"))
+                    textSize = 15f
+                    background = null
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.62f)
+                }
+                val removeBtn = ImageButton(this@FollowUpActivity).apply {
+                    setImageResource(android.R.drawable.ic_menu_delete)
+                    setBackgroundColor(Color.TRANSPARENT)
+                    setColorFilter(Color.parseColor("#FF3B8D"))
+                    setOnClickListener {
+                        editableAdditionalPhones.removeAt(index)
+                        renderEditAdditionalPhones()
+                    }
+                }
+                editPhoneInputs.add(labelEt to numberEt)
+                row.addView(labelEt)
+                row.addView(numberEt)
+                row.addView(removeBtn)
+                layoutEditAdditionalPhones?.addView(row)
+            }
+        }
+        renderEditAdditionalPhones()
 
         fun setEditMode(editing: Boolean) {
             isEditMode = editing
             sectionActivity?.visibility = if (editing) View.GONE else View.VISIBLE
             editModeContainer?.visibility = if (editing) View.VISIBLE else View.GONE
-            pinnedBottomSaveBar?.visibility = if (editing) View.VISIBLE else View.GONE
+            pinnedBottomSaveBar?.visibility = View.GONE
             composeDetailBottomNav?.visibility = if (editing) View.GONE else View.VISIBLE
             renderReadOnlyDetails()
         }
@@ -1905,8 +2070,8 @@ class FollowUpActivity : AppCompatActivity() {
             }
         }
         btnSmsDetail?.setOnClickListener {
-            val phone = editPhone?.text.toString()
-            if (phone.isNotBlank()) launchContactInteraction(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(phone)}")))
+            val phone = SmartLogPlanner.sanitizePhoneForSms(editPhone?.text.toString())
+            if (phone.isNotBlank()) launchContactInteraction(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")))
         }
         btnCallDetail?.setOnClickListener {
             val phone = editPhone?.text.toString()
@@ -2297,7 +2462,7 @@ class FollowUpActivity : AppCompatActivity() {
 
         btnSendIntroAction?.setOnClickListener {
             val msg = etIntroText?.text.toString()
-            val phone = editPhone?.text.toString()
+            val phone = SmartLogPlanner.sanitizePhoneForSms(editPhone?.text.toString())
             if (msg.isNotEmpty() && phone.isNotEmpty()) {
                 incrementDailyStat("followup_count")
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:$phone")).apply { putExtra("sms_body", msg) })
@@ -2352,9 +2517,20 @@ class FollowUpActivity : AppCompatActivity() {
             val editedBaseUpdatedAt = priorRecords
                 .firstOrNull { it.id == appointmentEdit.editedId }
                 ?.updatedAtMillis ?: 0L
+            val syncedAdditionalPhones = if (editPhoneInputs.isNotEmpty()) {
+                editPhoneInputs.mapNotNull { (labelEt, numberEt) ->
+                    val num = numberEt.text.toString().trim()
+                    if (num.isEmpty()) null else LabeledPhone(labelEt.text.toString().trim().ifEmpty { "Phone" }, num)
+                }
+            } else {
+                editableAdditionalPhones.toList()
+            }
+            editableAdditionalPhones.clear()
+            editableAdditionalPhones.addAll(syncedAdditionalPhones)
             val updates: MutableMap<String, Any?> = hashMapOf(
                 "name" to editName?.text.toString(),
                 "phone" to editPhone?.text.toString(),
+                "additionalPhoneNumbers" to SmartLogPlanner.serializeAdditionalPhones(syncedAdditionalPhones),
                 "email" to editEmail?.text.toString(),
                 "address" to editAddress?.text.toString(),
                 "company" to editCompany?.text.toString(),
@@ -2363,6 +2539,7 @@ class FollowUpActivity : AppCompatActivity() {
                 "notes" to updatedNotes,
                 "targetMarket" to tmList.joinToString(", ")
             )
+            currentBirthday?.takeIf { it.isNotBlank() }?.let { updates["birthday"] = it }
             updates["insCarrier"] = editInsCarrier?.text.toString()
             updates["insPolicyType"] = spinnerInsPolicyType?.selectedItem?.toString()?.takeIf { it != "Select Policy Type..." }
             updates["insPolicyNumber"] = editInsPolicyNumber?.text.toString()

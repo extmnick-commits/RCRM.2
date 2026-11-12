@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.chip.ChipGroup
 import com.nickpulido.rcrm.domain.ActionType
 import com.nickpulido.rcrm.domain.FollowUpRepository
+import com.nickpulido.rcrm.domain.LabeledPhone
 import com.nickpulido.rcrm.domain.NextActionSpec
 import com.nickpulido.rcrm.domain.OutcomeSavePlanner
 import com.nickpulido.rcrm.domain.OutcomeSaveRequest
@@ -74,6 +75,7 @@ class SmartLogActivity : AppCompatActivity() {
     }
     private var phoneNumber: String = ""
     private var contactName: String = ""
+    private var importedPhoneNumbers: List<LabeledPhone> = emptyList()
     private var followUpDate: Date? = null
     private var accountDefaultSms: String? = null
     private var insRenewalDateStr: String? = null
@@ -124,12 +126,18 @@ class SmartLogActivity : AppCompatActivity() {
         action?.invoke(granted)
     }
 
-    private companion object {
-        const val PREFS_NAME = "IntroPresets"
-        const val PREFS_KEY = "saved_presets_list"
-        const val PREFS_IGNORED = "ignored_contacts_list"
-        const val NAME_TOKEN = "[NAME]"
-        const val TAG = "SmartLogActivity"
+    companion object {
+        const val EXTRA_SHARED_NAME = "shared_contact_name"
+        const val EXTRA_SHARED_EMAIL = "shared_contact_email"
+        const val EXTRA_SHARED_COMPANY = "shared_contact_company"
+        const val EXTRA_SHARED_TITLE = "shared_contact_title"
+        const val EXTRA_SHARED_ADDRESS = "shared_contact_address"
+        const val EXTRA_SHARED_PHONES_JSON = "shared_contact_phones_json"
+        private const val PREFS_NAME = "IntroPresets"
+        private const val PREFS_KEY = "saved_presets_list"
+        private const val PREFS_IGNORED = "ignored_contacts_list"
+        private const val NAME_TOKEN = "[NAME]"
+        private const val TAG = "SmartLogActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -152,6 +160,8 @@ class SmartLogActivity : AppCompatActivity() {
             val values = it.getStringArrayList("smart_profile_values")
             if (keys != null && values != null) baselineProfile = keys.zip(values).toMap()
             baselineSms = it.getString("smart_baseline_sms").orEmpty()
+            importedPhoneNumbers = SharedContactInbox.decodePhones(it.getString("smart_imported_phones"))
+            it.getString("smart_phone_number")?.let { savedPhone -> phoneNumber = savedPhone }
         }
         val root = findViewById<View>(R.id.smartLogRoot)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
@@ -165,9 +175,15 @@ class SmartLogActivity : AppCompatActivity() {
 
         statsPrefs = getSharedPreferences("daily_stats_local", Context.MODE_PRIVATE)
 
-        phoneNumber = intent.getStringExtra("INCOMING_NUMBER") ?: ""
+        if (phoneNumber.isBlank()) {
+            phoneNumber = intent.getStringExtra("INCOMING_NUMBER") ?: ""
+        }
+        if (importedPhoneNumbers.isEmpty()) {
+            importedPhoneNumbers = SharedContactInbox.decodePhones(intent.getStringExtra(EXTRA_SHARED_PHONES_JSON))
+        }
+        val sharedName = intent.getStringExtra(EXTRA_SHARED_NAME).orEmpty().trim()
         val (name, _) = getContactNameAndStatus(phoneNumber)
-        contactName = name.takeUnless { it == getString(R.string.unknown_contact) }.orEmpty()
+        contactName = sharedName.ifBlank { name.takeUnless { it == getString(R.string.unknown_contact) }.orEmpty() }
 
         val etContactName = findViewById<EditText>(R.id.etContactName)
         val tvLogPhoneNumber = findViewById<TextView>(R.id.tvLogPhoneNumber)
@@ -175,6 +191,14 @@ class SmartLogActivity : AppCompatActivity() {
         val etContactAddress = findViewById<EditText>(R.id.etContactAddress)
         val etContactCompany = findViewById<EditText>(R.id.etContactCompany)
         val etContactJobTitle = findViewById<EditText>(R.id.etContactJobTitle)
+        if (!restoreDraft) {
+            intent.getStringExtra(EXTRA_SHARED_EMAIL)?.takeIf { it.isNotBlank() }?.let { etContactEmail.setText(it) }
+            intent.getStringExtra(EXTRA_SHARED_ADDRESS)?.takeIf { it.isNotBlank() }?.let { etContactAddress.setText(it) }
+            intent.getStringExtra(EXTRA_SHARED_COMPANY)?.takeIf { it.isNotBlank() }?.let { etContactCompany.setText(it) }
+            intent.getStringExtra(EXTRA_SHARED_TITLE)?.takeIf { it.isNotBlank() }?.let { etContactJobTitle.setText(it) }
+        }
+        findViewById<Button>(R.id.btnImportRecentNumber).setOnClickListener { showRecentNumberImportDialog() }
+        renderImportedPhoneNumbers()
         val btnSkip = findViewById<Button>(R.id.btnSkipPersonal)
         val btnIgnore = findViewById<Button>(R.id.btnIgnoreCallLog)
         val cbRecruit = findViewById<CheckBox>(R.id.cbRecruit)
@@ -1118,11 +1142,96 @@ class SmartLogActivity : AppCompatActivity() {
         return draft
     }
 
+    private fun renderImportedPhoneNumbers() {
+        val container = findViewById<View>(R.id.containerImportedPhoneNumbers)
+        val listLayout = findViewById<LinearLayout>(R.id.layoutImportedPhoneNumbers)
+        listLayout.removeAllViews()
+        if (importedPhoneNumbers.isEmpty()) {
+            container.visibility = View.GONE
+            return
+        }
+        container.visibility = View.VISIBLE
+        importedPhoneNumbers.forEach { entry ->
+            val row = TextView(this).apply {
+                text = "${entry.label.ifBlank { "Phone" }}: ${entry.number}"
+                setTextColor(Color.parseColor("#F4F7FF"))
+                textSize = 13f
+                setPadding(0, 4, 0, 4)
+            }
+            listLayout.addView(row)
+        }
+    }
+
+    private fun showRecentNumberImportDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 8)
+        }
+        val hintText = TextView(this).apply {
+            text = "Copy a number from Phone Recents and paste or type it below."
+            setTextColor(Color.parseColor("#9AA6BD"))
+            textSize = 13f
+        }
+        val input = EditText(this).apply {
+            hint = "Paste or enter a number"
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+        }
+        val matchLabel = TextView(this).apply {
+            textSize = 13f
+            setPadding(0, 12, 0, 0)
+            visibility = View.GONE
+        }
+        container.addView(hintText)
+        container.addView(input)
+        container.addView(matchLabel)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Import recent number")
+            .setView(container)
+            .setPositiveButton("Use number in Smart Log", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        dialog.setOnShowListener { _ ->
+            val useBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            useBtn.isEnabled = false
+            input.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val raw = s?.toString().orEmpty()
+                    val valid = SmartLogPlanner.isValidPhoneInput(raw)
+                    useBtn.isEnabled = valid
+                    if (raw.isNotBlank() && !valid) {
+                        matchLabel.visibility = View.VISIBLE
+                        matchLabel.setTextColor(Color.parseColor("#FF3B8D"))
+                        matchLabel.text = "Enter one phone number with at least 7 digits."
+                    } else {
+                        matchLabel.visibility = View.GONE
+                    }
+                }
+            })
+            useBtn.setOnClickListener { _ ->
+                val entered = input.text.toString().trim()
+                if (!SmartLogPlanner.isValidPhoneInput(entered)) return@setOnClickListener
+                phoneNumber = entered
+                findViewById<TextView>(R.id.tvLogPhoneNumber).text = phoneNumber
+                loadSmartContact()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
     private fun loadSmartContact() {
         val owner = auth.currentUser?.uid ?: return
         db.collection("leads").whereEqualTo("ownerId", owner).get().addOnSuccessListener { snapshot ->
             if (isFinishing || isDestroyed || isSavingLog) return@addOnSuccessListener
-            val matches = snapshot.documents.filter { SmartLogPlanner.phonesMatch(phoneNumber, it.getString("phone").orEmpty()) }
+            val matches = snapshot.documents.filter {
+                SmartLogPlanner.leadMatchesPhone(phoneNumber, it.getString("phone"), it.get("additionalPhoneNumbers"))
+            }
             val lead = matches.singleOrNull()
             loadedContactId = lead?.id
             findViewById<TextView>(R.id.tvSmartContactStatus).setText(if (lead == null) R.string.sl_new_contact else R.string.sl_existing_contact)
@@ -1205,8 +1314,9 @@ class SmartLogActivity : AppCompatActivity() {
                         recordSmartLogStat(leadId, if (isNew) "total_count" else "followup_count")
                         Toast.makeText(this, R.string.sl_saved, Toast.LENGTH_SHORT).show()
                         if (openText) {
+                            val smsPhone = SmartLogPlanner.sanitizePhoneForSms(phoneNumber)
                             try {
-                                startActivity(Intent(Intent.ACTION_SENDTO, "smsto:$phoneNumber".toUri()).putExtra("sms_body", message))
+                                startActivity(Intent(Intent.ACTION_SENDTO, "smsto:$smsPhone".toUri()).putExtra("sms_body", message))
                             } catch (_: Exception) {
                                 Toast.makeText(this, R.string.sl_open_text_error, Toast.LENGTH_LONG).show()
                             }
@@ -1242,7 +1352,7 @@ class SmartLogActivity : AppCompatActivity() {
         }
         db.collection("leads").whereEqualTo("ownerId", owner).get().addOnSuccessListener { snapshot ->
             val matches = snapshot.documents.filter {
-                SmartLogPlanner.phonesMatch(phoneNumber, it.getString("phone").orEmpty()) ||
+                SmartLogPlanner.leadMatchesPhone(phoneNumber, it.getString("phone"), it.get("additionalPhoneNumbers")) ||
                     (phoneNumber.isBlank() && it.id == loadedContactId)
             }
             if (matches.size > 1) {
@@ -1255,6 +1365,15 @@ class SmartLogActivity : AppCompatActivity() {
             loadedContactId = ref.id
             val update = SmartLogPlanner.profileUpdates(profile).toMutableMap()
             update["timestamp"] = Timestamp.now()
+            if (importedPhoneNumbers.isNotEmpty()) {
+                val existingAdditional = SmartLogPlanner.readAdditionalPhones(existing?.get("additionalPhoneNumbers"))
+                val merged = SmartLogPlanner.mergeAdditionalPhones(
+                    existing = existingAdditional,
+                    incoming = importedPhoneNumbers,
+                    primaryPhone = existing?.getString("phone")
+                )
+                update["additionalPhoneNumbers"] = SmartLogPlanner.serializeAdditionalPhones(merged)
+            }
             if (existing == null) {
                 update["ownerId"] = owner
                 update["phone"] = phoneNumber
@@ -1486,6 +1605,8 @@ class SmartLogActivity : AppCompatActivity() {
             outState.putStringArrayList("smart_profile_values", ArrayList(baseline.values))
         }
         outState.putString("smart_baseline_sms", baselineSms)
+        outState.putString("smart_imported_phones", SharedContactInbox.encodePhones(importedPhoneNumbers))
+        outState.putString("smart_phone_number", phoneNumber)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {

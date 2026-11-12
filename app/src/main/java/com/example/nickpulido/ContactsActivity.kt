@@ -142,10 +142,12 @@ class ContactsActivity : AppCompatActivity() {
         val filtered = allLeadsData.filter { lead ->
             val name = (lead["name"] as? String ?: "").lowercase()
             val phone = (lead["phone"] as? String ?: "").lowercase()
+            val extraPhones = com.nickpulido.rcrm.domain.SmartLogPlanner.readAdditionalPhones(lead["additionalPhoneNumbers"])
+                .joinToString(" ") { it.number.lowercase() }
             val category = (lead["category"] as? String ?: "").lowercase()
             val notes = (lead["notes"] as? String ?: "").lowercase()
             
-            val matchesQuery = query.isEmpty() || name.contains(query) || phone.contains(query) || category.contains(query) || notes.contains(query)
+            val matchesQuery = query.isEmpty() || name.contains(query) || phone.contains(query) || extraPhones.contains(query) || category.contains(query) || notes.contains(query)
             val matchesCategory = currentCategoryFilter == null || category.contains(currentCategoryFilter!!.lowercase())
             
             matchesQuery && matchesCategory
